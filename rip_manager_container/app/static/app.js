@@ -984,7 +984,7 @@ const SETTINGS_HELP = {
   "rollback": {title:"Rollback",does:"Restores an earlier backed-up version of Manager application code.",use:"Use it if a Manager update starts but the new interface or service does not work correctly.",recommended:"Choose the immediately previous version first.",effect:"Settings, PIN, nodes, database and job history are preserved. Manager briefly goes offline and checks its own health after restoration.",problems:"Rollback needs the current persistent Unraid updater and at least one verified backup.",undo:"Install the newer release again from Updates."}
 };
 
-const helpButton = (topic, label="More information") => `<button type="button" class="info-button" data-help-topic="${esc(topic)}" aria-label="${esc(label)}" title="${esc(label)}"><span aria-hidden="true">i</span></button>`;
+const helpButton = (topic, label="More information") => `<button type="button" class="info-button" data-help-topic="${esc(topic)}" aria-label="${esc(label)}" title="${esc(label)}"><span aria-hidden="true">ⓘ</span></button>`;
 const groupHeading = (title, topic=null) => `<div class="settings-group-heading"><h3>${esc(title)}</h3>${topic?helpButton(topic,`More information about ${title}`):""}</div>`;
 
 function openSettingsHelp(topic) {
