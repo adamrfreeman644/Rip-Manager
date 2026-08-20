@@ -958,9 +958,7 @@ const saveBar = () => `<div class="savebar sticky-savebar">
   <button class="primary" type="button" data-settings-action="save" ${settingsDirty() ? "" : "disabled"}>Save changes</button>
 </div>`;
 
-const backBar = () => `<div class="settings-backbar">
-  <button class="secondary" type="button" data-settings-action="back">‹ Back</button>
-</div>`;
+const backBar = () => "";
 
 const SETTINGS_HELP = {
   "verify-rips": {title:"Verify completed rips",does:"Checks the files made by the node before the job is marked as successful.",use:"Keep this on for normal use. It catches an incomplete or unreadable result before the disc is ejected.",recommended:"On.",effect:"A completed rip briefly shows as verifying. A failed check leaves the disc available so the job can be investigated or tried again.",undo:"Turn it off and save if you need the quickest possible test workflow."},
@@ -1071,6 +1069,7 @@ const navRow = (name, description, page) => `<button type="button" class="settin
 
 function drawer(title, html) {
   $("#drawerTitle").textContent = title;
+  $("#settingsBackHeader").classList.toggle("hidden", !Array.isArray(State.settingsNav) || State.settingsNav.length <= 1);
   $("#settingsContent").innerHTML = `<div class="settings-page active">${html}</div>`;
   $("#overlay").classList.remove("hidden");
 }
@@ -1249,7 +1248,50 @@ function hardwareNodePage(index) {
       <div class="field"><label>Node URL</label><input value="${esc(node.url)}" data-node-index="${index}" data-node-field="url"></div>
       ${toggleRow("Enabled","Include this node in polling and control",node.enabled,`data-node-toggle="${index}"`)}
     </div>
-    <div class="settings-group"><h3>Drives</h3><button class="primary full-button" type="button" data-settings-page="hardware-drives">Manage drive mapping</button></div>${saveBar()}`);
+    <div class="settings-group"><h3>Drives</h3><button class="primary full-button" type="button" data-settings-page="hardware-drives">Manage drive mapping</button></div>
+    <div class="settings-group danger-zone"><h3>Danger zone</h3>
+      <div class="note compact-note">Remove this node from Rip Manager. This does not uninstall the Node API or delete completed rip history.</div>
+      <button class="danger full-button" type="button" data-remove-node="${index}">Remove node</button>
+    </div>${saveBar()}`);
+}
+
+function beginRemoveNode(index) {
+  const node = State.draft?.nodes?.[Number(index)];
+  if (!node || isSimulatorNode(node)) return;
+  openModal("Remove node", `<div class="intake-section">
+    <div class="note">This removes <strong>${esc(node.name)}</strong> from Rip Manager. It will not uninstall the Node API, delete files, or erase completed job history.</div>
+    <div class="warning-box">Removal is blocked while this node is ripping, starting, verifying or cancelling.</div>
+    <button class="danger full-button" type="button" id="continueNodeRemoval">Continue</button>
+  </div>`);
+  $("#continueNodeRemoval").onclick = () => confirmRemoveNode(index);
+}
+
+function confirmRemoveNode(index) {
+  const node = State.draft?.nodes?.[Number(index)];
+  if (!node) return;
+  $("#genericModalTitle").textContent = "Confirm node removal";
+  $("#genericModalBody").innerHTML = `<div class="intake-section">
+    <div class="note">Type <strong>${esc(node.name)}</strong> exactly to confirm.</div>
+    <div class="field"><label>Friendly node name</label><input id="removeNodeName" autocomplete="off"></div>
+    <button class="danger full-button" type="button" id="removeNodeFinal" disabled>Permanently remove</button>
+  </div>`;
+  const input = $("#removeNodeName"), button = $("#removeNodeFinal");
+  input.oninput = () => { button.disabled = input.value !== node.name; };
+  button.onclick = async () => {
+    button.disabled = true;
+    try {
+      await api(`/nodes/${encodeURIComponent(node.id)}`, {method:"DELETE", body:JSON.stringify({confirm_name:input.value})});
+      closeModal("genericModal");
+      State.settings = await api("/settings");
+      State.draft = structuredClone(State.settings);
+      markSettingsClean();
+      toast(`${node.name} removed. Completed history was preserved.`);
+      State.settingsNav = [{page:"home",args:[]},{page:"hardware",args:[]}];
+      await refresh(true);
+      hardwarePage();
+    } catch (error) { toast(error.message); button.disabled = input.value !== node.name; }
+  };
+  input.focus();
 }
 async function hardwareDrivesPage() {
   drawer("Drives", `${backBar()}
@@ -2093,6 +2135,7 @@ document.querySelectorAll(".modal-backdrop:not(#loginModal)").forEach((backdrop)
 
 $("#overlay").onclick = (event) => { if (event.target === $("#overlay")) cancelSettings(); };
 $("#settingsClose").onclick = cancelSettings;
+$("#settingsBackHeader").onclick = settingsBack;
 
 $("#settingsContent").addEventListener("click", (event) => {
   const button = event.target.closest("button");
@@ -2101,6 +2144,7 @@ $("#settingsContent").addEventListener("click", (event) => {
   if (button.dataset.helpTopic) { openSettingsHelp(button.dataset.helpTopic); return; }
   if (button.dataset.settingsPage) { navigateSettings(button.dataset.settingsPage); return; }
   if (button.dataset.hardwareNode !== undefined) { navigateSettings("hardware-node",{args:[Number(button.dataset.hardwareNode)]}); return; }
+  if (button.dataset.removeNode !== undefined) { beginRemoveNode(Number(button.dataset.removeNode)); return; }
   if (button.dataset.providerPage) { navigateSettings("provider",{args:[button.dataset.providerPage]}); return; }
 
   switch (button.dataset.settingsAction) {
