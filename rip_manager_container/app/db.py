@@ -232,6 +232,38 @@ def init_db() -> None:
         # Upgrade the old untouched default without overriding a custom value.
         conn.execute("UPDATE settings SET value='5' WHERE key='idle_poll_seconds' AND value='10'")
 
+        # v0.17.6 gives the two simulated Blu-ray drives BR names. Migrate
+        # saved tile positions and preferences once without disturbing layout.
+        migration = conn.execute(
+            "SELECT value FROM settings WHERE key='simulator_drive_names_v0176'"
+        ).fetchone()
+        if not migration:
+            drive_names = {
+                "simulator:DVD1": "simulator:BR1",
+                "simulator:DVD2": "simulator:BR2",
+                "simulator:DVD3": "simulator:DVD1",
+                "simulator:DVD4": "simulator:DVD2",
+                "simulator:DVD5": "simulator:DVD3",
+                "simulator:DVD6": "simulator:DVD4",
+            }
+            tiles_row = conn.execute("SELECT value FROM settings WHERE key='dashboard_tiles'").fetchone()
+            preferences_row = conn.execute("SELECT value FROM settings WHERE key='drive_preferences'").fetchone()
+            try:
+                tiles = json.loads(tiles_row["value"] if tiles_row else "[]")
+            except json.JSONDecodeError:
+                tiles = []
+            try:
+                preferences = json.loads(preferences_row["value"] if preferences_row else "{}")
+            except json.JSONDecodeError:
+                preferences = {}
+            tiles = [drive_names.get(value, value) for value in tiles]
+            preferences = {drive_names.get(key, key): value for key, value in preferences.items()}
+            conn.execute("UPDATE settings SET value=? WHERE key='dashboard_tiles'", (json.dumps(tiles),))
+            conn.execute("UPDATE settings SET value=? WHERE key='drive_preferences'", (json.dumps(preferences),))
+            conn.execute(
+                "INSERT INTO settings(key,value) VALUES ('simulator_drive_names_v0176','1')"
+            )
+
     refresh_settings_cache()
 
 
