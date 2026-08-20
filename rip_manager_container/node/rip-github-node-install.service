@@ -1,0 +1,6 @@
+[Unit]
+Description=Install a manually requested Rip Node release
+After=network-online.target rip-node-api.service
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/rip-github-node-updater install

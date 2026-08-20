@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>Rip Manager</Name>
+  <Repository>rip-manager-local</Repository>
+  <Registry/>
+  <Network>bridge</Network>
+  <Shell>sh</Shell>
+  <WebUI>http://[IP]:[PORT:8080]</WebUI>
+  <Icon>/mnt/user/appdata/rip-manager/rip_manager_container/app/static/icons/remote-ripper-512.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Description>Rip Remote / Rip Manager web interface and node controller.</Description>
+  <Overview>Rip Remote / Rip Manager web interface and node controller.</Overview>
+  <Category>Tools:</Category>
+  <Support/>
+  <Project/>
+  <TemplateURL/>
+  <Config Name="Web UI" Target="8080" Default="8088" Mode="tcp" Description="Rip Manager Web UI" Type="Port" Display="always" Required="true" Mask="false">8088</Config>
+  <Config Name="Data" Target="/data" Default="/mnt/user/appdata/rip-manager/rip_manager_container/data" Mode="rw" Description="Manager data" Type="Path" Display="advanced" Required="true" Mask="false">/mnt/user/appdata/rip-manager/rip_manager_container/data</Config>
+  <Config Name="Config" Target="/config" Default="/mnt/user/appdata/rip-manager/rip_manager_container/config" Mode="rw" Description="Manager configuration" Type="Path" Display="advanced" Required="true" Mask="false">/mnt/user/appdata/rip-manager/rip_manager_container/config</Config>
+  <Config Name="Updater State" Target="/updates" Default="/mnt/user/Updater" Mode="rw" Description="Update status, requests and backups" Type="Path" Display="advanced" Required="true" Mask="false">/mnt/user/Updater</Config>
+  <Config Name="GitHub Token" Target="/run/secrets/github-token" Default="/boot/config/rip-github/token" Mode="ro" Description="Read-only GitHub token" Type="Path" Display="advanced" Required="true" Mask="true">/boot/config/rip-github/token</Config>
+</Container>
