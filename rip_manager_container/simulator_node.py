@@ -32,6 +32,7 @@ def random_disc(drive_kind):
     _, selected = random.choice([(code, item) for code, item in SIMULATED_DISCS.items()
                                  if item["media_type"] in allowed])
     metadata = dict(selected)
+    media_type = metadata["media_type"]
     metadata["disc"] = random.randint(1, 4) if media_type == "tv" else (random.randint(1, 2) if random.random() < 0.25 else 1)
     disc_format = "BLU-RAY" if drive_kind == "bluray" else ("AUDIO_CD" if media_type in {"music", "audiobook"} else "DVD")
     label_title = "".join(c if c.isalnum() else "_" for c in metadata["title"].upper()).strip("_")
@@ -91,20 +92,20 @@ def reset_state():
     """Restore the six-drive demonstration scene without restarting Manager."""
     drives.clear()
     drives.update({
-        "DVD1": drive("DVD1", "bluray", "disc", "THE_FLASH_SEASON_1_DISC_1"),
-        "DVD2": drive("DVD2", "bluray", "disc", "RUNNING_MAN_2025"),
-        "DVD3": drive("DVD3", "dvd", "disc", "PLANET_EARTH_DISC_2"),
-        "DVD4": drive("DVD4", "dvd", "empty"),
-        "DVD5": drive("DVD5", "dvd", "open"),
-        "DVD6": drive("DVD6", "dvd", "disc", "MUSIC_CD"),
+        "BR1": drive("BR1", "bluray", "disc", "THE_FLASH_SEASON_1_DISC_1"),
+        "BR2": drive("BR2", "bluray", "disc", "RUNNING_MAN_2025"),
+        "DVD1": drive("DVD1", "dvd", "disc", "PLANET_EARTH_DISC_2"),
+        "DVD2": drive("DVD2", "dvd", "empty"),
+        "DVD3": drive("DVD3", "dvd", "open"),
+        "DVD4": drive("DVD4", "dvd", "disc", "MUSIC_CD"),
     })
     jobs.clear()
-    new_job("DVD1", RipRequest(title="The Flash", year=2014, season=1, disc=1, media_type="tv"), 37.0, age=510)
-    completed = new_job("DVD2", RipRequest(title="The Running Man", year=2025, media_type="movie"), 100.0, "complete", 2940)
+    new_job("BR1", RipRequest(title="The Flash", year=2014, season=1, disc=1, media_type="tv"), 37.0, age=510)
+    completed = new_job("BR2", RipRequest(title="The Running Man", year=2025, media_type="movie"), 100.0, "complete", 2940)
     completed.update(finished_at=time.time() - 30, return_code=0, current_operation="Complete",
                      last_message="Movie rip completed and output verified",
                      verification={"ok": True, "files_checked": 1}, sim_auto_eject=False)
-    failed = new_job("DVD6", RipRequest(title="Demo Album", creator="Demo Artist", media_type="music"), 22.0, "failed", 180)
+    failed = new_job("DVD4", RipRequest(title="Demo Album", creator="Demo Artist", media_type="music"), 22.0, "failed", 180)
     failed.update(finished_at=time.time() - 10, return_code=1, current_operation="Rip failed",
                   last_message="Simulated read error",
                   health={"state": "stopped", "label": "Stopped", "process_running": False})
