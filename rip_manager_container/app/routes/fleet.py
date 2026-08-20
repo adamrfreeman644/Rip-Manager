@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, Query
 import db
 import intake
 import jobs as job_history
-from models import NodeCreate, NodeUpdate
+from models import NodeCreate, NodeDeleteRequest, NodeUpdate
 import poller
 from routes.settings import current_settings
 
@@ -67,13 +67,45 @@ def update_node(node_id: str, req: NodeUpdate):
 
 
 @router.delete("/nodes/{node_id}")
-def delete_node(node_id: str):
+def delete_node(node_id: str, req: NodeDeleteRequest):
+    row = db.query_one("SELECT id,name,url FROM nodes WHERE id=?", (node_id,))
+    if not row:
+        raise HTTPException(status_code=404, detail="Unknown node")
+    if row["id"] == "simulator" or "simulator-node" in row["url"]:
+        raise HTTPException(status_code=409, detail="The built-in Simulator cannot be removed")
+    if req.confirm_name != row["name"]:
+        raise HTTPException(status_code=422, detail="Type the node's friendly name exactly to confirm removal")
+
+    cached = db.query_one("SELECT jobs_json FROM node_cache WHERE node_id=?", (node_id,))
+    if cached and poller.has_active_jobs(_decode(cached["jobs_json"], [])):
+        raise HTTPException(status_code=409, detail="This node has an active rip. Wait for it to finish or cancel it before removing the node")
+
+    dashboard_tiles = db.get_setting_json("dashboard_tiles", [])
+    cleaned_tiles = [None if value and str(value).startswith(f"{node_id}:") else value for value in dashboard_tiles]
+    drive_preferences = db.get_setting_json("drive_preferences", {})
+    cleaned_preferences = {
+        key: value for key, value in drive_preferences.items()
+        if not str(key).startswith(f"{node_id}:")
+    }
     with db.write() as conn:
         conn.execute("DELETE FROM node_cache WHERE node_id=?", (node_id,))
         conn.execute("DELETE FROM pending_intake WHERE node_id=?", (node_id,))
-        conn.execute("DELETE FROM nodes WHERE id=?", (node_id,))
+        deleted = conn.execute("DELETE FROM nodes WHERE id=?", (node_id,)).rowcount
+        conn.execute(
+            "INSERT INTO settings(key,value) VALUES ('dashboard_tiles',?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (json.dumps(cleaned_tiles),),
+        )
+        conn.execute(
+            "INSERT INTO settings(key,value) VALUES ('drive_preferences',?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (json.dumps(cleaned_preferences),),
+        )
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Unknown node")
+    db.refresh_settings_cache()
     poller.wakeup.set()
-    return {"ok": True}
+    return {"ok": True, "removed": node_id, "history_preserved": True}
 
 
 @router.post("/poll-now")
