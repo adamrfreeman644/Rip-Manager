@@ -1,0 +1,7 @@
+[Unit]
+Description=Poll Rip Manager for manual Node install requests
+[Timer]
+OnBootSec=30sec
+OnUnitActiveSec=5sec
+[Install]
+WantedBy=timers.target

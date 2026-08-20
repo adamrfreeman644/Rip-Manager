@@ -1,0 +1,6 @@
+[Unit]
+Description=Check GitHub for Rip Node releases without installing
+After=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/rip-github-node-updater check

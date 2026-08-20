@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <title>Rip Remote</title>
+  <link rel="stylesheet" href="/static/styles.css?v=0.17.3">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32x32.png?v=0.10.6">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16x16.png?v=0.10.6">
+  <link rel="apple-touch-icon" sizes="512x512" href="/static/icons/remote-ripper-512.png?v=0.10.6">
+</head>
+<body>
+<div class="app">
+  <header class="v02-header">
+    <div class="v02-brand">
+      <div class="v02-brand-icon-wrap" aria-hidden="true">
+        <img class="v02-brand-icon v02-brand-icon-light" src="/static/icons/remote-ripper-header-light.png?v=0.10.6" alt="">
+        <img class="v02-brand-icon v02-brand-icon-dark" src="/static/icons/remote-ripper-header-dark.png?v=0.10.6" alt="">
+      </div>
+      <div class="v02-brand-divider" aria-hidden="true"></div>
+      <div class="v02-brand-copy">
+        <div class="v02-eyebrow">RIP MANAGER</div>
+        <div class="v02-brand-title-row">
+          <h1>Rip Remote</h1>
+          <div class="v02-version" id="managerVersion">Loading version…</div>
+        </div>
+      </div>
+    </div>
+    <div class="v02-actions">
+      <span id="connection" class="v02-pill">Connecting…</span>
+      <button class="v02-icon" id="refreshButton" title="Refresh" aria-label="Refresh">↻</button>
+      <button class="v02-action" id="sharesButton">▱ Shares</button>
+      <button class="v02-action" id="statsButton">ϟ Stats</button>
+      <button class="v02-icon" id="settingsButton" title="Settings" aria-label="Settings">⚙</button>
+      <div class="mobile-nav-wrap">
+        <button class="v02-icon mobile-nav-toggle" id="mobileNavToggle" type="button" title="Menu" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNavMenu">☰</button>
+        <nav class="mobile-nav-menu hidden" id="mobileNavMenu" aria-label="Main menu">
+          <button type="button" data-mobile-action="refresh"><span>Refresh</span><span aria-hidden="true">↻</span></button>
+          <button type="button" data-mobile-action="shares"><span>Shares</span><span aria-hidden="true">▱</span></button>
+          <button type="button" data-mobile-action="stats"><span>Stats</span><span aria-hidden="true">ϟ</span></button>
+          <div class="mobile-nav-divider" aria-hidden="true"></div>
+          <button type="button" data-mobile-action="settings"><span>Settings</span><span aria-hidden="true">⚙</span></button>
+        </nav>
+      </div>
+    </div>
+  </header>
+  <div class="mobile-nav-backdrop hidden" id="mobileNavBackdrop" aria-hidden="true"></div>
+  <main id="driveGrid" class="drive-grid" aria-live="polite"></main>
+</div>
+
+<!-- Disc intake: barcode, then details, then the action that suits the tray -->
+<div id="intakeModal" class="modal-backdrop hidden">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="intakeHeading">
+    <div class="modal-head">
+      <div class="modal-title" id="intakeHeading">Drive</div>
+      <button class="close-btn" data-close="intakeModal">Close</button>
+    </div>
+    <div class="note" id="intakeNote">Scan a barcode or enter the disc details.</div>
+    <div class="disc-label-info hidden" id="discLabelInfo"></div>
+
+    <div id="upcArea" class="intake-section">
+      <label for="upcInput">Barcode</label>
+      <div class="upc-row">
+        <input id="upcInput" inputmode="none" autocomplete="off" aria-label="Barcode scan">
+        <button class="primary" type="button" id="lookupButton">Lookup</button>
+      </div>
+      <div class="scan-status" id="lookupStatus">Ready to scan</div>
+      <div class="actions">
+        <button class="secondary action-full" type="button" id="skipUpc">Enter details manually</button>
+      </div>
+      <div class="drive-popup-actions" id="barcodeActions"></div>
+    </div>
+
+    <form id="ripForm" class="intake-section hidden">
+      <input id="nodeId" type="hidden">
+      <input id="driveName" type="hidden">
+
+      <label for="mediaTitle" id="mediaTitleLabel">Title</label>
+      <input id="mediaTitle" required autocomplete="off" placeholder="The Italian Job">
+
+      <div class="row">
+        <div>
+          <label for="mediaYear">Year</label>
+          <input id="mediaYear" type="number" min="1880" max="2200" placeholder="1969">
+        </div>
+        <div>
+          <label for="mediaType">Type</label>
+          <select id="mediaType">
+            <option value="movie">Movie</option>
+            <option value="tv">TV / Box Set</option>
+            <option value="music">Music CD</option>
+            <option value="audiobook">Audiobook CD</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="audioFields" class="hidden">
+        <div class="row">
+          <div>
+            <label for="mediaCreator" id="mediaCreatorLabel">Artist / Author</label>
+            <input id="mediaCreator" autocomplete="off">
+          </div>
+          <div id="narratorField">
+            <label for="mediaNarrator">Narrator</label>
+            <input id="mediaNarrator" autocomplete="off">
+          </div>
+        </div>
+        <label for="audioDisc">Disc number</label>
+        <input id="audioDisc" type="number" min="1" value="1">
+      </div>
+
+      <div id="tvFields" class="row hidden">
+        <div>
+          <label for="mediaSeason">Season</label>
+          <input id="mediaSeason" type="number" min="0" value="1">
+        </div>
+        <div>
+          <label for="mediaDisc">Disc</label>
+          <input id="mediaDisc" type="number" min="0" value="1">
+        </div>
+      </div>
+
+      <div id="movieDiscField" class="hidden">
+        <label for="movieDisc">Disc number (multi-disc movies only)</label>
+        <input id="movieDisc" type="number" min="1" placeholder="Leave blank for a single disc">
+        <div class="note compact-note">Use 1, 2 and so on for multi-disc movies. Leave this blank for an ordinary single-disc movie.</div>
+      </div>
+
+      <div class="drive-popup-note">Output: <strong id="folderPreview">Title</strong></div>
+
+      <div class="intake-utility-row">
+        <button class="secondary" type="button" id="rescanUpc">Change / rescan barcode</button>
+      </div>
+      <div class="drive-popup-actions" id="intakeActions"></div>
+    </form>
+  </div>
+</div>
+
+<div id="genericModal" class="modal-backdrop hidden">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="genericModalTitle">
+    <div class="modal-head">
+      <div class="modal-title" id="genericModalTitle">Details</div>
+      <button class="close-btn" data-close="genericModal">Close</button>
+    </div>
+    <div id="genericModalBody"></div>
+  </div>
+</div>
+
+<div id="overlay" class="overlay hidden">
+  <aside class="drawer">
+    <div class="drawer-head">
+      <div class="drawer-title" id="drawerTitle">Settings</div>
+      <button class="close-btn" id="settingsClose">Close</button>
+    </div>
+    <div id="settingsContent"></div>
+  </aside>
+</div>
+
+<div id="loginModal" class="modal-backdrop hidden auth-backdrop">
+  <div class="modal auth-modal" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+    <div class="modal-title" id="loginTitle">Rip Remote Locked</div>
+    <div class="note">Enter your 4–8 digit Rip Manager PIN. The keypad, a physical keyboard or a scanner can be used.</div>
+    <form id="loginForm" class="intake-section">
+      <label for="loginPin">PIN</label>
+      <input id="loginPin" type="password" inputmode="none" pattern="[0-9]{4,8}"
+             minlength="4" maxlength="8" autocomplete="off" required>
+      <div class="pin-keypad" aria-label="PIN keypad">
+        <button type="button" data-pin-key="1">1</button><button type="button" data-pin-key="2">2</button><button type="button" data-pin-key="3">3</button>
+        <button type="button" data-pin-key="4">4</button><button type="button" data-pin-key="5">5</button><button type="button" data-pin-key="6">6</button>
+        <button type="button" data-pin-key="7">7</button><button type="button" data-pin-key="8">8</button><button type="button" data-pin-key="9">9</button>
+        <button type="button" class="pin-control" data-pin-key="backspace" aria-label="Delete last digit">⌫</button><button type="button" data-pin-key="0">0</button><button type="button" class="pin-control" data-pin-key="clear">Clear</button>
+      </div>
+      <div id="loginError" class="login-error" aria-live="polite"></div>
+      <button class="primary" type="submit">Unlock</button>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/static/app.js?v=0.17.3"></script>
+</body>
+</html>

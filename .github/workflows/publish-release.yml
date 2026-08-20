@@ -1,0 +1,101 @@
+name: Publish Rip Manager release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - release.json
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rip-manager-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Read and validate release details
+        id: release
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          release = json.loads(Path("release.json").read_text())
+          version = release.get("version", "").strip()
+          if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+              raise SystemExit("release.json version must look like 0.17.3")
+
+          config = Path("rip_manager_container/app/config.py").read_text()
+          match = re.search(r'^VERSION\s*=\s*["\']([^"\']+)["\']', config, re.MULTILINE)
+          if not match or match.group(1) != version:
+              raise SystemExit("release.json version does not match app/config.py")
+
+          notes = release.get("notes")
+          if not isinstance(notes, list) or not notes or not all(isinstance(x, str) and x.strip() for x in notes):
+              raise SystemExit("release.json notes must be a non-empty list of text entries")
+
+          Path("release-notes.md").write_text("\n".join(f"- {item.strip()}" for item in notes) + "\n")
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a") as output:
+              output.write(f"version={version}\n")
+              output.write(f"tag=v{version}\n")
+              output.write(f"asset=rip_manager_container_v{version}.zip\n")
+          PY
+
+      - name: Check source
+        run: |
+          python3 -m compileall -q rip_manager_container/app rip_manager_container/simulator_node.py
+          node --check rip_manager_container/app/static/app.js
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+
+          class Parser(HTMLParser):
+              pass
+
+          Parser().feed(Path("rip_manager_container/app/static/index.html").read_text())
+          css = Path("rip_manager_container/app/static/styles.css").read_text()
+          if css.count("{") != css.count("}"):
+              raise SystemExit("Unbalanced CSS braces")
+          PY
+
+      - name: Build release ZIP
+        env:
+          ASSET: ${{ steps.release.outputs.asset }}
+        run: |
+          find rip_manager_container -type d -name __pycache__ -prune -exec rm -rf {} +
+          zip -qr "$ASSET" rip_manager_container
+          unzip -t "$ASSET"
+
+      - name: Refuse to replace an existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; refusing to replace it."
+            exit 1
+          fi
+
+      - name: Publish release and its single updater asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+          ASSET: ${{ steps.release.outputs.asset }}
+        run: |
+          gh release create "$TAG" "$ASSET" \
+            --target "$GITHUB_SHA" \
+            --title "Rip Manager v$VERSION" \
+            --notes-file release-notes.md

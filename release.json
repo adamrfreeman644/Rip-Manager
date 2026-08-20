@@ -1,0 +1,10 @@
+{
+  "version": "0.17.3",
+  "notes": [
+    "Added a top-right hamburger menu on screens 600 px wide and below.",
+    "The mobile menu keeps Refresh, Shares, Stats and Settings aligned to the right.",
+    "The menu closes after selecting an option, tapping outside it or pressing Escape.",
+    "The desktop header is unchanged.",
+    "Bundled Rip Node API remains v0.2.5."
+  ]
+}
