@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-VERSION = "0.17.3"
+VERSION = "0.17.4"
 
 DATA_DIR = Path(os.getenv("RIP_MANAGER_DATA", "/data"))
 CONFIG_DIR = Path(os.getenv("RIP_MANAGER_CONFIG", "/config"))
