@@ -38,7 +38,7 @@ def random_disc(drive_kind):
     label_title = "".join(c if c.isalnum() else "_" for c in metadata["title"].upper()).strip("_")
     label = f"{label_title}_DISC_{metadata['disc']}"
     return {"present": True, "tray": "disc", "label": label, "format": disc_format,
-            "reason": "ready", "status_message": f"{disc_format.replace('_', ' ').title()} is ready"}
+            "reason": "ready", "status_message": "Disk detected"}
 
 
 def drive(name, kind, tray="empty", label=None):
@@ -81,6 +81,8 @@ def new_job(name, request, progress=0.0, state="ripping", age=0):
         "sim_auto_eject": media.get("auto_eject") is not False,
         "sim_verify_until": None,
         "sim_ejected": False,
+        "sim_should_fail": state == "ripping" and random.random() < 0.10,
+        "sim_fail_at": random.uniform(20.0, 85.0),
     }
     jobs[job_id] = job
     drives[name]["active_job"] = job
@@ -142,13 +144,19 @@ def tick():
             continue
         elapsed = max(0, now - job.pop("sim_last_tick", now))
         job["sim_last_tick"] = now
-        job["progress"] = min(100.0, job["progress"] + elapsed * 0.18)
+        job["progress"] = min(100.0, job["progress"] + elapsed * 1.0)
         job["elapsed_seconds"] = round(now - job["started_at"], 1)
         job["progress_raw"]["current"] = job["progress"]
         job["output_bytes"] = int(job["progress"] * 210_000_000)
         job["health"]["output_bytes"] = job["output_bytes"]
         title = min(8, max(1, int(job["progress"] // 12.5) + 1))
         job["current_operation"] = f"Copying title {title} of 8"
+        if job.get("sim_should_fail") and job["progress"] >= job.get("sim_fail_at", 50.0):
+            job.update(state="failed", finished_at=now, return_code=1,
+                       current_operation="Rip failed",
+                       last_message="Simulated disc read error")
+            job["health"].update(state="stopped", label="Stopped", process_running=False)
+            continue
         if job["progress"] >= 100:
             job.update(state="verifying", progress=99.9, current_operation="Verifying output",
                        last_message="Checking completed files")
@@ -216,7 +224,13 @@ def eject(name: str):
 @app.post("/drives/{name}/close")
 def close(name: str):
     d = get_drive(name)
-    inserted = random.random() < 0.5
+    active = d.get("active_job")
+    if active and active.get("state") in {"ripping", "verifying"}:
+        raise HTTPException(409, "Drive is currently ripping")
+    # Closing the tray begins a new disc cycle. Never carry a completed or
+    # failed simulated job onto the newly inserted disc.
+    d["active_job"] = None
+    inserted = random.random() < 0.8
     if inserted:
         media = random_disc("bluray" if d.get("drive_type") == "Blu-ray" else "dvd")
         d.update(tray="disc", clean_state=False)
