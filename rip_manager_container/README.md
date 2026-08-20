@@ -11,8 +11,8 @@ software, installation tools, manual GitHub updates and safe Manager rollback.
 
 - Fixed a later mobile Settings rule that overrode the information-icon size
   and stretched each **i** into a tall pill.
-- Information icons are now isolated from shared application button height,
-  padding, font-size and corner-radius rules.
+- Information icons now use the exact compact **ⓘ** glyph with no visible button
+  chrome and are isolated from shared application button rules.
 - Icons remain 18 px, or 17 px beside a setting label, without changing the
   surrounding heading or card layout.
 - Help popups remain above the Settings drawer.
