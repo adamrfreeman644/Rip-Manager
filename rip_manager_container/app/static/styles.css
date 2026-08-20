@@ -1196,9 +1196,9 @@ textarea,
   display:inline-grid!important;place-items:center!important;flex:0 0 18px!important;
   width:18px!important;height:18px!important;min-width:18px!important;min-height:18px!important;
   max-width:18px!important;max-height:18px!important;margin:0!important;padding:0!important;
-  border:1px solid currentColor!important;border-radius:50%!important;box-shadow:none!important;
+  border:0!important;border-radius:0!important;box-shadow:none!important;
   background:transparent!important;color:var(--accent)!important;
-  font:800 11px/1 ui-sans-serif,system-ui,sans-serif!important;text-transform:none!important;
+  font:400 17px/1 ui-sans-serif,system-ui,sans-serif!important;text-transform:none!important;
 }
 #settingsContent .settings-group-heading>button.info-button{
   position:absolute!important;top:0!important;right:0!important;
@@ -1207,5 +1207,5 @@ textarea,
 #settingsContent .label-with-help button.info-button{
   flex-basis:17px!important;width:17px!important;height:17px!important;
   min-width:17px!important;min-height:17px!important;max-width:17px!important;max-height:17px!important;
-  font-size:10px!important;
+  font-size:16px!important;
 }
