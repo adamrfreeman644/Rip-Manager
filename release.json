@@ -1,10 +1,10 @@
 {
-  "version": "0.17.3",
+  "version": "0.17.4",
   "notes": [
-    "Added a top-right hamburger menu on screens 600 px wide and below.",
-    "The mobile menu keeps Refresh, Shares, Stats and Settings aligned to the right.",
-    "The menu closes after selecting an option, tapping outside it or pressing Escape.",
-    "The desktop header is unchanged.",
+    "Changed Settings help controls into small circular i icons that no longer resize or distort headings and setting rows.",
+    "Moved heading help icons out of the normal layout flow so titles remain correctly aligned on narrow screens.",
+    "Raised information popups above the Settings drawer and other interface layers.",
+    "Kept keyboard focus, accessible labels and plain-English help content.",
     "Bundled Rip Node API remains v0.2.5."
   ]
 }
