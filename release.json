@@ -1,10 +1,11 @@
 {
-  "version": "0.17.6",
+  "version": "0.17.7",
   "notes": [
-    "Moved Back into the top-left of nested Settings headers, centred the page title, and kept Close at the top-right.",
-    "Added protected two-stage node removal with exact-name confirmation and active-rip blocking while preserving completed history.",
-    "Renamed Simulator Blu-ray drives to BR1 and BR2; its DVD drives are now DVD1 through DVD4.",
-    "Migrates existing Simulator dashboard positions and drive preferences to the new names once.",
+    "Fixed simulator tray closing so a newly inserted disc cannot inherit the previous completed or failed job.",
+    "Simulator tray closing now inserts a disc 80% of the time, and every inserted disc starts as Disk detected.",
+    "Simulator rips now succeed 90% of the time and fail 10% of the time with a simulated read error.",
+    "Sped up fake ripping by approximately five-and-a-half times for quicker demonstrations.",
+    "These simulator-only changes do not affect live Rip Nodes or real ripping speeds.",
     "Bundled Rip Node API remains v0.2.5."
   ]
 }
