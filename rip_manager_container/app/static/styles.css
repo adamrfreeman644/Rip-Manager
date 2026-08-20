@@ -1188,3 +1188,24 @@ textarea,
     padding:13px 12px !important;
   }
 }
+
+/* v0.17.5: information icons are icons, never full-size Settings controls.
+   Keep this after every shared Settings and button rule. */
+#settingsContent button.info-button{
+  appearance:none!important;-webkit-appearance:none!important;box-sizing:border-box!important;
+  display:inline-grid!important;place-items:center!important;flex:0 0 18px!important;
+  width:18px!important;height:18px!important;min-width:18px!important;min-height:18px!important;
+  max-width:18px!important;max-height:18px!important;margin:0!important;padding:0!important;
+  border:0!important;border-radius:0!important;box-shadow:none!important;
+  background:transparent!important;color:var(--accent)!important;
+  font:400 17px/1 ui-sans-serif,system-ui,sans-serif!important;text-transform:none!important;
+}
+#settingsContent .settings-group-heading>button.info-button{
+  position:absolute!important;top:0!important;right:0!important;
+}
+#settingsContent .setting-name-with-help button.info-button,
+#settingsContent .label-with-help button.info-button{
+  flex-basis:17px!important;width:17px!important;height:17px!important;
+  min-width:17px!important;min-height:17px!important;max-width:17px!important;max-height:17px!important;
+  font-size:16px!important;
+}

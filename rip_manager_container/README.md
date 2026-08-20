@@ -1,4 +1,4 @@
-# Rip Manager v0.17.4
+# Rip Manager v0.17.5
 
 Release date: 20 August 2026  
 Bundled Rip Node API: v0.2.5
@@ -7,7 +7,19 @@ Rip Manager controls optical-disc ripping nodes from one mobile-friendly web
 interface. This package also includes a built-in simulator, the real Rip Node
 software, installation tools, manual GitHub updates and safe Manager rollback.
 
-## What is new in v0.17.4
+## What is new in v0.17.5
+
+- Fixed a later mobile Settings rule that overrode the information-icon size
+  and stretched each **i** into a tall pill.
+- Information icons now use the exact compact **ⓘ** glyph with no visible button
+  chrome and are isolated from shared application button rules.
+- Icons remain 18 px, or 17 px beside a setting label, without changing the
+  surrounding heading or card layout.
+- Help popups remain above the Settings drawer.
+- Browser asset versions match v0.17.5, preventing the broken v0.17.4 CSS from
+  remaining in the browser cache.
+
+## What was new in v0.17.4
 
 - Settings help controls are now small circular **i** icons instead of
   full-sized application buttons.
@@ -52,9 +64,9 @@ addresses, polling, API tools, updates, rollback and PIN protection.
 
 1. Publish this ZIP as the newest release asset in the Rip Manager repository.
 2. Open **Settings → System → Updates** and press **Check now**.
-3. Confirm v0.17.4 is available. Do not update during an active rip.
+3. Confirm v0.17.5 is available. Do not update during an active rip.
 4. Press **Install update** once. Manager briefly restarts.
-5. Refresh after it returns and confirm v0.17.4 in Settings.
+5. Refresh after it returns and confirm v0.17.5 in Settings.
 
 The update preserves the database, settings, PIN, nodes, layout and job history.
 
@@ -160,7 +172,7 @@ PIN. The current PIN is required before replacing it.
 
 ## Compatibility
 
-- Manager: v0.17.4; bundled Node API: v0.2.5.
+- Manager: v0.17.5; bundled Node API: v0.2.5.
 - Existing v0.16.x and v0.17.x Manager data is preserved.
 - Drive mapping requires Node API v0.2.4 or newer.
 - Real nodes should use the Manager-served updater.
@@ -199,7 +211,7 @@ title entry if the provider has no match.
 
 ### New interface does not appear
 
-Confirm Settings reports v0.17.4, then reload the page. Versioned asset URLs
+Confirm Settings reports v0.17.5, then reload the page. Versioned asset URLs
 prevent old interface files being reused.
 
 ## Checklist for future releases
