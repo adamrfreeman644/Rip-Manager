@@ -1,10 +1,10 @@
 {
-  "version": "0.17.4",
+  "version": "0.17.5",
   "notes": [
-    "Changed Settings help controls into small circular i icons that no longer resize or distort headings and setting rows.",
-    "Moved heading help icons out of the normal layout flow so titles remain correctly aligned on narrow screens.",
-    "Raised information popups above the Settings drawer and other interface layers.",
-    "Kept keyboard focus, accessible labels and plain-English help content.",
+    "Fixed the later mobile Settings rule that stretched information icons into tall pill-shaped buttons.",
+    "Isolated circular i icons from all shared application button height, padding, font-size and corner-radius rules.",
+    "Kept heading icons outside normal layout flow so Updates and Rollback cards retain their intended alignment.",
+    "Information popups remain above the Settings drawer and other normal interface layers.",
     "Bundled Rip Node API remains v0.2.5."
   ]
 }
