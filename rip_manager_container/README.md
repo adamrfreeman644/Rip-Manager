@@ -1,4 +1,4 @@
-# Rip Manager v0.17.5
+# Rip Manager v0.17.6
 
 Release date: 20 August 2026  
 Bundled Rip Node API: v0.2.5
@@ -7,7 +7,21 @@ Rip Manager controls optical-disc ripping nodes from one mobile-friendly web
 interface. This package also includes a built-in simulator, the real Rip Node
 software, installation tools, manual GitHub updates and safe Manager rollback.
 
-## What is new in v0.17.5
+## What is new in v0.17.6
+
+- Nested Settings pages now use one compact header: **Back** on the left, the
+  page title centred, and **Close** on the right. The oversized second Back
+  button and the empty space beneath it have been removed.
+- Real nodes can be removed from **Settings → Hardware → Manage node**. Removal
+  uses two confirmation stages and requires the exact friendly node name.
+- Node removal is blocked while a rip is starting, ripping, verifying or being
+  cancelled. The built-in Simulator cannot be removed.
+- Removing a node clears its live cache, waiting intake, dashboard positions
+  and drive preferences, but preserves completed job history and files.
+- Simulator drives are now named **BR1**, **BR2**, and **DVD1–DVD4**. Existing
+  Simulator dashboard positions and preferences migrate automatically once.
+
+## What was new in v0.17.5
 
 - Fixed a later mobile Settings rule that overrode the information-icon size
   and stretched each **i** into a tall pill.
@@ -64,9 +78,9 @@ addresses, polling, API tools, updates, rollback and PIN protection.
 
 1. Publish this ZIP as the newest release asset in the Rip Manager repository.
 2. Open **Settings → System → Updates** and press **Check now**.
-3. Confirm v0.17.5 is available. Do not update during an active rip.
+3. Confirm v0.17.6 is available. Do not update during an active rip.
 4. Press **Install update** once. Manager briefly restarts.
-5. Refresh after it returns and confirm v0.17.5 in Settings.
+5. Refresh after it returns and confirm v0.17.6 in Settings.
 
 The update preserves the database, settings, PIN, nodes, layout and job history.
 
@@ -172,7 +186,7 @@ PIN. The current PIN is required before replacing it.
 
 ## Compatibility
 
-- Manager: v0.17.5; bundled Node API: v0.2.5.
+- Manager: v0.17.6; bundled Node API: v0.2.5.
 - Existing v0.16.x and v0.17.x Manager data is preserved.
 - Drive mapping requires Node API v0.2.4 or newer.
 - Real nodes should use the Manager-served updater.
@@ -211,7 +225,7 @@ title entry if the provider has no match.
 
 ### New interface does not appear
 
-Confirm Settings reports v0.17.5, then reload the page. Versioned asset URLs
+Confirm Settings reports v0.17.6, then reload the page. Versioned asset URLs
 prevent old interface files being reused.
 
 ## Checklist for future releases
