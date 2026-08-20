@@ -2,7 +2,7 @@
   "version": "0.17.5",
   "notes": [
     "Fixed the later mobile Settings rule that stretched information icons into tall pill-shaped buttons.",
-    "Isolated circular i icons from all shared application button height, padding, font-size and corner-radius rules.",
+    "Replaced the hand-drawn circle with the exact compact ⓘ information glyph and removed all visible button chrome.",
     "Kept heading icons outside normal layout flow so Updates and Rollback cards retain their intended alignment.",
     "Information popups remain above the Settings drawer and other normal interface layers.",
     "Bundled Rip Node API remains v0.2.5."
