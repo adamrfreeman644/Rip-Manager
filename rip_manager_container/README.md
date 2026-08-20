@@ -1,4 +1,4 @@
-# Rip Manager v0.17.6
+# Rip Manager v0.17.7
 
 Release date: 20 August 2026  
 Bundled Rip Node API: v0.2.5
@@ -7,7 +7,20 @@ Rip Manager controls optical-disc ripping nodes from one mobile-friendly web
 interface. This package also includes a built-in simulator, the real Rip Node
 software, installation tools, manual GitHub updates and safe Manager rollback.
 
-## What is new in v0.17.6
+## What is new in v0.17.7
+
+- Closing a simulator tray now starts a fresh disc cycle and cannot inherit a
+  completed or failed job from the previous disc.
+- A closed simulator tray contains a disc 80% of the time. Every newly inserted
+  disc begins at **Disk detected**.
+- Simulator rips now succeed 90% of the time and fail 10% of the time with a
+  simulated read error during progress.
+- Fake rip progress is approximately five-and-a-half times faster, making a
+  full successful demonstration take roughly 100 seconds before verification.
+- These probabilities and speed changes apply only to the built-in Simulator;
+  real Rip Nodes and real ripping speeds are unchanged.
+
+## What was new in v0.17.6
 
 - Nested Settings pages now use one compact header: **Back** on the left, the
   page title centred, and **Close** on the right. The oversized second Back
@@ -78,9 +91,9 @@ addresses, polling, API tools, updates, rollback and PIN protection.
 
 1. Publish this ZIP as the newest release asset in the Rip Manager repository.
 2. Open **Settings → System → Updates** and press **Check now**.
-3. Confirm v0.17.6 is available. Do not update during an active rip.
+3. Confirm v0.17.7 is available. Do not update during an active rip.
 4. Press **Install update** once. Manager briefly restarts.
-5. Refresh after it returns and confirm v0.17.6 in Settings.
+5. Refresh after it returns and confirm v0.17.7 in Settings.
 
 The update preserves the database, settings, PIN, nodes, layout and job history.
 
