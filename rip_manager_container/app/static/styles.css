@@ -1212,3 +1212,18 @@ textarea,
   min-width:17px!important;min-height:17px!important;max-width:17px!important;max-height:17px!important;
   font-size:16px!important;
 }
+
+/* v0.18.0: live, resumable fresh-node installation progress. */
+.adopt-progress{display:grid;gap:11px;margin-top:12px;padding:13px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}
+.adopt-progress-head,.adopt-progress-meta{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.adopt-progress-head strong{text-transform:capitalize}.adopt-progress-head span,.adopt-progress-meta{font-size:.72rem;color:var(--muted)}
+.adopt-progress-track{height:10px;overflow:hidden;border-radius:99px;background:rgba(127,127,127,.25)}
+.adopt-progress-track span{display:block;width:0;height:100%;border-radius:inherit;background:var(--accent);transition:width .3s ease}
+.adopt-progress.complete .adopt-progress-track span{background:var(--ok)}
+.adopt-progress.failed .adopt-progress-track span{background:var(--bad)}
+.adopt-progress.failed #adoptProgressMessage{color:var(--bad);font-weight:800}
+.adopt-progress-events{display:grid;gap:6px;max-height:270px;margin:0;padding:0;overflow:auto;list-style:none}
+.adopt-progress-events li{display:grid;grid-template-columns:20px 1fr auto;gap:8px;align-items:start;padding:8px;border:1px solid var(--line);border-radius:9px;background:var(--panel)}
+.adopt-progress-events li>span{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;font-size:.68rem;font-weight:950}
+.adopt-progress-events li.done>span{background:var(--ok)}.adopt-progress.failed .adopt-progress-events li.current>span{background:var(--bad)}
+.adopt-progress-events strong{display:block;text-transform:capitalize;font-size:.72rem}.adopt-progress-events small{display:block;margin-top:2px;color:var(--muted);font-size:.67rem;line-height:1.35}.adopt-progress-events b{font-size:.65rem;color:var(--muted)}

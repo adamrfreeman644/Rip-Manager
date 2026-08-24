@@ -1579,7 +1579,14 @@ function adoptionPage() {
     <div class="settings-group"><h3>4 · Review and install</h3>
       <button id="adoptInstall" class="primary full-button" type="button" data-settings-action="install-node">Install &amp; Adopt Node</button>
       <div id="adoptInstallResult" class="note compact-note">The clean installer adds Ubuntu dependencies, the API, NAS mount, persistent drive mappings and manual-only GitHub updates, then verifies and adopts the node. Credentials are never saved by Manager.</div>
+      <section id="adoptProgress" class="adopt-progress hidden" aria-live="polite" aria-label="Node installation progress">
+        <div class="adopt-progress-head"><strong id="adoptProgressStage">Preparing installer</strong><span id="adoptProgressElapsed">0s</span></div>
+        <div class="adopt-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="adoptProgressFill"></span></div>
+        <div class="adopt-progress-meta"><span id="adoptProgressMessage">Waiting to start…</span><strong id="adoptProgressPercent">0%</strong></div>
+        <ol id="adoptProgressEvents" class="adopt-progress-events"></ol>
+      </section>
     </div>`);
+  setTimeout(resumeAdoptionProgress, 0);
 }
 
 function adoptionFields() {
@@ -1688,20 +1695,75 @@ async function installNode() {
   const button = $("#adoptInstall");
   const result = $("#adoptInstallResult");
   button.disabled = true;
-  button.textContent = "Installing…";
-  result.textContent = "Performing a clean Node installation, configuring storage and verifying services. This can take several minutes…";
+  button.textContent = "Installation running…";
+  result.textContent = "The installer is running in the background. You can follow every stage below.";
   try {
-    const installed = await api("/adoption/install", { method: "POST", body: JSON.stringify(fields) });
-    result.innerHTML = `<strong>Adopted successfully.</strong> ${esc(installed.name)} · v${esc(installed.version || "unknown")} · ${esc(installed.url)}${installed.warning ? `<br>${esc(installed.warning)}` : ""}`;
-    toast(`${installed.name} adopted`);
-    State.settings = await api("/settings");
-    State.draft = structuredClone(State.settings);
-    setTimeout(hardwarePage, 800);
+    const started = await api("/adoption/install/start", { method: "POST", body: JSON.stringify(fields) });
+    sessionStorage.setItem("ripManagerAdoptionJob", started.job_id);
+    await watchAdoptionProgress(started.job_id);
   } catch (error) {
     result.textContent = error.message;
     button.disabled = false;
     button.textContent = "Install & Adopt Node";
   }
+}
+
+function renderAdoptionProgress(job) {
+  const panel = $("#adoptProgress");
+  if (!panel) return;
+  panel.classList.remove("hidden", "complete", "failed");
+  panel.classList.toggle("complete", job.state === "complete");
+  panel.classList.toggle("failed", job.state === "failed");
+  const value = Math.max(0, Math.min(100, Number(job.percent) || 0));
+  $("#adoptProgressStage").textContent = job.state === "failed" ? "Installation stopped" : job.state === "complete" ? "Installation complete" : String(job.stage || "Installing").replaceAll("_", " ");
+  $("#adoptProgressElapsed").textContent = formatDuration(Date.now() / 1000 - Number(job.started_at || Date.now() / 1000));
+  $("#adoptProgressMessage").textContent = job.error || job.message || "Working…";
+  $("#adoptProgressPercent").textContent = `${Math.round(value)}%`;
+  $("#adoptProgressFill").style.width = `${value}%`;
+  panel.querySelector('[role="progressbar"]').setAttribute("aria-valuenow", String(Math.round(value)));
+  $("#adoptProgressEvents").innerHTML = (job.events || []).map((event, index, events) =>
+    `<li class="${index === events.length - 1 ? "current" : "done"}"><span>${index < events.length - 1 || job.state === "complete" ? "✓" : job.state === "failed" ? "!" : "•"}</span><div><strong>${esc(String(event.stage || "step").replaceAll("_", " "))}</strong><small>${esc(event.message || "")}</small></div><b>${Math.round(Number(event.percent) || 0)}%</b></li>`
+  ).join("");
+}
+
+async function watchAdoptionProgress(jobId) {
+  const button = $("#adoptInstall");
+  const result = $("#adoptInstallResult");
+  while (true) {
+    let job;
+    try {
+      job = await api(`/adoption/install/${encodeURIComponent(jobId)}`);
+    } catch (error) {
+      if (result) result.textContent = `Unable to read installer progress: ${error.message}`;
+      if (button) { button.disabled = false; button.textContent = "Resume installer status"; }
+      return;
+    }
+    renderAdoptionProgress(job);
+    if (job.state === "complete") {
+      sessionStorage.removeItem("ripManagerAdoptionJob");
+      const installed = job.result || {};
+      if (result) result.innerHTML = `<strong>Adopted successfully.</strong> ${esc(installed.name || "Rip Node")} · v${esc(installed.version || "unknown")} · ${esc(installed.url || "")}${installed.warning ? `<br>${esc(installed.warning)}` : ""}`;
+      if (button) { button.disabled = true; button.textContent = "Installed successfully"; }
+      toast(`${installed.name || "Rip Node"} adopted`);
+      State.settings = await api("/settings"); State.draft = structuredClone(State.settings);
+      return;
+    }
+    if (job.state === "failed") {
+      sessionStorage.removeItem("ripManagerAdoptionJob");
+      if (result) result.textContent = job.error || "Installation failed";
+      if (button) { button.disabled = false; button.textContent = "Retry Install & Adopt"; }
+      return;
+    }
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+}
+
+function resumeAdoptionProgress() {
+  const jobId = sessionStorage.getItem("ripManagerAdoptionJob");
+  if (!jobId || !$("#adoptProgress")) return;
+  const button = $("#adoptInstall");
+  if (button) { button.disabled = true; button.textContent = "Installation running…"; }
+  watchAdoptionProgress(jobId);
 }
 
 function systemPage() {

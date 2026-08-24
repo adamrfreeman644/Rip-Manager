@@ -1,4 +1,8 @@
 """Node installation/adoption endpoints."""
+import threading
+import time
+import uuid
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -7,6 +11,8 @@ import adoption
 import nodes as node_client
 
 router = APIRouter(prefix="/adoption", tags=["adoption"])
+_jobs: dict[str, dict] = {}
+_jobs_lock = threading.Lock()
 
 
 class SSHTestRequest(BaseModel):
@@ -42,6 +48,54 @@ def test_ssh(req: SSHTestRequest):
 @router.post("/install")
 def install(req: AdoptRequest):
     return adoption.install_and_adopt(**req.model_dump())
+
+
+def _run_install(job_id: str, payload: dict) -> None:
+    def report(stage: str, percent: int, message: str) -> None:
+        with _jobs_lock:
+            job = _jobs.get(job_id)
+            if not job:
+                return
+            job.update(stage=stage, percent=percent, message=message, updated_at=time.time())
+            job["events"].append({"stage": stage, "percent": percent, "message": message, "at": time.time()})
+
+    try:
+        result = adoption.install_and_adopt(**payload, progress=report)
+        with _jobs_lock:
+            _jobs[job_id].update(state="complete", result=result, percent=100, updated_at=time.time())
+    except HTTPException as exc:
+        with _jobs_lock:
+            _jobs[job_id].update(state="failed", error=str(exc.detail), updated_at=time.time())
+    except Exception as exc:
+        with _jobs_lock:
+            _jobs[job_id].update(state="failed", error=f"Unexpected installer error: {type(exc).__name__}: {exc}", updated_at=time.time())
+    finally:
+        payload.clear()
+
+
+@router.post("/install/start", status_code=202)
+def start_install(req: AdoptRequest):
+    job_id = uuid.uuid4().hex
+    now = time.time()
+    with _jobs_lock:
+        _jobs[job_id] = {
+            "id": job_id, "state": "running", "stage": "queued", "percent": 0,
+            "message": "Installer queued", "error": None, "result": None,
+            "started_at": now, "updated_at": now,
+            "events": [{"stage": "queued", "percent": 0, "message": "Installer queued", "at": now}],
+        }
+    payload = req.model_dump()
+    threading.Thread(target=_run_install, args=(job_id, payload), daemon=True, name=f"adopt-{job_id[:8]}").start()
+    return {"job_id": job_id}
+
+
+@router.get("/install/{job_id}")
+def install_status(job_id: str):
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Installer job not found; it may have been cleared by a Manager restart")
+        return dict(job)
 
 
 @router.post("/test-existing")
