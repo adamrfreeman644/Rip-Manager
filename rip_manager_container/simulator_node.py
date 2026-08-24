@@ -38,7 +38,8 @@ def random_disc(drive_kind):
     label_title = "".join(c if c.isalnum() else "_" for c in metadata["title"].upper()).strip("_")
     label = f"{label_title}_DISC_{metadata['disc']}"
     return {"present": True, "tray": "disc", "label": label, "format": disc_format,
-            "reason": "ready", "status_message": "Disk detected"}
+            "disc_cycle_id": str(uuid.uuid4()),
+            "reason": "ready", "status_message": "Disc detected"}
 
 
 def drive(name, kind, tray="empty", label=None):
@@ -250,8 +251,10 @@ def cancel(name: str):
 
 @app.post("/drives/{name}/clear")
 def clear(name: str):
-    d=get_drive(name); d["active_job"]=None
-    return {"ok":True,"drive":name.upper(),"action":"clear"}
+    d = get_drive(name)
+    d["active_job"] = None
+    d["clean_state"] = not bool(d.get("media", {}).get("present"))
+    return {"ok": True, "drive": name.upper(), "action": "clear"}
 
 @app.get("/drive-mapping")
 def mapping(): return {"mapping": {name: d["device"] for name,d in drives.items()}, "detected": []}
