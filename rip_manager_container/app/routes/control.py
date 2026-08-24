@@ -76,11 +76,27 @@ async def wait_for_disc(node_id: str, drive_name: str, req: RipRequest):
         return {"ok": True, "started": True, "message": f"{drive} started", "result": result}
 
     intake.queue(node_id, drive, req)
+
+    opened = False
+    open_warning = None
+    tray = str((cached or {}).get("tray") or ((cached or {}).get("media") or {}).get("tray") or "")
+    if tray != "open" and node_client.drive_preference(node_id, drive, "open_tray", True):
+        try:
+            await node_client.post(node, f"/drives/{drive}/eject")
+            opened = True
+        except Exception as exc:
+            open_warning = getattr(exc, "detail", None) or str(exc)
+
     poller.wakeup.set()
     return {
         "ok": True,
         "started": False,
-        "message": f"{drive} is waiting for a disc",
+        "opened": opened,
+        "open_warning": open_warning,
+        "message": (
+            f"{drive} opened — insert the disc and close the tray"
+            if opened else f"{drive} is waiting for a disc"
+        ),
         "pending": intake.to_dict(intake.get(node_id, drive)),
     }
 
@@ -140,6 +156,11 @@ async def retry(node_id: str, drive_name: str):
 @router.post("/nodes/{node_id}/drives/{drive_name}/eject")
 async def node_eject(node_id: str, drive_name: str):
     node, drive = _drive(node_id, drive_name)
+    if not node_client.drive_preference(node_id, drive, "open_tray", True):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Open/eject commands are switched off for {drive} in Settings",
+        )
     result = await node_client.post(node, f"/drives/{drive}/eject")
     poller.wakeup.set()
     return result

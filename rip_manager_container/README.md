@@ -1,4 +1,4 @@
-# Rip Manager v0.17.7
+# Rip Manager v0.17.8
 
 Release date: 20 August 2026  
 Bundled Rip Node API: v0.2.5
@@ -7,7 +7,24 @@ Rip Manager controls optical-disc ripping nodes from one mobile-friendly web
 interface. This package also includes a built-in simulator, the real Rip Node
 software, installation tools, manual GitHub updates and safe Manager rollback.
 
-## What is new in v0.17.7
+## What is new in v0.17.8
+
+- **Prepare Drive** now saves the details and opens an empty tray automatically
+  when that drive supports Open / Eject.
+- After the operator inserts the disc and manually closes the tray, Manager
+  waits silently for 15 seconds after positive disc detection, then starts the
+  rip. There is no visible countdown and Manager never closes the tray.
+- Per-drive **Supports Open / Eject** and **Supports Close** capability switches
+  are restored under **Settings → Hardware → Drives**. Unsupported controls are
+  hidden and the settings persist across restarts and updates.
+- Ejecting a failed, cancelled or completed disc detaches its old job from the
+  live drive tile. A replacement disc starts cleanly as **Disc detected**.
+- Simulator replacement discs receive a fresh disc-cycle identity and cannot
+  inherit **Complete** or **Failed** from the previous disc.
+- The simulator retains the intended 80% insertion chance, 10% rip-failure
+  chance and accelerated demonstration speed.
+
+## What was new in v0.17.7
 
 - Closing a simulator tray now starts a fresh disc cycle and cannot inherit a
   completed or failed job from the previous disc.
@@ -93,7 +110,7 @@ addresses, polling, API tools, updates, rollback and PIN protection.
 2. Open **Settings → System → Updates** and press **Check now**.
 3. Confirm v0.17.7 is available. Do not update during an active rip.
 4. Press **Install update** once. Manager briefly restarts.
-5. Refresh after it returns and confirm v0.17.7 in Settings.
+5. Refresh after it returns and confirm v0.17.8 in Settings.
 
 The update preserves the database, settings, PIN, nodes, layout and job history.
 
@@ -135,7 +152,7 @@ The simulator runs inside Manager with two Blu-ray and four DVD drives. It has
 tray controls, random discs, moving progress, elapsed time, ETA, verification,
 completion, failure handling and realistic statistics.
 
-Closing a tray has a 50/50 chance of inserting a fake disc. A successful job
+Closing a tray has an 80% chance of inserting a fake disc. A successful job
 rips, verifies for three seconds, completes, waits three seconds and ejects if
 auto-eject is enabled.
 
@@ -199,7 +216,7 @@ PIN. The current PIN is required before replacing it.
 
 ## Compatibility
 
-- Manager: v0.17.6; bundled Node API: v0.2.5.
+- Manager: v0.17.8; bundled Node API: v0.2.5.
 - Existing v0.16.x and v0.17.x Manager data is preserved.
 - Drive mapping requires Node API v0.2.4 or newer.
 - Real nodes should use the Manager-served updater.
@@ -238,7 +255,7 @@ title entry if the provider has no match.
 
 ### New interface does not appear
 
-Confirm Settings reports v0.17.6, then reload the page. Versioned asset URLs
+Confirm Settings reports v0.17.8, then reload the page. Versioned asset URLs
 prevent old interface files being reused.
 
 ## Checklist for future releases

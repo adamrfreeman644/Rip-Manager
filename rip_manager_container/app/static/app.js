@@ -1,4 +1,4 @@
-/* Rip Remote 0.15.8 — front end for Rip Manager.
+/* Rip Remote 0.17.8 — front end for Rip Manager.
  *
  * Sections, in order:
  *   1. State and small helpers
@@ -255,6 +255,11 @@ function tileJobFor(drive) {
   // the physical drive. Once that disc is ejected, let the live tray/media
   // state control the tile while retaining the job in History and jobFor().
   const tray = trayOf(drive);
+  const finishedJobDetached = job && !drive.active_job
+    && (job.state === "complete" || job.state === "cancelled"
+      || FAILED_STATES.includes(job.state));
+  if (finishedJobDetached) return null;
+
   const completedDiscRemoved = job?.state === "complete" && !drive.active_job
     && (["open", "empty"].includes(tray)
       || (tray === "unknown" && drive.media?.present === false));
@@ -417,10 +422,13 @@ function currentDrive() {
     d.node_id === State.intake.nodeId && d.name === State.intake.drive);
 }
 
-function closeTrayAllowed(drive) {
+function driveCapabilityAllowed(drive, capability) {
   const id = drive.manager_drive_id || `${drive.node_id}:${String(drive.name).toUpperCase()}`;
-  return State.settings?.drive_preferences?.[id]?.close_tray !== false;
+  return State.settings?.drive_preferences?.[id]?.[capability] !== false;
 }
+
+const openTrayAllowed = (drive) => driveCapabilityAllowed(drive, "open_tray");
+const closeTrayAllowed = (drive) => driveCapabilityAllowed(drive, "close_tray");
 
 /** The fixed bottom-left tray action, matching whatever the tray is doing. */
 function trayButtonMarkup(drive, disabled = false) {
@@ -430,6 +438,7 @@ function trayButtonMarkup(drive, disabled = false) {
     if (!closeTrayAllowed(drive)) return "";
     return `<button class="drive-popup-btn warning-action" type="button" data-tray="close"${disabledAttr}>Close tray</button>`;
   }
+  if (!openTrayAllowed(drive)) return "";
   if (tray === "disc" || tray === "loading" || drive.media?.present) {
     return `<button class="drive-popup-btn warning-action" type="button" data-tray="eject"${disabledAttr}>${disabled ? "Eject unavailable" : "Eject disc"}</button>`;
   }
@@ -1129,9 +1138,16 @@ function toggleDraft(key, button) {
 
 function drivePreference(id) {
   if (!State.draft.drive_preferences[id]) {
-    State.draft.drive_preferences[id] = { detect: true, close_tray: true };
+    State.draft.drive_preferences[id] = {
+      detect: true,
+      open_tray: true,
+      close_tray: true,
+    };
   }
-  return State.draft.drive_preferences[id];
+  const preference = State.draft.drive_preferences[id];
+  if (preference.open_tray === undefined) preference.open_tray = true;
+  if (preference.close_tray === undefined) preference.close_tray = true;
+  return preference;
 }
 
 
@@ -1335,19 +1351,27 @@ async function loadDriveMapping() {
         }).join("");
       };
 
-      const rows = mappings.map(m => `<div class="drive-map-card ${m.exists ? "" : "missing"}">
+      const rows = mappings.map(m => {
+        const driveId = `${node.id}:${String(m.name).toUpperCase()}`;
+        const capability = drivePreference(driveId);
+        return `<div class="drive-map-card ${m.exists ? "" : "missing"}">
         <div class="drive-map-head">
           <div><strong>${esc(m.name)}</strong><small>${m.exists ? esc([m.vendor,m.model].filter(Boolean).join(" ") || m.device) : "Mapped drive is missing"}</small></div>
           <span class="drive-map-state ${m.exists ? "ok" : "bad"}">${m.exists ? "CONNECTED" : "MISSING"}</span>
         </div>
         <div class="drive-map-detail"><span>Current device</span><code>${esc(m.device || m.configured_device || "—")}</code></div>
         ${m.id_path ? `<div class="drive-map-detail"><span>USB / udev path</span><code>${esc(m.id_path)}</code></div>` : ""}
+        <div class="drive-capability-settings">
+          ${toggleRow("Supports Open / Eject","Show Open or Eject and allow Prepare Drive to open this tray",capability.open_tray,`data-drive-id="${esc(driveId)}" data-drive-key="open_tray"`)}
+          ${toggleRow("Supports Close","Show the Close tray button for this drive",capability.close_tray,`data-drive-id="${esc(driveId)}" data-drive-key="close_tray"`)}
+        </div>
         <div class="drive-map-actions">
           <select data-map-select="${esc(node.id)}:${esc(m.name)}">${optionsFor(m.name,m.exists?m.device:"",true)}</select>
           <button type="button" class="primary" data-map-assign="${esc(node.id)}:${esc(m.name)}">Assign / Swap</button>
           <button type="button" class="secondary danger-button" data-map-remove="${esc(node.id)}:${esc(m.name)}" ${m.active ? "disabled" : ""}>Remove</button>
         </div>
-      </div>`).join("") || `<div class="note">No drive slots are configured on this node.</div>`;
+      </div>`;
+      }).join("") || `<div class="note">No drive slots are configured on this node.</div>`;
 
       sections.push(`<div class="settings-group drive-node-group">
         <div class="drive-node-title"><div><h3>${esc(node.name)}</h3><small>${esc(node.url)}</small></div><button type="button" class="secondary" data-map-refresh="${esc(node.id)}">Refresh</button></div>
@@ -2189,6 +2213,7 @@ $("#settingsContent").addEventListener("click", (event) => {
     const key = button.dataset.driveKey;
     preference[key] = !preference[key];
     setToggle(button, preference[key]);
+    updateDirtySaveButtons();
     return;
   }
   if (button.dataset.nodeToggle !== undefined) {

@@ -103,7 +103,13 @@ async def _start_pending(node: sqlite3.Row, drives: List[dict]) -> None:
             continue
         if not node_client.drive_preference(node["id"], drive_name, "detect", True):
             continue
-        if not intake.media_is_ready(drive):
+        media_ready = intake.media_is_ready(drive)
+        ready_at = await asyncio.to_thread(
+            intake.mark_ready, node["id"], drive_name, media_ready
+        )
+        if not media_ready or ready_at is None:
+            continue
+        if time.time() - ready_at < intake.AUTO_START_DELAY_SECONDS:
             continue
 
         request = intake.to_request(row)
