@@ -14,7 +14,7 @@ import shlex
 import socket
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import httpx
 import paramiko
@@ -27,6 +27,12 @@ BUNDLED_NODE = Path(__file__).resolve().parent / "bundled_rip_node_api_v0.2.5.py
 NODE_VERSION = "0.2.5"
 SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
 SAFE_USER = re.compile(r"^[a-z_][a-z0-9_-]{0,31}$")
+ProgressCallback = Callable[[str, int, str], None]
+
+
+def _progress(callback: Optional[ProgressCallback], stage: str, percent: int, message: str) -> None:
+    if callback:
+        callback(stage, percent, message)
 
 
 def _ssh(host: str, port: int, username: str, password: str) -> paramiko.SSHClient:
@@ -133,7 +139,9 @@ def install_and_adopt(*, node_id: str, name: str, host: str, ssh_port: int,
                       api_port: int, node_url: Optional[str], manager_url_for_node: str,
                       output_path: str, nas_share: Optional[str] = None,
                       nas_username: Optional[str] = None,
-                      nas_password: Optional[str] = None) -> dict:
+                      nas_password: Optional[str] = None,
+                      progress: Optional[ProgressCallback] = None) -> dict:
+    _progress(progress, "validate", 2, "Checking node and storage settings")
     if not SAFE_ID.fullmatch(node_id):
         raise HTTPException(status_code=422, detail="Node ID may only contain letters, numbers, dot, dash and underscore")
     if not SAFE_USER.fullmatch(username):
@@ -149,6 +157,7 @@ def install_and_adopt(*, node_id: str, name: str, host: str, ssh_port: int,
 
     sudo = sudo_password if sudo_password is not None else password
     token = secrets.token_urlsafe(32)
+    _progress(progress, "connect", 7, f"Connecting securely to {host}")
     client = _ssh(host, ssh_port, username, password)
     try:
         sudo_rc, _, sudo_err = _run(client, "true", sudo)
@@ -158,6 +167,7 @@ def install_and_adopt(*, node_id: str, name: str, host: str, ssh_port: int,
         # Install only distribution packages we can obtain from normal Ubuntu repos.
         # MakeMKV itself is checked separately because its repository/licensing setup
         # varies; an existing installation is preserved.
+        _progress(progress, "packages", 15, "Installing Ubuntu dependencies")
         apt = "export DEBIAN_FRONTEND=noninteractive; apt-get update -qq && apt-get install -y -qq python3-venv curl eject ffmpeg abcde cdparanoia cd-discid flac lame cifs-utils software-properties-common"
         rc, _, err = _run(client, apt, sudo, timeout=600)
         if rc != 0:
@@ -166,6 +176,7 @@ def install_and_adopt(*, node_id: str, name: str, host: str, ssh_port: int,
         # MakeMKV is supplied through its community Ubuntu PPA rather than the
         # standard Ubuntu archive. Failure is reported as a warning after the
         # otherwise usable audio node has been adopted.
+        _progress(progress, "makemkv", 31, "Checking and installing MakeMKV")
         makemkv_install = (
             "command -v makemkvcon >/dev/null 2>&1 || { "
             "add-apt-repository -y ppa:heyarje/makemkv-beta >/dev/null 2>&1 && "
@@ -176,6 +187,7 @@ def install_and_adopt(*, node_id: str, name: str, host: str, ssh_port: int,
         # Remove every updater/service name used by older releases. This is
         # intentionally idempotent so a partially configured machine can be
         # safely re-run through Install & Adopt.
+        _progress(progress, "cleanup", 39, "Removing obsolete node services")
         cleanup = (
             "systemctl disable --now rip-node-api.service rip-node-updater.timer rip-node-daily-updater.timer "
             "rip-github-node-check.timer rip-github-node-install.timer 2>/dev/null || true; "
@@ -189,6 +201,7 @@ def install_and_adopt(*, node_id: str, name: str, host: str, ssh_port: int,
         _run(client, cleanup, sudo, timeout=120)
 
         if nas_share:
+            _progress(progress, "storage", 47, "Configuring and testing NAS storage")
             credentials = (
                 f"username={nas_username or ''}\npassword={nas_password or ''}\n"
                 if nas_username else ""
@@ -216,12 +229,19 @@ def install_and_adopt(*, node_id: str, name: str, host: str, ssh_port: int,
             if rc != 0:
                 raise HTTPException(status_code=500, detail=f"NAS mount setup failed: {err.strip()[-500:]}")
 
+        _progress(progress, "upload", 55, "Uploading the bundled Rip Node API")
+        if not BUNDLED_NODE.is_file():
+            raise HTTPException(status_code=500, detail=f"Bundled Node API is missing from Manager: {BUNDLED_NODE.name}")
         sftp = client.open_sftp()
         try:
-            sftp.put(str(BUNDLED_NODE), "/tmp/rip_node_api.py")
+            try:
+                sftp.put(str(BUNDLED_NODE), "/tmp/rip_node_api.py")
+            except Exception as exc:
+                raise HTTPException(status_code=500, detail=f"Node API upload failed: {exc}") from exc
         finally:
             sftp.close()
 
+        _progress(progress, "python", 63, "Creating the Python environment")
         setup = (
             "mkdir -p /opt/rip-node /opt/rip-node/sounds " + shlex.quote(output_path) + "; "
             "chown " + shlex.quote(username) + " " + shlex.quote(output_path) + "; "
@@ -237,6 +257,7 @@ def install_and_adopt(*, node_id: str, name: str, host: str, ssh_port: int,
             raise HTTPException(status_code=500, detail=f"Rip Node Python install failed: {err.strip()[-500:]}")
 
         # Build stable /dev/ripper/DVD* names from each drive's physical identity.
+        _progress(progress, "drives", 73, "Creating persistent optical-drive mappings")
         _, sr_text, _ = _run(client, "ls /dev/sr* 2>/dev/null | sort -V || true")
         sr_devices = [item for item in sr_text.split() if item.startswith("/dev/sr")]
         rules = []
@@ -283,6 +304,7 @@ def install_and_adopt(*, node_id: str, name: str, host: str, ssh_port: int,
             finally:
                 sftp.close()
 
+        _progress(progress, "services", 84, "Installing and starting node services")
         enable = (
             "install -m 0644 /tmp/rip-node-api.service /etc/systemd/system/rip-node-api.service; "
             "install -m 0700 /tmp/rip-github-node-updater /usr/local/sbin/rip-github-node-updater; "
@@ -302,6 +324,7 @@ def install_and_adopt(*, node_id: str, name: str, host: str, ssh_port: int,
         client.close()
 
     manager_node_url = (node_url or f"http://{host}:{api_port}").rstrip("/")
+    _progress(progress, "verify", 93, "Verifying the Node API from Rip Manager")
     try:
         response = httpx.get(f"{manager_node_url}/api/info", headers={"Authorization": f"Bearer {token}"}, timeout=8, trust_env=False)
         response.raise_for_status()
@@ -312,6 +335,7 @@ def install_and_adopt(*, node_id: str, name: str, host: str, ssh_port: int,
             f"{manager_node_url}. Check the Manager connection URL in Settings. Error: {exc}"
         )) from exc
 
+    _progress(progress, "adopt", 97, "Saving the verified node in Rip Manager")
     with db.write() as conn:
         conn.execute(
             """INSERT INTO nodes(id,name,url,enabled,token,last_seen,online,last_error,last_poll)
@@ -322,7 +346,7 @@ def install_and_adopt(*, node_id: str, name: str, host: str, ssh_port: int,
             (node_id, name, manager_node_url, 1, token, time.time(), 1, None, time.time()),
         )
     poller.wakeup.set()
-    return {
+    result = {
         "ok": True,
         "id": node_id,
         "name": name,
@@ -332,3 +356,5 @@ def install_and_adopt(*, node_id: str, name: str, host: str, ssh_port: int,
         "optical_devices": [f"/dev/ripper/DVD{i}" for i in range(1, len(sr_devices) + 1)],
         "warning": None if makemkv.strip() else "Node adopted, but MakeMKV is not installed yet; DVD video ripping will remain unavailable until makemkvcon is installed.",
     }
+    _progress(progress, "complete", 100, "Node installed and adopted successfully")
+    return result
