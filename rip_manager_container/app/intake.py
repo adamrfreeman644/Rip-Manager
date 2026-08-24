@@ -48,6 +48,16 @@ def clear(node_id: str, drive: str) -> bool:
     return cursor.rowcount > 0
 
 
+def clear_ready_for_node(node_id: str) -> None:
+    """Cancel every silent auto-start timer when its node disconnects."""
+    with db.write() as conn:
+        conn.execute(
+            "UPDATE pending_intake SET ready_at=NULL, updated_at=? "
+            "WHERE node_id=? AND ready_at IS NOT NULL",
+            (time.time(), node_id),
+        )
+
+
 def get(node_id: str, drive: str) -> Optional[sqlite3.Row]:
     return db.query_one(
         "SELECT * FROM pending_intake WHERE node_id=? AND drive=?", (node_id, drive.upper())
