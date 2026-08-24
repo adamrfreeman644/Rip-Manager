@@ -114,6 +114,7 @@ CREATE TABLE IF NOT EXISTS pending_intake (
     updated_at REAL NOT NULL,
     attempts INTEGER NOT NULL DEFAULT 0,
     last_error TEXT,
+    ready_at REAL,
     PRIMARY KEY (node_id, drive)
 );
 
@@ -214,7 +215,11 @@ def init_db() -> None:
                 conn.execute(f"ALTER TABLE jobs_history ADD COLUMN {column} {definition}")
 
         pending_columns = _columns(conn, "pending_intake")
-        for column, definition in (("creator", "TEXT"), ("narrator", "TEXT")):
+        for column, definition in (
+            ("creator", "TEXT"),
+            ("narrator", "TEXT"),
+            ("ready_at", "REAL"),
+        ):
             if column not in pending_columns:
                 conn.execute(f"ALTER TABLE pending_intake ADD COLUMN {column} {definition}")
 
