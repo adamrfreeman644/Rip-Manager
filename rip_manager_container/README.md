@@ -1,13 +1,26 @@
-# Rip Manager v0.17.9
+# Rip Manager v0.18.0
 
-Release date: 20 August 2026  
+Release date: 24 August 2026  
 Bundled Rip Node API: v0.2.5
 
 Rip Manager controls optical-disc ripping nodes from one mobile-friendly web
 interface. This package also includes a built-in simulator, the real Rip Node
 software, installation tools, manual GitHub updates and safe Manager rollback.
 
-## What is new in v0.17.9
+## What is new in v0.18.0
+
+- **Install & Adopt Node** now starts a background installation job, so a long
+  Ubuntu package operation cannot make the browser request appear to stop.
+- The installer displays named stages, percentage, elapsed time, the current
+  action and a scrollable stage history.
+- Progress resumes when the adoption page is reopened in the same browser tab.
+- Failures stay visible with their exact stage and plain-English error. The
+  operator can correct the problem and safely retry the idempotent installer.
+- Missing bundled API files and SFTP upload errors are reported explicitly.
+- SSH, sudo and NAS credentials remain in memory only for the running job and
+  are cleared immediately when it finishes.
+
+## What was new in v0.17.9
 
 - A node disconnect now cancels its silent prepared-drive timer. Reconnecting
   cannot start a rip using time accumulated while the node was offline.
@@ -116,7 +129,7 @@ addresses, polling, API tools, updates, rollback and PIN protection.
 2. Open **Settings → System → Updates** and press **Check now**.
 3. Confirm v0.17.7 is available. Do not update during an active rip.
 4. Press **Install update** once. Manager briefly restarts.
-5. Refresh after it returns and confirm v0.17.9 in Settings.
+5. Refresh after it returns and confirm v0.18.0 in Settings.
 
 The update preserves the database, settings, PIN, nodes, layout and job history.
 
@@ -222,7 +235,7 @@ PIN. The current PIN is required before replacing it.
 
 ## Compatibility
 
-- Manager: v0.17.9; bundled Node API: v0.2.5.
+- Manager: v0.18.0; bundled Node API: v0.2.5.
 - Existing v0.16.x and v0.17.x Manager data is preserved.
 - Drive mapping requires Node API v0.2.4 or newer.
 - Real nodes should use the Manager-served updater.
@@ -261,7 +274,7 @@ title entry if the provider has no match.
 
 ### New interface does not appear
 
-Confirm Settings reports v0.17.9, then reload the page. Versioned asset URLs
+Confirm Settings reports v0.18.0, then reload the page. Versioned asset URLs
 prevent old interface files being reused.
 
 ## Checklist for future releases
