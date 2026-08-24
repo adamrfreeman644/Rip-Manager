@@ -1,4 +1,4 @@
-# Rip Manager v0.17.8
+# Rip Manager v0.17.9
 
 Release date: 20 August 2026  
 Bundled Rip Node API: v0.2.5
@@ -7,7 +7,13 @@ Rip Manager controls optical-disc ripping nodes from one mobile-friendly web
 interface. This package also includes a built-in simulator, the real Rip Node
 software, installation tools, manual GitHub updates and safe Manager rollback.
 
-## What is new in v0.17.8
+## What is new in v0.17.9
+
+- A node disconnect now cancels its silent prepared-drive timer. Reconnecting
+  cannot start a rip using time accumulated while the node was offline.
+- This completes the v0.17.8 prepared-drive, capability and disc-state fixes.
+
+## What was new in v0.17.8
 
 - **Prepare Drive** now saves the details and opens an empty tray automatically
   when that drive supports Open / Eject.
@@ -110,7 +116,7 @@ addresses, polling, API tools, updates, rollback and PIN protection.
 2. Open **Settings → System → Updates** and press **Check now**.
 3. Confirm v0.17.7 is available. Do not update during an active rip.
 4. Press **Install update** once. Manager briefly restarts.
-5. Refresh after it returns and confirm v0.17.8 in Settings.
+5. Refresh after it returns and confirm v0.17.9 in Settings.
 
 The update preserves the database, settings, PIN, nodes, layout and job history.
 
@@ -216,7 +222,7 @@ PIN. The current PIN is required before replacing it.
 
 ## Compatibility
 
-- Manager: v0.17.8; bundled Node API: v0.2.5.
+- Manager: v0.17.9; bundled Node API: v0.2.5.
 - Existing v0.16.x and v0.17.x Manager data is preserved.
 - Drive mapping requires Node API v0.2.4 or newer.
 - Real nodes should use the Manager-served updater.
@@ -255,7 +261,7 @@ title entry if the provider has no match.
 
 ### New interface does not appear
 
-Confirm Settings reports v0.17.8, then reload the page. Versioned asset URLs
+Confirm Settings reports v0.17.9, then reload the page. Versioned asset URLs
 prevent old interface files being reused.
 
 ## Checklist for future releases

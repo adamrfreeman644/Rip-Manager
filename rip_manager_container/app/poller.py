@@ -151,6 +151,7 @@ async def poll_node(node_id: str) -> None:
                 "UPDATE nodes SET online=0,last_poll=?,last_error=? WHERE id=?",
                 (now, f"Health check failed: {detail}", node_id),
             )
+        await asyncio.to_thread(intake.clear_ready_for_node, node_id)
         return
 
     with db.write() as conn:
