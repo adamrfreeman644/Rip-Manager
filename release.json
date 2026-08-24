@@ -1,13 +1,11 @@
 {
-  "version": "0.17.8",
+  "version": "0.17.9",
   "notes": [
-    "Prepared Drive now opens an empty tray automatically when that drive supports Open / Eject.",
-    "After the operator inserts a disc and manually closes the tray, Manager waits silently for 15 seconds after positive detection before starting the rip.",
-    "Prepared Drive never closes a tray automatically and shows no visible countdown.",
-    "Restored per-drive Supports Open / Eject and Supports Close capability settings under Hardware → Drives; unsupported controls are hidden.",
-    "Ejecting a failed, cancelled or completed disc now detaches its finished job from the live drive tile, so a replacement disc starts as Disc detected.",
-    "Fixed the simulator stale-state path so a newly inserted disc cannot instantly inherit Complete or Failed from the previous disc.",
-    "Every simulated replacement disc now receives a fresh disc-cycle identity; the existing 80% insertion and 10% rip-failure probabilities remain.",
+    "Cancelled prepared-drive auto-start timers whenever a Rip Node disconnects, so reconnecting cannot start a rip using an expired 15-second hold.",
+    "Prepared Drive opens an empty tray only when that drive supports Open / Eject.",
+    "After manual tray closing and positive disc detection, Manager waits silently for 15 seconds before starting; it never auto-closes the tray and shows no countdown.",
+    "Per-drive Supports Open / Eject and Supports Close capability settings remain available under Hardware → Drives.",
+    "Failed, cancelled and completed jobs detach after eject so replacement physical and simulated discs start cleanly as Disc detected.",
     "Bundled Rip Node API remains v0.2.5."
   ]
 }
