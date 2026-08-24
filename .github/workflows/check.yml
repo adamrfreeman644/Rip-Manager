@@ -1,0 +1,37 @@
+name: Check Rip Manager changes
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Check Python syntax
+        run: python3 -m compileall -q rip_manager_container/app rip_manager_container/simulator_node.py
+
+      - name: Check JavaScript syntax
+        run: node --check rip_manager_container/app/static/app.js
+
+      - name: Check HTML and CSS
+        run: |
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+
+          class Parser(HTMLParser):
+              pass
+
+          Parser().feed(Path("rip_manager_container/app/static/index.html").read_text())
+          css = Path("rip_manager_container/app/static/styles.css").read_text()
+          if css.count("{") != css.count("}"):
+              raise SystemExit("Unbalanced CSS braces")
+          PY
