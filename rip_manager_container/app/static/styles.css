@@ -1227,3 +1227,28 @@ textarea,
 .adopt-progress-events li>span{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;font-size:.68rem;font-weight:950}
 .adopt-progress-events li.done>span{background:var(--ok)}.adopt-progress.failed .adopt-progress-events li.current>span{background:var(--bad)}
 .adopt-progress-events strong{display:block;text-transform:capitalize;font-size:.72rem}.adopt-progress-events small{display:block;margin-top:2px;color:var(--muted);font-size:.67rem;line-height:1.35}.adopt-progress-events b{font-size:.65rem;color:var(--muted)}
+
+/* v0.18.3: drive mapping is constrained by the Settings drawer, not by the
+   full browser viewport. The old 860px viewport query could apply a wide
+   three-column form inside a 520px drawer and force horizontal scrolling. */
+.drawer,#settingsContent,.settings-page,.drive-node-group,
+.drive-map-card,.drive-map-actions,.drive-map-add{
+  min-width:0;
+  max-width:100%;
+}
+.drive-node-group,.drive-map-card{overflow:hidden}
+.drive-map-actions,.drive-map-add{
+  grid-template-columns:minmax(0,1fr)!important;
+}
+.drive-map-actions>*,.drive-map-add>*{
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+}
+.drive-map-detail code,.drive-map-head small{
+  min-width:0;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+.drive-map-add button{white-space:normal}
+.system-restart-button{width:100%;min-height:48px}
