@@ -1,13 +1,26 @@
-# Rip Manager v0.18.0
+# Rip Manager v0.18.1
 
-Release date: 24 August 2026  
+Release date: 25 August 2026  
 Bundled Rip Node API: v0.2.5
 
 Rip Manager controls optical-disc ripping nodes from one mobile-friendly web
 interface. This package also includes a built-in simulator, the real Rip Node
 software, installation tools, manual GitHub updates and safe Manager rollback.
 
-## What is new in v0.18.0
+## What is new in v0.18.1
+
+- Fresh-node adoption waits up to 90 seconds for the local Node API health
+  endpoint after systemd launches the service.
+- Manager then retries authenticated `/api/info` verification for a further
+  30 seconds before reporting a connection failure.
+- This prevents fast verification from racing Uvicorn while it is still
+  binding port 8000 on a small node.
+- Genuine startup failures include recent systemd and journal diagnostics in
+  the progress result.
+- Retrying with the same Node ID updates the stale API token left by an
+  interrupted adoption and clears repeated `401 Unauthorized` polling errors.
+
+## What was new in v0.18.0
 
 - **Install & Adopt Node** now starts a background installation job, so a long
   Ubuntu package operation cannot make the browser request appear to stop.
@@ -129,7 +142,7 @@ addresses, polling, API tools, updates, rollback and PIN protection.
 2. Open **Settings → System → Updates** and press **Check now**.
 3. Confirm v0.17.7 is available. Do not update during an active rip.
 4. Press **Install update** once. Manager briefly restarts.
-5. Refresh after it returns and confirm v0.18.0 in Settings.
+5. Refresh after it returns and confirm v0.18.1 in Settings.
 
 The update preserves the database, settings, PIN, nodes, layout and job history.
 
@@ -235,7 +248,7 @@ PIN. The current PIN is required before replacing it.
 
 ## Compatibility
 
-- Manager: v0.18.0; bundled Node API: v0.2.5.
+- Manager: v0.18.1; bundled Node API: v0.2.5.
 - Existing v0.16.x and v0.17.x Manager data is preserved.
 - Drive mapping requires Node API v0.2.4 or newer.
 - Real nodes should use the Manager-served updater.
@@ -274,7 +287,7 @@ title entry if the provider has no match.
 
 ### New interface does not appear
 
-Confirm Settings reports v0.18.0, then reload the page. Versioned asset URLs
+Confirm Settings reports v0.18.1, then reload the page. Versioned asset URLs
 prevent old interface files being reused.
 
 ## Checklist for future releases

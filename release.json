@@ -1,12 +1,11 @@
 {
-  "version": "0.18.0",
+  "version": "0.18.1",
   "notes": [
-    "Fresh-node adoption now runs as a background job instead of one long browser request, preventing the page from appearing to stop during package installation.",
-    "The adoption page shows the current named stage, percentage, elapsed time, current action and a scrollable history of completed stages.",
-    "Installation progress resumes after closing and reopening the adoption page in the same browser tab.",
-    "Failed installations remain on screen with the exact failing stage and error, and can be retried safely without losing the diagnostic result.",
-    "Node API upload failures and missing bundled files now produce specific plain-English errors instead of an unexplained HTTP 500.",
-    "SSH, sudo and NAS credentials remain request-only and are cleared from the background task as soon as it finishes.",
+    "Fresh-node adoption now waits up to 90 seconds for the Node API service to become healthy before Manager attempts verification.",
+    "Manager retries the authenticated API verification for a further 30 seconds, preventing a successful installation being reported as failed while Uvicorn is still binding port 8000.",
+    "If the service genuinely cannot start, the progress screen now includes recent systemd status and journal diagnostics.",
+    "A successful retry with the same Node ID replaces the stale Manager API token and clears the repeated 401 Unauthorized polling errors.",
+    "The v0.18.0 background progress display and safe retry behaviour are preserved.",
     "Bundled Rip Node API remains v0.2.5."
   ]
 }
