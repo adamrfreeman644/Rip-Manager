@@ -1,11 +1,11 @@
 {
-  "version": "0.18.1",
+  "version": "0.18.2",
   "notes": [
-    "Fresh-node adoption now waits up to 90 seconds for the Node API service to become healthy before Manager attempts verification.",
-    "Manager retries the authenticated API verification for a further 30 seconds, preventing a successful installation being reported as failed while Uvicorn is still binding port 8000.",
-    "If the service genuinely cannot start, the progress screen now includes recent systemd status and journal diagnostics.",
-    "A successful retry with the same Node ID replaces the stale Manager API token and clears the repeated 401 Unauthorized polling errors.",
-    "The v0.18.0 background progress display and safe retry behaviour are preserved.",
-    "Bundled Rip Node API remains v0.2.5."
+    "Fixed Auto-assign drive mapping failing with Internal Server Error because the Node API service user could not write /opt/rip-node/drive-map.json.",
+    "Bundled Rip Node API v0.2.6 stores persistent drive mappings in the node user's writable ~/.config/rip-node directory.",
+    "Existing readable /opt/rip-node/drive-map.json settings are migrated automatically when present.",
+    "Fresh-node installation now gives the node user ownership of /opt/rip-node and installs the API file with the correct owner.",
+    "After installing the Manager update, the manual Node update installs v0.2.6 without requiring Ubuntu reinstallation or deleting the node.",
+    "The v0.18.1 readiness checks, background progress and manual-only update policy are preserved."
   ]
 }

@@ -23,8 +23,8 @@ from fastapi import HTTPException
 import db
 import poller
 
-BUNDLED_NODE = Path(__file__).resolve().parent / "bundled_rip_node_api_v0.2.5.py"
-NODE_VERSION = "0.2.5"
+BUNDLED_NODE = Path(__file__).resolve().parent / "bundled_rip_node_api_v0.2.6.py"
+NODE_VERSION = "0.2.6"
 SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
 SAFE_USER = re.compile(r"^[a-z_][a-z0-9_-]{0,31}$")
 ProgressCallback = Callable[[str, int, str], None]
@@ -244,13 +244,14 @@ def install_and_adopt(*, node_id: str, name: str, host: str, ssh_port: int,
         _progress(progress, "python", 63, "Creating the Python environment")
         setup = (
             "mkdir -p /opt/rip-node /opt/rip-node/sounds " + shlex.quote(output_path) + "; "
-            "chown " + shlex.quote(username) + " " + shlex.quote(output_path) + "; "
+            "chown -R " + shlex.quote(username) + ":" + shlex.quote(username) + " /opt/rip-node; "
+            "chown " + shlex.quote(username) + ":" + shlex.quote(username) + " " + shlex.quote(output_path) + "; "
             "usermod -aG cdrom " + shlex.quote(username) + " 2>/dev/null || true; "
             "usermod -aG audio " + shlex.quote(username) + " 2>/dev/null || true; "
             "python3 -m venv /opt/rip-node/venv; "
             "/opt/rip-node/venv/bin/pip install -q --upgrade pip; "
             "/opt/rip-node/venv/bin/pip install -q fastapi==0.116.1 uvicorn==0.35.0 psutil; "
-            "install -m 0644 /tmp/rip_node_api.py /opt/rip-node/rip_node_api.py"
+            "install -o " + shlex.quote(username) + " -g " + shlex.quote(username) + " -m 0644 /tmp/rip_node_api.py /opt/rip-node/rip_node_api.py"
         )
         rc, _, err = _run(client, setup, sudo, timeout=600)
         if rc != 0:
