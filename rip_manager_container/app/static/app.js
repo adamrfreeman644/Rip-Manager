@@ -1122,6 +1122,15 @@ function renderSettingsHome() {
 const isSimulatorNode = (node) => node?.id === "simulator"
   || String(node?.url || "").includes("/simulator-node");
 
+function nodeTerminalUrl(node) {
+  try {
+    const url = new URL(node.url, location.origin);
+    return `https://${url.hostname}:9090/`;
+  } catch {
+    return "";
+  }
+}
+
 function settingsPage(page) {
   navigateSettings(page);
 }
@@ -1241,7 +1250,7 @@ function hardwarePage() {
     return `<div class="hardware-node-card">
       <div class="hardware-node-head"><div><strong>${esc(node.name)}</strong><small>${esc(node.url)}</small></div><span class="hardware-state ${live.online?"ok":"bad"}">${live.online?"ONLINE":"OFFLINE"}</span></div>
       <div class="hardware-summary"><span>${drives.length} drive${drives.length===1?"":"s"}</span><span>${live.version?`Node API v${esc(live.version)}`:"Node API version unknown"}</span></div>
-      <div class="hardware-actions"><button class="secondary" type="button" data-hardware-node="${realIndex}">Manage node</button><button class="primary" type="button" data-settings-page="hardware-drives">Manage drives</button></div>
+      <div class="hardware-actions"><button class="secondary" type="button" data-hardware-node="${realIndex}">Manage node</button><button class="primary" type="button" data-settings-page="hardware-drives">Manage drives</button><a class="node-terminal-link" href="${esc(nodeTerminalUrl(node))}" target="_blank" rel="noopener noreferrer">Terminal</a></div>
     </div>`;
   }).join("")||`<div class="note">No Rip Nodes are configured.</div>`;
   drawer("Hardware",`${backBar()}<div class="settings-page-intro"><span class="settings-page-icon">▣</span><div><strong>Nodes and drives</strong><small>Manage each node and the drives connected to it.</small></div></div>

@@ -1,11 +1,10 @@
 {
-  "version": "0.18.3",
+  "version": "0.18.4",
   "notes": [
-    "Fixed the Drive Mapping page overflowing the Settings drawer and forcing horizontal scrolling.",
-    "Bundled Rip Node API v0.2.7 adds an explicit hot-plug hardware refresh so newly connected optical drives appear in assignment selectors.",
-    "Fixed successful Node updates being shown as failed when a legacy updater acknowledgement produced HTTP 422.",
-    "Added a confirmed Restart Rip Manager button under Settings > System; active Node rips continue independently.",
-    "The Simulator update tile is hidden whenever simulation is disabled.",
-    "GitHub update checks remain automatic but all Manager and Node installations remain manual-only."
+    "Fixed Dashboard tile assignment showing only a stale subset of mapped drives when optical probing exceeded the short general polling timeout.",
+    "Drive polling now uses the longer hardware-command timeout, allowing all mapped drives to reach the Manager cache.",
+    "Fixed native Chrome and Windows dropdown option text becoming almost invisible against the light option-list background.",
+    "Added a Terminal button for every real Rip Node, opening its LAN-only Cockpit console on HTTPS port 9090.",
+    "Bundled Rip Node API remains v0.2.7 and all update installations remain manual-only."
   ]
 }

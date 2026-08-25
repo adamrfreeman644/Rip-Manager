@@ -1,4 +1,4 @@
-# Rip Manager v0.18.3
+# Rip Manager v0.18.4
 
 Release date: 25 August 2026  
 Bundled Rip Node API: v0.2.7
@@ -6,6 +6,17 @@ Bundled Rip Node API: v0.2.7
 Rip Manager controls optical-disc ripping nodes from one mobile-friendly web
 interface. This package also includes a built-in simulator, the real Rip Node
 software, installation tools, manual GitHub updates and safe Manager rollback.
+
+## What is new in v0.18.4
+
+- Dashboard drive assignment now waits for the longer optical-hardware timeout
+  instead of retaining a stale partial cache when drive probing exceeds eight
+  seconds. All mapped drives are then available in every tile selector.
+- Native Chrome/Windows option lists have explicit foreground and background
+  colours, preventing pale option text on a white dropdown.
+- Every real node card has a **Terminal** button which opens that node's Cockpit
+  console on HTTPS port 9090. Keep Cockpit LAN/VPN-only.
+- Bundled Node API remains v0.2.7 and installation remains manual-only.
 
 ## What is new in v0.18.3
 
@@ -166,9 +177,9 @@ addresses, polling, API tools, updates, rollback and PIN protection.
 
 1. Publish this ZIP as the newest release asset in the Rip Manager repository.
 2. Open **Settings → System → Updates** and press **Check now**.
-3. Confirm v0.18.3 is available. Do not update during an active rip.
+3. Confirm v0.18.4 is available. Do not update during an active rip.
 4. Press **Install update** once. Manager briefly restarts.
-5. Refresh after it returns and confirm v0.18.3 in Settings.
+5. Refresh after it returns and confirm v0.18.4 in Settings.
 
 The update preserves the database, settings, PIN, nodes, layout and job history.
 
@@ -274,7 +285,7 @@ PIN. The current PIN is required before replacing it.
 
 ## Compatibility
 
-- Manager: v0.18.3; bundled Node API: v0.2.7.
+- Manager: v0.18.4; bundled Node API: v0.2.7.
 - Existing v0.16.x and v0.17.x Manager data is preserved.
 - Drive mapping requires Node API v0.2.4 or newer.
 - Real nodes should use the Manager-served updater.
@@ -313,7 +324,7 @@ title entry if the provider has no match.
 
 ### New interface does not appear
 
-Confirm Settings reports v0.18.3, then reload the page. Versioned asset URLs
+Confirm Settings reports v0.18.4, then reload the page. Versioned asset URLs
 prevent old interface files being reused.
 
 ## Checklist for future releases
