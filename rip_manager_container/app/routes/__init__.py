@@ -5,6 +5,7 @@ from routes import adoption as adoption_routes
 from routes import control as control_routes
 from routes import drive_mapping as drive_mapping_routes
 from routes import fleet as fleet_routes
+from routes import node_settings as node_settings_routes
 from routes import settings as settings_routes
 from routes import updates as update_routes
 
@@ -16,4 +17,5 @@ ROUTERS = (
     fleet_routes.router,
     control_routes.router,
     drive_mapping_routes.router,
+    node_settings_routes.router,
 )
