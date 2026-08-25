@@ -1,11 +1,11 @@
 {
-  "version": "0.18.2",
+  "version": "0.18.3",
   "notes": [
-    "Fixed Auto-assign drive mapping failing with Internal Server Error because the Node API service user could not write /opt/rip-node/drive-map.json.",
-    "Bundled Rip Node API v0.2.6 stores persistent drive mappings in the node user's writable ~/.config/rip-node directory.",
-    "Existing readable /opt/rip-node/drive-map.json settings are migrated automatically when present.",
-    "Fresh-node installation now gives the node user ownership of /opt/rip-node and installs the API file with the correct owner.",
-    "After installing the Manager update, the manual Node update installs v0.2.6 without requiring Ubuntu reinstallation or deleting the node.",
-    "The v0.18.1 readiness checks, background progress and manual-only update policy are preserved."
+    "Fixed the Drive Mapping page overflowing the Settings drawer and forcing horizontal scrolling.",
+    "Bundled Rip Node API v0.2.7 adds an explicit hot-plug hardware refresh so newly connected optical drives appear in assignment selectors.",
+    "Fixed successful Node updates being shown as failed when a legacy updater acknowledgement produced HTTP 422.",
+    "Added a confirmed Restart Rip Manager button under Settings > System; active Node rips continue independently.",
+    "The Simulator update tile is hidden whenever simulation is disabled.",
+    "GitHub update checks remain automatic but all Manager and Node installations remain manual-only."
   ]
 }

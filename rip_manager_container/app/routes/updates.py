@@ -1,7 +1,9 @@
 """GitHub update status and manual-install controls."""
 from __future__ import annotations
+
+import json
 import time
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from config import BUNDLED_NODE_FILE, VERSION
@@ -26,13 +28,13 @@ def latest_node_file():
 async def updates_status():
     manager=updates.manager_release(VERSION); node=updates.node_release(); node_versions=[]
     for configured in db.query("SELECT id,name,url,enabled,token FROM nodes ORDER BY id"):
-        version=None; error=None; info={}; simulator=configured["id"]=="simulator" or "/simulator-node" in configured["url"]
-        if configured["enabled"]:
+        version=None; error=None; info={}; enabled=bool(configured["enabled"]); simulator=configured["id"]=="simulator" or "/simulator-node" in configured["url"]
+        if enabled:
             try:
                 info=await node_client.get_json(f"{node_client.base_url(configured)}/api/info",node_client.headers_for(configured)); version=info.get("version")
             except Exception as exc: error=str(exc)
         simulator=bool(simulator or info.get("simulator") or str(version or "").endswith("-simulator"))
-        node_versions.append({"id":configured["id"],"name":configured["name"],"version":version,"error":error,"api_node":info.get("node"),"simulator":simulator,"update_available":bool(not simulator and version and updates.version_tuple(node["version"])>updates.version_tuple(version))})
+        node_versions.append({"id":configured["id"],"name":configured["name"],"version":version,"error":error,"api_node":info.get("node"),"simulator":simulator,"enabled":enabled,"update_available":bool(enabled and not simulator and version and updates.version_tuple(node["version"])>updates.version_tuple(version))})
     return {"source":"GitHub Releases","automatic_install":False,"manager":{"installed":VERSION,"available":manager},"node_update":node,"nodes":node_versions,"host_updater":updates.read_json("State/github-manager-update.json"),"host_capabilities":updates.host_capabilities(),"rollback_backups":updates.rollback_backups(),"rollback_request":updates.read_json("rollback-manager.request.json") or {"pending":False},"node_updater_status":updates.read_json("State/github-node-update.json"),"node_update_request":updates.read_json("install-nodes.request.json") or {"pending":False}}
 
 @router.post("/install-manager")
@@ -65,7 +67,18 @@ def request_rollback(req:RollbackRequest):
     return {"ok":True,"message":f"Rollback to v{backup['version']} queued","backup":backup}
 
 @router.post("/node-installed")
-def node_installed(payload:dict):
+async def node_installed(request: Request):
+    """Accept updater acknowledgements without FastAPI rejecting malformed legacy JSON.
+
+    Older installed updater scripts build this small payload in shell. Parse it
+    defensively so a successful Node installation is never reported as failed
+    solely because its final acknowledgement was imperfect.
+    """
+    raw = await request.body()
+    try:
+        payload = json.loads(raw.decode("utf-8")) if raw else {}
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        payload = {}
     updates.write_request("State/github-node-update.json",{"state":"success","version":payload.get("version"),"node":payload.get("node"),"request_id":payload.get("request_id"),"installed_at":time.time()})
     updates.clear_request("install-nodes.request.json")
     return {"ok":True}
