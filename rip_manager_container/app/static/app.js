@@ -1334,7 +1334,7 @@ async function loadDriveMapping() {
   for (const node of nodes) {
     if (!node.enabled) continue;
     try {
-      const data = await api(`/nodes/${encodeURIComponent(node.id)}/drive-mapping`);
+      const data = await api(`/nodes/${encodeURIComponent(node.id)}/drive-mapping?refresh=1`);
       const available = data.available || [];
       const mappings = data.mappings || [];
 
@@ -1770,7 +1770,22 @@ function systemPage() {
   drawer("System",`${backBar()}<div class="settings-page-intro"><span class="settings-page-icon">↻</span><div><strong>System</strong><small>Updates, advanced behaviour and troubleshooting.</small></div></div>
     <div class="settings-group"><h3>Updates</h3>${navRow("Updates","Manager, Rip Nodes and Update System","updates")}</div>
     <div class="settings-group"><h3>Advanced</h3>${navRow("Advanced settings","Polling, API tools and developer options","advanced")}</div>
-    <div class="settings-group"><h3>Tools</h3>${navRow("Run system diagnostics","Check Manager, nodes and update share","diagnostics")}</div>`);
+    <div class="settings-group"><h3>Tools</h3>${navRow("Run system diagnostics","Check Manager, nodes and update share","diagnostics")}</div>
+    <div class="settings-group"><h3>Restart</h3><div class="note compact-note">Restarts Rip Manager only. Active rips continue on their Rip Nodes.</div><button class="secondary system-restart-button" type="button" data-settings-action="restart-manager">Restart Rip Manager</button></div>`);
+}
+
+async function restartManager() {
+  if (!confirm("Restart Rip Manager now? The page will be unavailable briefly. Active node rips will continue.")) return;
+  const button = document.querySelector('[data-settings-action="restart-manager"]');
+  if (button) { button.disabled = true; button.textContent = "Restarting…"; }
+  try {
+    await api("/system/restart", {method:"POST"});
+    toast("Rip Manager is restarting");
+    setTimeout(() => location.reload(), 5000);
+  } catch (error) {
+    if (button) { button.disabled = false; button.textContent = "Restart Rip Manager"; }
+    toast(error.message || "Restart request failed");
+  }
 }
 function advancedPage() {
   drawer("Advanced",`${backBar()}<div class="settings-group">${groupHeading("Dashboard polling","polling")}
@@ -1896,7 +1911,8 @@ async function loadUpdates(announce = false) {
 
     let html = updateLine("Rip Manager", status.manager.installed, manager?.version,
       manager?.newer ? "new" : "ok");
-    html += status.nodes.map((node) => updateLine(node.name, node.version || (node.simulator ? "Included" : null), nodeVersion,
+    const visibleNodes = status.nodes.filter((node) => !(node.simulator && node.enabled === false));
+    html += visibleNodes.map((node) => updateLine(node.name, node.version || (node.simulator ? "Included" : null), nodeVersion,
       node.simulator ? "simulator" : node.update_available ? "new" : node.version ? "ok" : "")).join("");
     if (status.host_updater?.message) {
       html += `<div class="update-result ${esc(status.host_updater.state || "")}">${esc(status.host_updater.message)}</div>`;
@@ -2247,6 +2263,7 @@ $("#settingsContent").addEventListener("click", (event) => {
     case "toggle-simulator": toggleSimulator(); return;
     case "reset-simulator": resetSimulator(); return;
     case "run-diagnostics": runDiagnostics(); return;
+    case "restart-manager": restartManager(); return;
     case "test-metadata": testMetadataProvider(button.dataset.provider); return;
     default: break;
   }
