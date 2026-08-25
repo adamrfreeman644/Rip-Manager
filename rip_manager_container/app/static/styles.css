@@ -1252,3 +1252,25 @@ textarea,
 }
 .drive-map-add button{white-space:normal}
 .system-restart-button{width:100%;min-height:48px}
+
+/* v0.18.4: Chromium/Windows renders the expanded native option list on its
+   own light surface. Give options explicit colours instead of inheriting the
+   pale closed-control text from the dark application theme. */
+select option{
+  background:var(--field);
+  color:var(--text);
+}
+.node-terminal-link{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:48px;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:var(--radius-control);
+  background:var(--panel2);
+  color:var(--text);
+  font-weight:850;
+  text-decoration:none;
+}
+.hardware-actions .node-terminal-link{grid-column:1/-1}
