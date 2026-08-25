@@ -577,7 +577,12 @@ html[data-theme="dark"] .drive.error{background:#FF626C !important;border-color:
   background:var(--field);color:var(--text);outline:none
 }
 .intake-section input:focus,.intake-section select:focus{border-color:var(--accent)}
-.upc-row{display:grid;grid-template-columns:minmax(0,4fr) minmax(72px,1fr);gap:8px}
+.upc-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px}
+.upc-row button{min-width:76px}
+@media(max-width:480px){
+  .upc-row{grid-template-columns:1fr 1fr}
+  .upc-row input{grid-column:1/-1}
+}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 .action-full{grid-column:1/-1}
