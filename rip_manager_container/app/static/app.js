@@ -2180,6 +2180,12 @@ async function testMetadataProvider(provider) {
 }
 
 $("#lookupButton").onclick = lookupBarcode;
+$("#clearUpc").onclick = () => {
+  State.intake.barcode = "";
+  $("#upcInput").value = "";
+  $("#lookupStatus").textContent = "Ready to scan";
+  focusScanner();
+};
 $("#skipUpc").onclick = () => { showDetailsStep(); $("#mediaTitle").focus(); };
 $("#rescanUpc").onclick = showBarcodeStep;
 
