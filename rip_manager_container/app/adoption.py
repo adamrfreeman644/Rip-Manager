@@ -23,8 +23,8 @@ from fastapi import HTTPException
 import db
 import poller
 
-BUNDLED_NODE = Path(__file__).resolve().parent / "bundled_rip_node_api_v0.2.6.py"
-NODE_VERSION = "0.2.6"
+BUNDLED_NODE = Path(__file__).resolve().parent / "bundled_rip_node_api_v0.2.7.py"
+NODE_VERSION = "0.2.7"
 SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
 SAFE_USER = re.compile(r"^[a-z_][a-z0-9_-]{0,31}$")
 ProgressCallback = Callable[[str, int, str], None]
