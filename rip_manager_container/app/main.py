@@ -7,6 +7,9 @@ Start with:
 from __future__ import annotations
 
 import logging
+import os
+import signal
+import threading
 import time
 from contextlib import asynccontextmanager
 
@@ -50,6 +53,13 @@ app = FastAPI(
     description="Central manager for Rip Node APIs",
     lifespan=lifespan,
 )
+
+
+@app.post("/system/restart")
+def restart_manager():
+    """Return first, then stop PID 1 so Docker's restart policy recreates it."""
+    threading.Timer(0.75, lambda: os.kill(os.getpid(), signal.SIGTERM)).start()
+    return {"ok": True, "message": "Rip Manager restart requested"}
 
 if CORS_ORIGINS:
     app.add_middleware(
