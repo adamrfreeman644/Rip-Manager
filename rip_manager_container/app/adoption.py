@@ -318,6 +318,24 @@ def install_and_adopt(*, node_id: str, name: str, host: str, ssh_port: int,
         if rc != 0:
             raise HTTPException(status_code=500, detail=f"System service install failed: {err.strip()[-500:]}")
 
+        # systemctl considers a service started as soon as its process has been
+        # launched. Uvicorn may still need a few seconds before it binds port
+        # 8000, especially on small nodes after creating a fresh virtualenv.
+        # Wait locally on the node so adoption cannot fail during that gap.
+        _progress(progress, "readiness", 90, "Waiting for the Node API to become ready")
+        readiness = (
+            f"for attempt in $(seq 1 45); do "
+            f"curl -fsS --connect-timeout 2 --max-time 4 http://127.0.0.1:{api_port}/health >/dev/null 2>&1 && exit 0; "
+            "sleep 2; done; "
+            "echo 'Node API did not become ready'; "
+            "systemctl status rip-node-api.service --no-pager -l || true; "
+            "journalctl -u rip-node-api.service -n 40 --no-pager || true; exit 1"
+        )
+        rc, out, err = _run(client, readiness, sudo, timeout=120)
+        if rc != 0:
+            diagnostic = (out + "\n" + err).strip()[-1200:]
+            raise HTTPException(status_code=500, detail=f"Rip Node service did not become ready: {diagnostic}")
+
         _, makemkv, _ = _run(client, "command -v makemkvcon || true")
         _, drives, _ = _run(client, "ls /dev/sr* 2>/dev/null || true")
     finally:
@@ -325,15 +343,22 @@ def install_and_adopt(*, node_id: str, name: str, host: str, ssh_port: int,
 
     manager_node_url = (node_url or f"http://{host}:{api_port}").rstrip("/")
     _progress(progress, "verify", 93, "Verifying the Node API from Rip Manager")
-    try:
-        response = httpx.get(f"{manager_node_url}/api/info", headers={"Authorization": f"Bearer {token}"}, timeout=8, trust_env=False)
-        response.raise_for_status()
-        info = response.json()
-    except Exception as exc:
+    last_error: Optional[Exception] = None
+    info = None
+    for attempt in range(30):
+        try:
+            response = httpx.get(f"{manager_node_url}/api/info", headers={"Authorization": f"Bearer {token}"}, timeout=8, trust_env=False)
+            response.raise_for_status()
+            info = response.json()
+            break
+        except Exception as exc:
+            last_error = exc
+            time.sleep(1)
+    if info is None:
         raise HTTPException(status_code=502, detail=(
             "Rip Node installed, but Rip Manager cannot reach its API at "
-            f"{manager_node_url}. Check the Manager connection URL in Settings. Error: {exc}"
-        )) from exc
+            f"{manager_node_url} after waiting 30 seconds. Check the Manager connection URL in Settings. Error: {last_error}"
+        )) from last_error
 
     _progress(progress, "adopt", 97, "Saving the verified node in Rip Manager")
     with db.write() as conn:
