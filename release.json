@@ -1,10 +1,10 @@
 {
-  "version": "0.18.4",
+  "version": "0.18.5",
   "notes": [
-    "Fixed Dashboard tile assignment showing only a stale subset of mapped drives when optical probing exceeded the short general polling timeout.",
-    "Drive polling now uses the longer hardware-command timeout, allowing all mapped drives to reach the Manager cache.",
-    "Fixed native Chrome and Windows dropdown option text becoming almost invisible against the light option-list background.",
-    "Added a Terminal button for every real Rip Node, opening its LAN-only Cockpit console on HTTPS port 9090.",
+    "Added a touch-friendly Clear button directly beside the barcode scanner field.",
+    "Clear empties both the visible scanner field and its pending barcode state, resets the prompt and immediately restores scanner focus without opening the phone keyboard.",
+    "The scanner row adapts to narrow phones by placing the Lookup and Clear controls beneath the full-width field.",
+    "The v0.18.4 four-drive Dashboard polling, dropdown contrast and Cockpit Terminal fixes are preserved.",
     "Bundled Rip Node API remains v0.2.7 and all update installations remain manual-only."
   ]
 }
