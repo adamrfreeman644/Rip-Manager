@@ -1,10 +1,10 @@
 {
-  "version": "0.18.5",
+  "version": "0.18.6",
   "notes": [
-    "Added a touch-friendly Clear button directly beside the barcode scanner field.",
-    "Clear empties both the visible scanner field and its pending barcode state, resets the prompt and immediately restores scanner focus without opening the phone keyboard.",
-    "The scanner row adapts to narrow phones by placing the Lookup and Clear controls beneath the full-width field.",
-    "The v0.18.4 four-drive Dashboard polling, dropdown contrast and Cockpit Terminal fixes are preserved.",
+    "Fixed the barcode scanner field restoring a previous or pending disc barcode whenever the drive popup was reopened.",
+    "Every scanner screen now starts completely empty and focused, ready for a new scan.",
+    "A loaded disc with no readable filesystem label now explicitly displays Disc loaded · label unavailable instead of silently hiding the label area.",
+    "The v0.18.5 Clear control and v0.18.4 drive polling, dropdown and Cockpit Terminal fixes are preserved.",
     "Bundled Rip Node API remains v0.2.7 and all update installations remain manual-only."
   ]
 }

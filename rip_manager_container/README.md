@@ -1,4 +1,4 @@
-# Rip Manager v0.18.5
+# Rip Manager v0.18.6
 
 Release date: 25 August 2026  
 Bundled Rip Node API: v0.2.7
@@ -6,6 +6,13 @@ Bundled Rip Node API: v0.2.7
 Rip Manager controls optical-disc ripping nodes from one mobile-friendly web
 interface. This package also includes a built-in simulator, the real Rip Node
 software, installation tools, manual GitHub updates and safe Manager rollback.
+
+## What is new in v0.18.6
+
+- Opening a drive always presents an empty, focused barcode scanner field. A
+  previous job or waiting disc can no longer refill it automatically.
+- Loaded media without a readable filesystem label explicitly displays
+  **Disc loaded · label unavailable** rather than leaving an unexplained gap.
 
 ## What is new in v0.18.5
 
@@ -186,9 +193,9 @@ addresses, polling, API tools, updates, rollback and PIN protection.
 
 1. Publish this ZIP as the newest release asset in the Rip Manager repository.
 2. Open **Settings → System → Updates** and press **Check now**.
-3. Confirm v0.18.5 is available. Do not update during an active rip.
+3. Confirm v0.18.6 is available. Do not update during an active rip.
 4. Press **Install update** once. Manager briefly restarts.
-5. Refresh after it returns and confirm v0.18.5 in Settings.
+5. Refresh after it returns and confirm v0.18.6 in Settings.
 
 The update preserves the database, settings, PIN, nodes, layout and job history.
 
@@ -294,7 +301,7 @@ PIN. The current PIN is required before replacing it.
 
 ## Compatibility
 
-- Manager: v0.18.5; bundled Node API: v0.2.7.
+- Manager: v0.18.6; bundled Node API: v0.2.7.
 - Existing v0.16.x and v0.17.x Manager data is preserved.
 - Drive mapping requires Node API v0.2.4 or newer.
 - Real nodes should use the Manager-served updater.
@@ -333,7 +340,7 @@ title entry if the provider has no match.
 
 ### New interface does not appear
 
-Confirm Settings reports v0.18.5, then reload the page. Versioned asset URLs
+Confirm Settings reports v0.18.6, then reload the page. Versioned asset URLs
 prevent old interface files being reused.
 
 ## Checklist for future releases

@@ -527,15 +527,20 @@ function openIntake(drive) {
 
   const pending = drive.pending_intake;
   const previous = pending || jobFor(drive);
-  State.intake.barcode = pending?.barcode || previous?.barcode || "";
+  // A scanner is a one-use input. Never restore the previous or pending
+  // disc's barcode when this screen is opened again.
+  State.intake.barcode = "";
 
   // The filesystem volume label belongs to the physical disc.  It is useful
   // diagnostic information, but it is often machine-formatted and must never
   // silently become the movie/series title or output folder name.
   const discLabel = String(drive.media?.label || "").trim();
   const discLabelInfo = $("#discLabelInfo");
-  discLabelInfo.textContent = discLabel ? `Disc label: ${discLabel}` : "";
-  discLabelInfo.classList.toggle("hidden", !discLabel);
+  const discPresent = Boolean(drive.media?.present);
+  discLabelInfo.textContent = discLabel
+    ? `Disc label: ${discLabel}`
+    : discPresent ? "Disc loaded · label unavailable" : "";
+  discLabelInfo.classList.toggle("hidden", !discLabel && !discPresent);
 
   if (pending) {
     fillDetails(pending);
