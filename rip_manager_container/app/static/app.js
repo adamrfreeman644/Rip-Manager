@@ -865,8 +865,9 @@ async function copyShare(value) {
 }
 
 function showShares() {
-  const cards = State.nodes.length
-    ? State.nodes.map((node) => {
+  const shareNodes = State.nodes.filter((node) => node.enabled && !isSimulatorNode(node));
+  const cards = shareNodes.length
+    ? shareNodes.map((node) => {
       const share = nodeShare(node);
       return `<div class="share-card">
         <div class="node-top">
@@ -1279,10 +1280,43 @@ function hardwareNodePage(index) {
       ${toggleRow("Enabled","Include this node in polling and control",node.enabled,`data-node-toggle="${index}"`)}
     </div>
     <div class="settings-group"><h3>Drives</h3><button class="primary full-button" type="button" data-settings-page="hardware-drives">Manage drive mapping</button></div>
+    <div class="settings-group"><h3>Storage location</h3>
+      <div class="field"><label>Rip output directory on this node</label><input id="nodeStoragePath" value="" placeholder="Loading…" autocomplete="off" disabled></div>
+      <div id="nodeStorageStatus" class="note compact-note">Reading storage settings from the Node API…</div>
+      <button class="primary full-button" type="button" data-settings-action="save-node-storage" data-node-index="${index}" disabled>Save storage location</button>
+    </div>
     <div class="settings-group danger-zone"><h3>Danger zone</h3>
       <div class="note compact-note">Remove this node from Rip Manager. This does not uninstall the Node API or delete completed rip history.</div>
       <button class="danger full-button" type="button" data-remove-node="${index}">Remove node</button>
     </div>${saveBar()}`);
+  loadNodeStorage(node.id);
+}
+
+async function loadNodeStorage(nodeId) {
+  const input=$("#nodeStoragePath"), status=$("#nodeStorageStatus");
+  const button=document.querySelector('[data-settings-action="save-node-storage"]');
+  if(!input||!status||!button)return;
+  try{
+    const storage=await api(`/nodes/${encodeURIComponent(nodeId)}/storage`);
+    input.value=storage.path||""; input.disabled=false; button.disabled=false;
+    status.textContent=storage.exists&&storage.writable
+      ? "✓ Directory exists and the Node API can write to it."
+      : "This directory is missing or not writable by the Node API user.";
+  }catch(error){status.textContent=error.message;}
+}
+
+async function saveNodeStorage(index) {
+  const node=State.draft?.nodes?.[Number(index)], input=$("#nodeStoragePath"), status=$("#nodeStorageStatus");
+  const button=document.querySelector('[data-settings-action="save-node-storage"]');
+  if(!node||!input||!status||!button)return;
+  const path=input.value.trim();
+  if(!path.startsWith("/")){status.textContent="Enter an absolute path beginning with /.";return;}
+  button.disabled=true; status.textContent="Testing and saving storage location…";
+  try{
+    const result=await api(`/nodes/${encodeURIComponent(node.id)}/storage`,{method:"PUT",body:JSON.stringify({path})});
+    input.value=result.path||path; status.textContent="✓ Storage location saved and writable."; toast("Node storage location updated");
+  }catch(error){status.textContent=error.message;}
+  finally{button.disabled=false;}
 }
 
 function beginRemoveNode(index) {
@@ -2284,6 +2318,7 @@ $("#settingsContent").addEventListener("click", (event) => {
     case "reset-simulator": resetSimulator(); return;
     case "run-diagnostics": runDiagnostics(); return;
     case "restart-manager": restartManager(); return;
+    case "save-node-storage": saveNodeStorage(button.dataset.nodeIndex); return;
     case "test-metadata": testMetadataProvider(button.dataset.provider); return;
     default: break;
   }
