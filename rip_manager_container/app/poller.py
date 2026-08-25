@@ -161,7 +161,7 @@ async def poll_node(node_id: str) -> None:
         )
 
     drives_result, jobs_result, stats_result = await node_client.gather_settled(
-        node_client.get_json(f"{base}/drives", headers),
+        node_client.get_json(f"{base}/drives", headers, timeout=node_client.COMMAND_TIMEOUT),
         node_client.get_json(f"{base}/jobs", headers),
         node_client.get_json(f"{base}/system/stats", headers),
     )
