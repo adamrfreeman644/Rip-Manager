@@ -29,6 +29,19 @@ def _ssh_host(node) -> str:
     return host
 
 
+def _assert_node_idle(node_id: str) -> None:
+    active = [
+        drive.get("name")
+        for drive in node_client.cached_drives(node_id)
+        if drive.get("active_job")
+    ]
+    if active:
+        raise HTTPException(
+            status_code=409,
+            detail="Dependency changes are blocked while these drives are active: " + ", ".join(active),
+        )
+
+
 async def _storage_request(node_id: str, method: str, body: dict | None = None):
     node = node_client.get_node(node_id)
     try:
@@ -82,4 +95,25 @@ async def test_smb(node_id: str, credentials: SmbCredentials):
     return await asyncio.to_thread(
         adoption.test_smb,
         _ssh_host(node), credentials.ssh_port, credentials.username, credentials.password,
+    )
+
+
+@router.post("/dependencies/check")
+async def check_dependencies(node_id: str, credentials: SmbCredentials):
+    node = node_client.get_node(node_id)
+    return await asyncio.to_thread(
+        adoption.check_node_dependencies,
+        _ssh_host(node), credentials.ssh_port, credentials.username,
+        credentials.password, credentials.sudo_password,
+    )
+
+
+@router.post("/dependencies/update")
+async def update_dependencies(node_id: str, credentials: SmbCredentials):
+    node = node_client.get_node(node_id)
+    _assert_node_idle(node_id)
+    return await asyncio.to_thread(
+        adoption.update_node_dependencies,
+        _ssh_host(node), credentials.ssh_port, credentials.username,
+        credentials.password, credentials.sudo_password,
     )
