@@ -1281,17 +1281,6 @@ select option{
 .hardware-actions .node-terminal-link{grid-column:1/-1}
 
 
-.update-line-actions {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
-}
-.update-line-actions .secondary {
-  min-height: 36px;
-  padding: 7px 12px;
-}
 .dependency-list {
   display: grid;
   gap: 8px;
@@ -1299,4 +1288,23 @@ select option{
 }
 .dependency-list .update-line {
   align-items: center;
+}
+
+.update-line-link {
+  width: 100%;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.update-line-link:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, var(--panel));
+}
+.update-line-link:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 2px;
 }
