@@ -1,4 +1,4 @@
-/* Rip Remote 0.19.0 — front end for Rip Manager.
+/* Rip Remote 0.19.1 — front end for Rip Manager.
  *
  * Sections, in order:
  *   1. State and small helpers
@@ -1054,6 +1054,7 @@ function renderSettingsRoute(page, ...args) {
     "add-node":addNodePage,
     "install-node-page":adoptionPage,
     "connect-node":existingNodePage,
+    "node-update-details":nodeUpdateDetailsPage,
   };
   (routes[page] || renderSettingsHome)(...args);
 }
@@ -1925,6 +1926,80 @@ function updatesPage() {
   loadUpdates();
 }
 
+function dependencyCredentials() {
+  return {
+    username:$("#dependencyUser")?.value.trim(),
+    password:$("#dependencyPassword")?.value||"",
+    sudo_password:$("#dependencySudo")?.value||null,
+    ssh_port:Number($("#dependencyPort")?.value||22),
+  };
+}
+
+async function nodeUpdateDetailsPage(nodeId) {
+  let status=State.latestUpdateStatus;
+  if(!status){
+    try{status=await api("/updates/status");State.latestUpdateStatus=status;}
+    catch(error){drawer("Node updates",`<div class="note bad">${esc(error.message)}</div>`);return;}
+  }
+  const node=(status.nodes||[]).find(item=>item.id===nodeId);
+  if(!node){drawer("Node updates",`<div class="note bad">Node update details are unavailable.</div>`);return;}
+  const available=status.node_update?.version;
+  const nodeState=node.update_available?"UPDATE AVAILABLE":node.version?"CURRENT":"CHECK FAILED";
+  drawer(`${node.name} updates`,`${backBar()}
+    <div class="settings-page-intro"><span class="settings-page-icon">↻</span><div><strong>${esc(node.name)}</strong><small>Node software and dependency versions</small></div></div>
+    <div class="settings-group"><h3>Node API</h3>
+      <div class="update-line"><div><strong>Rip Node API</strong><small>Installed: ${esc(node.version||"Unknown")} · Available: ${esc(available||"None found")}</small></div><span class="update-badge ${node.update_available?"new":"ok"}">${nodeState}</span></div>
+      <div class="note compact-note">Installing a Node API update queues the current release for all eligible real nodes. Busy nodes wait until their rips finish.</div>
+      <button class="primary full-button" type="button" data-settings-action="install-node-api-from-detail" ${node.update_available?"":"disabled"}>Install Node API update</button>
+    </div>
+    <div class="settings-group"><h3>Dependencies</h3>
+      <div class="note compact-note">Shows installed and available versions of Ubuntu packages and the Node API’s Python packages. This does not perform an Ubuntu release upgrade.</div>
+      <div class="field"><label>SSH username</label><input id="dependencyUser" value="adam" autocomplete="username"></div>
+      <div class="field"><label>SSH password</label><input id="dependencyPassword" type="password" autocomplete="current-password"></div>
+      <div class="field"><label>Sudo password <span class="muted-inline">(blank = same password)</span></label><input id="dependencySudo" type="password" autocomplete="off"></div>
+      <div class="field"><label>SSH port</label><input id="dependencyPort" type="number" min="1" max="65535" value="22"></div>
+      <div class="warning-box">Credentials are used for this request only and are never saved. Installation is blocked while any drive on the node is active.</div>
+      <div id="dependencyResult" class="note compact-note">Press Check dependencies to load installed and available versions.</div>
+      <div id="dependencyVersions"></div>
+      <button id="dependencyCheck" class="primary full-button" type="button" data-settings-action="check-node-deps" data-node-id="${esc(nodeId)}">Check dependencies</button>
+      <button id="dependencyUpdate" class="secondary full-button" type="button" data-settings-action="update-node-deps" data-node-id="${esc(nodeId)}" disabled>Update dependencies</button>
+    </div>`);
+}
+
+async function runNodeDependencyDetails(nodeId, action) {
+  const status=$("#dependencyResult"), versions=$("#dependencyVersions");
+  const check=$("#dependencyCheck"), update=$("#dependencyUpdate");
+  const payload=dependencyCredentials();
+  if(!payload.username||!payload.password){status.textContent="Enter the node username and password.";return;}
+  if(action==="update"&&!confirm("Install the listed dependency updates and restart the Node API?"))return;
+  check.disabled=true;update.disabled=true;
+  status.textContent=action==="check"
+    ?"Refreshing package information and comparing versions…"
+    :"Updating dependencies and restarting the Node API…";
+  try{
+    const result=await api(`/nodes/${encodeURIComponent(nodeId)}/dependencies/${action}`,{
+      method:"POST",body:JSON.stringify(payload),
+    });
+    if(action==="check"){
+      const rows=result.dependencies||[];
+      versions.innerHTML=rows.length?`<div class="dependency-list">${rows.map(item=>`<div class="update-line">
+        <div><strong>${esc(item.name)}</strong><small>${esc(item.type)} · Installed: ${esc(item.installed)} · Available: ${esc(item.available)}</small></div>
+        <span class="update-badge ${item.state==="update"||item.state==="missing"?"new":"ok"}">${item.state==="missing"?"MISSING":item.state==="update"?"UPDATE AVAILABLE":"CURRENT"}</span>
+      </div>`).join("")}</div>`:`<div class="note">No dependency information returned.</div>`;
+      status.textContent=result.message;
+      update.disabled=!result.updates_available;
+    }else{
+      status.innerHTML=`<strong>✓ ${esc(result.message)}</strong>`;
+      toast(result.message);
+    }
+  }catch(error){status.textContent=error.message;}
+  finally{
+    if($("#dependencyPassword"))$("#dependencyPassword").value="";
+    if($("#dependencySudo"))$("#dependencySudo").value="";
+    check.disabled=false;
+  }
+}
+
 async function saveSettings() {
   const pin = $("#newPin")?.value || "";
   const confirmPin = $("#confirmPin")?.value || "";
@@ -1986,12 +2061,14 @@ async function lockNow() {
  * 9. Updates
  * ------------------------------------------------------------------ */
 
-function updateLine(label, installed, available, state = "") {
+function updateLine(label, installed, available, state = "", nodeId = null) {
   const badge = state === "simulator" ? "BUILT-IN" : state === "new" ? "UPDATE AVAILABLE" : state === "ok" ? "CURRENT" : "CHECK";
   const detail = state === "simulator" ? " · Managed with Rip Manager" : available ? ` · Available: ${esc(available)}` : " · No update file found";
   return `<div class="update-line">
     <div><strong>${esc(label)}</strong><small>Installed: ${esc(installed || "Unknown")}${detail}</small></div>
-    <span class="update-badge ${state}">${badge}</span>
+    <div class="update-line-actions"><span class="update-badge ${state}">${badge}</span>
+      ${nodeId && state !== "simulator" ? `<button class="secondary" type="button" data-node-update-details="${esc(nodeId)}">Details</button>` : ""}
+    </div>
   </div>`;
 }
 
@@ -2007,6 +2084,7 @@ async function loadUpdates(announce = false) {
 
   try {
     const status = await api("/updates/status");
+    State.latestUpdateStatus = status;
     const manager = status.manager.available;
     const nodeVersion = status.node_update?.version;
 
@@ -2014,7 +2092,7 @@ async function loadUpdates(announce = false) {
       manager?.newer ? "new" : "ok");
     const visibleNodes = status.nodes.filter((node) => !(node.simulator && node.enabled === false));
     html += visibleNodes.map((node) => updateLine(node.name, node.version || (node.simulator ? "Included" : null), nodeVersion,
-      node.simulator ? "simulator" : node.update_available ? "new" : node.version ? "ok" : "")).join("");
+      node.simulator ? "simulator" : node.update_available ? "new" : node.version ? "ok" : "", node.id)).join("");
     if (status.host_updater?.message) {
       html += `<div class="update-result ${esc(status.host_updater.state || "")}">${esc(status.host_updater.message)}</div>`;
     }
@@ -2355,6 +2433,7 @@ $("#settingsContent").addEventListener("click", (event) => {
   if (button.dataset.hardwareNode !== undefined) { navigateSettings("hardware-node",{args:[Number(button.dataset.hardwareNode)]}); return; }
   if (button.dataset.removeNode !== undefined) { beginRemoveNode(Number(button.dataset.removeNode)); return; }
   if (button.dataset.providerPage) { navigateSettings("provider",{args:[button.dataset.providerPage]}); return; }
+  if (button.dataset.nodeUpdateDetails) { navigateSettings("node-update-details",{args:[button.dataset.nodeUpdateDetails]}); return; }
 
   switch (button.dataset.settingsAction) {
     case "home": renderSettingsHome(); return;
@@ -2372,6 +2451,9 @@ $("#settingsContent").addEventListener("click", (event) => {
     case "run-diagnostics": runDiagnostics(); return;
     case "restart-manager": restartManager(); return;
     case "save-node-storage": saveNodeStorage(button.dataset.nodeIndex); return;
+    case "check-node-deps": runNodeDependencyDetails(button.dataset.nodeId,"check"); return;
+    case "update-node-deps": runNodeDependencyDetails(button.dataset.nodeId,"update"); return;
+    case "install-node-api-from-detail": pushNodeUpdates(); return;
     case "setup-node-smb": openNodeSmbSetup(button.dataset.nodeIndex); return;
     case "test-metadata": testMetadataProvider(button.dataset.provider); return;
     default: break;
