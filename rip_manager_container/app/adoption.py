@@ -245,6 +245,196 @@ def test_smb(host: str, port: int, username: str, password: str) -> dict:
         client.close()
 
 
+
+NODE_APT_DEPENDENCIES = (
+    "eject", "ffmpeg", "abcde", "cdparanoia", "cd-discid", "flac", "lame",
+    "python3", "python3-venv", "python3-pip", "curl", "util-linux",
+)
+NODE_PYTHON_DEPENDENCIES = ("fastapi", "uvicorn", "psutil")
+
+
+def _dependency_package_script(simulate: bool) -> str:
+    """Build an apt command that also maintains optional installed components."""
+    base = " ".join(shlex.quote(item) for item in NODE_APT_DEPENDENCIES)
+    action = "apt-get -s install" if simulate else "DEBIAN_FRONTEND=noninteractive apt-get install -y"
+    return (
+        "set -eu; packages=" + shlex.quote(base) + "; "
+        "for optional in samba smbclient makemkv-bin makemkv-oss; do "
+        "if dpkg-query -W -f='\${Status}' \"$optional\" 2>/dev/null | grep -q 'install ok installed' "
+        "|| apt-cache show \"$optional\" >/dev/null 2>&1; then packages=\"$packages $optional\"; fi; done; "
+        + action + " $packages"
+    )
+
+
+def check_node_dependencies(host: str, port: int, username: str, password: str,
+                            sudo_password: Optional[str]) -> dict:
+    """Refresh package metadata and report missing/outdated node dependencies."""
+    user = username.strip()
+    if not SAFE_USER.fullmatch(user):
+        raise HTTPException(status_code=422, detail="SSH username is not valid")
+    sudo = sudo_password if sudo_password is not None else password
+    client = _ssh(host, port, user, password)
+    try:
+        rc, _, error = _run(client, "apt-get update -qq", sudo, timeout=600)
+        if rc != 0:
+            raise HTTPException(status_code=502, detail=f"Could not refresh Ubuntu package information: {error.strip()[-800:]}")
+
+        rc, output, error = _run(client, _dependency_package_script(True), sudo, timeout=300)
+        if rc != 0:
+            raise HTTPException(status_code=502, detail=f"Could not check Ubuntu dependencies: {error.strip()[-800:]}")
+
+        apt_updates = []
+        for line in output.splitlines():
+            if line.startswith("Inst "):
+                fields = line.split()
+                apt_updates.append({
+                    "package": fields[1] if len(fields) > 1 else line,
+                    "detail": line[:500],
+                })
+
+        missing_command = "for p in " + " ".join(NODE_APT_DEPENDENCIES) + "; do dpkg-query -W -f='\${Status}' \"$p\" 2>/dev/null | grep -q 'install ok installed' || echo \"$p\"; done"
+        _, missing_output, _ = _run(client, missing_command)
+        missing = [line.strip() for line in missing_output.splitlines() if line.strip()]
+
+        version_script = (
+            "packages='" + " ".join(NODE_APT_DEPENDENCIES) + "'; "
+            "for optional in samba smbclient makemkv-bin makemkv-oss; do "
+            "if dpkg-query -W \"$optional\" >/dev/null 2>&1 || apt-cache show \"$optional\" >/dev/null 2>&1; "
+            "then packages=\"$packages $optional\"; fi; done; "
+            "for p in $packages; do "
+            "installed=$(dpkg-query -W -f='\${Version}' \"$p\" 2>/dev/null || printf missing); "
+            "candidate=$(apt-cache policy \"$p\" | awk '/Candidate:/{print $2; exit}'); "
+            "printf '%s\\t%s\\t%s\\n' \"$p\" \"$installed\" \"${candidate:-unavailable}\"; done"
+        )
+        _, versions_output, _ = _run(client, version_script)
+        apt_dependencies = []
+        for line in versions_output.splitlines():
+            parts = line.split("\\t")
+            if len(parts) == 3:
+                name, installed, candidate = parts
+                apt_dependencies.append({
+                    "name": name,
+                    "type": "Ubuntu",
+                    "installed": installed,
+                    "available": candidate,
+                    "state": (
+                        "missing" if installed == "missing"
+                        else "update" if candidate not in {"unavailable", "(none)", installed}
+                        else "current"
+                    ),
+                })
+
+        py_installed_command = (
+            "/opt/rip-node/venv/bin/python -m pip list --format=json 2>/dev/null "
+            "|| printf '[]'"
+        )
+        py_outdated_command = (
+            "/opt/rip-node/venv/bin/python -m pip list --outdated --format=json 2>/dev/null "
+            "|| printf '[]'"
+        )
+        _, py_installed_output, _ = _run(client, py_installed_command, timeout=60)
+        _, py_outdated_output, _ = _run(client, py_outdated_command, timeout=180)
+        try:
+            import json
+            installed_python = json.loads(py_installed_output.strip() or "[]")
+            outdated_python = json.loads(py_outdated_output.strip() or "[]")
+        except (ValueError, TypeError):
+            installed_python, outdated_python = [], []
+        wanted = set(NODE_PYTHON_DEPENDENCIES)
+        current_by_name = {
+            str(item.get("name", "")).lower(): item
+            for item in installed_python
+            if str(item.get("name", "")).lower() in wanted
+        }
+        outdated_by_name = {
+            str(item.get("name", "")).lower(): item
+            for item in outdated_python
+            if str(item.get("name", "")).lower() in wanted
+        }
+        python_dependencies = []
+        for name in NODE_PYTHON_DEPENDENCIES:
+            current = current_by_name.get(name, {})
+            newer = outdated_by_name.get(name, {})
+            installed = current.get("version") or "missing"
+            available = newer.get("latest_version") or installed
+            python_dependencies.append({
+                "name": name,
+                "type": "Python",
+                "installed": installed,
+                "available": available,
+                "state": "missing" if installed == "missing" else "update" if newer else "current",
+            })
+        python_updates = [item for item in python_dependencies if item["state"] != "current"]
+
+        _, node_version, _ = _run(
+            client,
+            "curl -fsS --max-time 5 http://127.0.0.1:8000/api/info 2>/dev/null "
+            "| python3 -c 'import json,sys; print(json.load(sys.stdin).get(\"version\", \"unknown\"))' "
+            "|| true",
+        )
+        return {
+            "ok": True,
+            "host": host,
+            "missing": missing,
+            "apt_updates": apt_updates,
+            "python_updates": python_updates,
+            "dependencies": apt_dependencies + python_dependencies,
+            "node_version": node_version.strip() or "unknown",
+            "updates_available": bool(missing or apt_updates or python_updates),
+            "message": (
+                f"{len(missing) + len(apt_updates) + len(python_updates)} dependency update(s) available"
+                if missing or apt_updates or python_updates
+                else "Node dependencies are up to date"
+            ),
+        }
+    finally:
+        client.close()
+
+
+def update_node_dependencies(host: str, port: int, username: str, password: str,
+                             sudo_password: Optional[str]) -> dict:
+    """Manually update only the packages used by Rip Node, then verify its API."""
+    user = username.strip()
+    if not SAFE_USER.fullmatch(user):
+        raise HTTPException(status_code=422, detail="SSH username is not valid")
+    sudo = sudo_password if sudo_password is not None else password
+    client = _ssh(host, port, user, password)
+    try:
+        rc, _, error = _run(client, "apt-get update -qq", sudo, timeout=600)
+        if rc != 0:
+            raise HTTPException(status_code=502, detail=f"Could not refresh Ubuntu package information: {error.strip()[-800:]}")
+        rc, output, error = _run(client, _dependency_package_script(False), sudo, timeout=1200)
+        if rc != 0:
+            raise HTTPException(status_code=500, detail=f"Ubuntu dependency update failed: {error.strip()[-1200:]}")
+
+        pip_command = (
+            "if test -x /opt/rip-node/venv/bin/python; then "
+            "/opt/rip-node/venv/bin/python -m pip install --upgrade fastapi uvicorn psutil; fi"
+        )
+        rc, pip_output, pip_error = _run(client, pip_command, sudo, timeout=600)
+        if rc != 0:
+            raise HTTPException(status_code=500, detail=f"Python dependency update failed: {pip_error.strip()[-1000:]}")
+
+        restart_script = (
+            "systemctl restart rip-node-api; "
+            "if systemctl is-enabled smbd >/dev/null 2>&1; then systemctl restart smbd; fi; "
+            "sleep 2; systemctl is-active --quiet rip-node-api"
+        )
+        rc, _, error = _run(client, restart_script, sudo, timeout=90)
+        if rc != 0:
+            raise HTTPException(status_code=502, detail=f"Dependencies updated but Rip Node did not restart cleanly: {error.strip()[-800:]}")
+
+        return {
+            "ok": True,
+            "host": host,
+            "message": "Node dependencies updated and Rip Node restarted successfully",
+            "apt_summary": [line[:500] for line in output.splitlines() if line.startswith(("Inst ", "Setting up "))][-50:],
+            "python_summary": pip_output.splitlines()[-30:],
+        }
+    finally:
+        client.close()
+
+
 def _updater_script(manager_url: str, api_port: int, token: str) -> str:
     manager = manager_url.rstrip("/")
     return f'''#!/usr/bin/env bash
