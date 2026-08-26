@@ -1,15 +1,35 @@
-"""Authenticated configuration proxy for settings owned by a real Rip Node."""
+"""Node storage and authenticated SMB-share management."""
 from __future__ import annotations
+
+import asyncio
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Body, HTTPException
 import httpx
+from pydantic import BaseModel, Field
+from typing import Optional
 
+import adoption
 import nodes as node_client
 
-router = APIRouter(prefix="/nodes/{node_id}/storage", tags=["node-settings"])
+router = APIRouter(prefix="/nodes/{node_id}", tags=["node-settings"])
 
 
-async def _request(node_id: str, method: str, body: dict | None = None):
+class SmbCredentials(BaseModel):
+    ssh_port: int = Field(default=22, ge=1, le=65535)
+    username: str = Field(min_length=1, max_length=80)
+    password: str = Field(min_length=1, max_length=500)
+    sudo_password: Optional[str] = Field(default=None, max_length=500)
+
+
+def _ssh_host(node) -> str:
+    host = urlparse(node_client.base_url(node)).hostname
+    if not host:
+        raise HTTPException(status_code=422, detail="The node URL does not contain a usable hostname or IP")
+    return host
+
+
+async def _storage_request(node_id: str, method: str, body: dict | None = None):
     node = node_client.get_node(node_id)
     try:
         response = await node_client.client().request(
@@ -33,11 +53,33 @@ async def _request(node_id: str, method: str, body: dict | None = None):
     return payload
 
 
-@router.get("")
+@router.get("/storage")
 async def get_storage(node_id: str):
-    return await _request(node_id, "GET")
+    return await _storage_request(node_id, "GET")
 
 
-@router.put("")
+@router.put("/storage")
 async def set_storage(node_id: str, payload: dict = Body(...)):
-    return await _request(node_id, "PUT", payload)
+    return await _storage_request(node_id, "PUT", payload)
+
+
+@router.post("/smb/setup")
+async def setup_smb(node_id: str, credentials: SmbCredentials):
+    node = node_client.get_node(node_id)
+    storage = await _storage_request(node_id, "GET")
+    if not storage.get("exists") or not storage.get("writable"):
+        raise HTTPException(status_code=422, detail="Fix the node storage location before creating its SMB share")
+    return await asyncio.to_thread(
+        adoption.setup_smb,
+        _ssh_host(node), credentials.ssh_port, credentials.username,
+        credentials.password, credentials.sudo_password, storage["path"],
+    )
+
+
+@router.post("/smb/test")
+async def test_smb(node_id: str, credentials: SmbCredentials):
+    node = node_client.get_node(node_id)
+    return await asyncio.to_thread(
+        adoption.test_smb,
+        _ssh_host(node), credentials.ssh_port, credentials.username, credentials.password,
+    )

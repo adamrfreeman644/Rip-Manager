@@ -1,4 +1,4 @@
-/* Rip Remote 0.18.9 — front end for Rip Manager.
+/* Rip Remote 0.19.0 — front end for Rip Manager.
  *
  * Sections, in order:
  *   1. State and small helpers
@@ -1286,6 +1286,10 @@ function hardwareNodePage(index) {
       <div id="nodeStorageStatus" class="note compact-note">Reading storage settings from the Node API…</div>
       <button class="primary full-button" type="button" data-settings-action="save-node-storage" data-node-index="${index}" disabled>Save storage location</button>
     </div>
+    <div class="settings-group"><h3>SMB network share</h3>
+      <div class="note compact-note">Create or repair an authenticated <strong>Rips</strong> share for this node’s current storage location. Credentials are used only for this SSH operation and are never saved by Rip Manager.</div>
+      <button class="primary full-button" type="button" data-settings-action="setup-node-smb" data-node-index="${index}">Set up / Repair SMB share</button>
+    </div>
     <div class="settings-group danger-zone"><h3>Danger zone</h3>
       <div class="note compact-note">Remove this node from Rip Manager. This does not uninstall the Node API or delete completed rip history.</div>
       <button class="danger full-button" type="button" data-remove-node="${index}">Remove node</button>
@@ -1318,6 +1322,54 @@ async function saveNodeStorage(index) {
     input.value=result.path||path; status.textContent="✓ Storage location saved and writable."; toast("Node storage location updated");
   }catch(error){status.textContent=error.message;}
   finally{button.disabled=false;}
+}
+
+function openNodeSmbSetup(index) {
+  const node=State.draft?.nodes?.[Number(index)];
+  if(!node||isSimulatorNode(node))return;
+  let host=node.url;
+  try{host=new URL(node.url).hostname;}catch{}
+  openModal("Set up SMB share", `<div class="intake-section">
+    <div class="note">This installs or repairs an authenticated <strong>Rips</strong> share for the node’s currently selected storage directory.</div>
+    <div class="field"><label>Node</label><input value="${esc(host)}" disabled></div>
+    <div class="field"><label>SSH / SMB username</label><input id="smbSetupUser" value="adam" autocomplete="username"></div>
+    <div class="field"><label>SSH / SMB password</label><input id="smbSetupPassword" type="password" autocomplete="current-password"></div>
+    <div class="field"><label>Sudo password <span class="muted-inline">(blank = same password)</span></label><input id="smbSetupSudo" type="password" autocomplete="off"></div>
+    <div class="field"><label>SSH port</label><input id="smbSetupPort" type="number" min="1" max="65535" value="22"></div>
+    <div class="warning-box">Rip Manager does not save these credentials. Save them in your phone, tablet or computer’s own Files app when connecting to the share.</div>
+    <div id="smbSetupResult" class="note compact-note">The share requires this username and password; guest access is never enabled.</div>
+    <button id="smbSetupRun" class="primary full-button" type="button">Set up / Repair share</button>
+    <button id="smbSetupTest" class="secondary full-button" type="button">Test existing share</button>
+  </div>`);
+  $("#smbSetupRun").onclick=()=>runNodeSmbAction(node.id,"setup");
+  $("#smbSetupTest").onclick=()=>runNodeSmbAction(node.id,"test");
+}
+
+async function runNodeSmbAction(nodeId, action) {
+  const status=$("#smbSetupResult"), setup=$("#smbSetupRun"), test=$("#smbSetupTest");
+  const payload={
+    username:$("#smbSetupUser")?.value.trim(),
+    password:$("#smbSetupPassword")?.value||"",
+    sudo_password:$("#smbSetupSudo")?.value||null,
+    ssh_port:Number($("#smbSetupPort")?.value||22),
+  };
+  if(!payload.username||!payload.password){status.textContent="Enter the node username and password.";return;}
+  setup.disabled=true; test.disabled=true;
+  status.textContent=action==="setup"
+    ?"Installing or repairing Samba and testing the login… This can take several minutes."
+    :"Testing Samba and the supplied login…";
+  try{
+    const result=await api(`/nodes/${encodeURIComponent(nodeId)}/smb/${action}`,{
+      method:"POST",body:JSON.stringify(payload),
+    });
+    status.innerHTML=`<strong>✓ ${esc(result.message)}</strong><br><code>${esc(result.unc)}</code><br>Username: <code>${esc(result.username)}</code>`;
+    toast(result.message);
+  }catch(error){status.textContent=error.message;}
+  finally{
+    if($("#smbSetupPassword"))$("#smbSetupPassword").value="";
+    if($("#smbSetupSudo"))$("#smbSetupSudo").value="";
+    setup.disabled=false; test.disabled=false;
+  }
 }
 
 function beginRemoveNode(index) {
@@ -2320,6 +2372,7 @@ $("#settingsContent").addEventListener("click", (event) => {
     case "run-diagnostics": runDiagnostics(); return;
     case "restart-manager": restartManager(); return;
     case "save-node-storage": saveNodeStorage(button.dataset.nodeIndex); return;
+    case "setup-node-smb": openNodeSmbSetup(button.dataset.nodeIndex); return;
     case "test-metadata": testMetadataProvider(button.dataset.provider); return;
     default: break;
   }
