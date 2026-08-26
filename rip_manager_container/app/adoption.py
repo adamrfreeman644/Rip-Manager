@@ -6,6 +6,7 @@ the node only through the Rip Node HTTP API and its generated bearer token.
 """
 from __future__ import annotations
 
+import base64
 import io
 import os
 import re
@@ -23,8 +24,8 @@ from fastapi import HTTPException
 import db
 import poller
 
-BUNDLED_NODE = Path(__file__).resolve().parent / "bundled_rip_node_api_v0.2.8.py"
-NODE_VERSION = "0.2.8"
+BUNDLED_NODE = Path(__file__).resolve().parent / "bundled_rip_node_api_v0.2.9.py"
+NODE_VERSION = "0.2.9"
 SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
 SAFE_USER = re.compile(r"^[a-z_][a-z0-9_-]{0,31}$")
 ProgressCallback = Callable[[str, int, str], None]
@@ -81,6 +82,164 @@ def test_ssh(host: str, port: int, username: str, password: str,
             "sudo_error": None if sudo_rc == 0 else sudo_err.strip()[-300:],
             "makemkv": bool(makemkv.strip()),
             "optical_devices": drives.split(),
+        }
+    finally:
+        client.close()
+
+
+
+def _run_input(client: paramiko.SSHClient, command: str, input_text: str,
+               timeout: int = 300) -> tuple[int, str, str]:
+    """Run a command and supply secrets through SSH stdin, never argv."""
+    stdin, stdout, stderr = client.exec_command(command, timeout=timeout)
+    stdin.write(input_text)
+    stdin.flush()
+    stdin.channel.shutdown_write()
+    code = stdout.channel.recv_exit_status()
+    return code, stdout.read().decode(errors="replace"), stderr.read().decode(errors="replace")
+
+
+def _smb_auth_test(client: paramiko.SSHClient, username: str, password: str) -> tuple[bool, str]:
+    """Authenticate locally through Samba without exposing the password in argv."""
+    token = secrets.token_hex(8)
+    remote = f"/tmp/rip-manager-smb-auth-{token}"
+    sftp = client.open_sftp()
+    try:
+        with sftp.file(remote, "w") as handle:
+            handle.write(f"username = {username}\\npassword = {password}\\n")
+        sftp.chmod(remote, 0o600)
+    finally:
+        sftp.close()
+    try:
+        code, output, error = _run(
+            client,
+            f"smbclient -L //127.0.0.1 -A {shlex.quote(remote)} -m SMB3",
+            timeout=45,
+        )
+        detail = (error or output).strip()[-500:]
+        return code == 0, detail
+    finally:
+        _run(client, f"rm -f {shlex.quote(remote)}")
+
+
+def setup_smb(host: str, port: int, username: str, password: str,
+              sudo_password: Optional[str], output_path: str) -> dict:
+    """Install/repair an authenticated Rips share using request-only credentials."""
+    user = username.strip()
+    if not SAFE_USER.fullmatch(user):
+        raise HTTPException(status_code=422, detail="SSH username is not valid for Ubuntu/Samba")
+    path = Path(output_path)
+    if not path.is_absolute():
+        raise HTTPException(status_code=422, detail="Node storage location must be an absolute path")
+
+    sudo = sudo_password if sudo_password is not None else password
+    client = _ssh(host, port, user, password)
+    config_remote = f"/tmp/rip-manager-smb-config-{secrets.token_hex(8)}"
+    config = f"""# BEGIN RIP MANAGER SMB
+[Rips]
+   comment = Rip Manager output
+   path = {path}
+   browseable = yes
+   read only = no
+   guest ok = no
+   valid users = {user}
+   force user = {user}
+   create mask = 0660
+   directory mask = 0770
+# END RIP MANAGER SMB
+"""
+    try:
+        check_rc, _, check_err = _run(
+            client,
+            f"id {shlex.quote(user)} >/dev/null 2>&1 && "
+            f"test -d {shlex.quote(str(path))} && "
+            f"test -r {shlex.quote(str(path))} && "
+            f"test -w {shlex.quote(str(path))} && "
+            f"test -x {shlex.quote(str(path))}",
+        )
+        if check_rc != 0:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{path} must exist and be readable/writable by {user}: {check_err.strip()}",
+            )
+
+        sftp = client.open_sftp()
+        try:
+            with sftp.file(config_remote, "w") as handle:
+                handle.write(config)
+            sftp.chmod(config_remote, 0o600)
+        finally:
+            sftp.close()
+
+        install_script = (
+            "set -eu; "
+            "if ! command -v smbd >/dev/null 2>&1 || ! command -v smbclient >/dev/null 2>&1; then "
+            "export DEBIAN_FRONTEND=noninteractive; apt-get update; "
+            "apt-get install -y samba smbclient; fi; "
+            "cp -a /etc/samba/smb.conf /etc/samba/smb.conf.rip-manager-backup; "
+            "sed '/^# BEGIN RIP MANAGER SMB$/,/^# END RIP MANAGER SMB$/d' "
+            "/etc/samba/smb.conf > /etc/samba/smb.conf.rip-manager-new; "
+            f"cat {shlex.quote(config_remote)} >> /etc/samba/smb.conf.rip-manager-new; "
+            "mv /etc/samba/smb.conf.rip-manager-new /etc/samba/smb.conf; "
+            "testparm -s /etc/samba/smb.conf >/dev/null; "
+            "systemctl enable --now smbd; systemctl restart smbd; "
+            "if command -v ufw >/dev/null 2>&1 && ufw status | grep -q '^Status: active'; "
+            "then ufw allow Samba >/dev/null; fi"
+        )
+        rc, _, error = _run(client, install_script, sudo, timeout=600)
+        if rc != 0:
+            raise HTTPException(status_code=500, detail=f"Samba setup failed: {error.strip()[-800:]}")
+
+        command = f"sudo -S -p '' smbpasswd -a -s {shlex.quote(user)}"
+        rc, _, error = _run_input(
+            client, command, f"{sudo}\\n{password}\\n{password}\\n", timeout=60
+        )
+        if rc != 0:
+            raise HTTPException(status_code=500, detail=f"Could not set the SMB password: {error.strip()[-500:]}")
+
+        ok, detail = _smb_auth_test(client, user, password)
+        if not ok:
+            raise HTTPException(status_code=502, detail=f"Samba started but authentication failed: {detail}")
+
+        return {
+            "ok": True,
+            "share_name": "Rips",
+            "path": str(path),
+            "host": host,
+            "unc": f"\\\\{host}\\Rips",
+            "smb_url": f"smb://{host}/Rips",
+            "username": user,
+            "authenticated": True,
+            "message": "Authenticated SMB share is ready",
+        }
+    finally:
+        _run(client, f"rm -f {shlex.quote(config_remote)}")
+        client.close()
+
+
+def test_smb(host: str, port: int, username: str, password: str) -> dict:
+    """Verify Samba service and the supplied account."""
+    user = username.strip()
+    if not SAFE_USER.fullmatch(user):
+        raise HTTPException(status_code=422, detail="SSH username is not valid")
+    client = _ssh(host, port, user, password)
+    try:
+        rc, output, error = _run(
+            client,
+            "systemctl is-active smbd && testparm -s /etc/samba/smb.conf >/dev/null",
+            timeout=30,
+        )
+        if rc != 0:
+            raise HTTPException(status_code=502, detail=f"Samba is not healthy: {(error or output).strip()[-500:]}")
+        ok, detail = _smb_auth_test(client, user, password)
+        if not ok:
+            raise HTTPException(status_code=502, detail=f"SMB authentication failed: {detail}")
+        return {
+            "ok": True,
+            "unc": f"\\\\{host}\\Rips",
+            "smb_url": f"smb://{host}/Rips",
+            "username": user,
+            "message": "SMB service and username/password verified",
         }
     finally:
         client.close()
