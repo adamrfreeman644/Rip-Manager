@@ -1,4 +1,4 @@
-# Rip Manager v0.18.8
+# Rip Manager v0.18.9
 
 Release date: 25 August 2026  
 Bundled Rip Node API: v0.2.9
@@ -6,6 +6,15 @@ Bundled Rip Node API: v0.2.9
 Rip Manager controls optical-disc ripping nodes from one mobile-friendly web
 interface. This package also includes a built-in simulator, the real Rip Node
 software, installation tools, manual GitHub updates and safe Manager rollback.
+
+## What is new in v0.18.9
+
+- Finished jobs stay attached to a drive tile while its disc remains physically
+  loaded, so verification failures no longer collapse into **Unassigned disc**.
+- Saved title, year, season and disc details remain visible with the real error,
+  allowing the operator to diagnose, eject, clear or retry the disc.
+- A finished tile resets only after the Node reports that the disc was removed.
+- Bundled Node API remains v0.2.9 and installation remains manual-only.
 
 ## What is new in v0.18.8
 
@@ -216,9 +225,9 @@ addresses, polling, API tools, updates, rollback and PIN protection.
 
 1. Publish this ZIP as the newest release asset in the Rip Manager repository.
 2. Open **Settings → System → Updates** and press **Check now**.
-3. Confirm v0.18.8 is available. Do not update during an active rip.
+3. Confirm v0.18.9 is available. Do not update during an active rip.
 4. Press **Install update** once. Manager briefly restarts.
-5. Refresh after it returns and confirm v0.18.8 in Settings.
+5. Refresh after it returns and confirm v0.18.9 in Settings.
 
 The update preserves the database, settings, PIN, nodes, layout and job history.
 
@@ -324,7 +333,7 @@ PIN. The current PIN is required before replacing it.
 
 ## Compatibility
 
-- Manager: v0.18.8; bundled Node API: v0.2.9.
+- Manager: v0.18.9; bundled Node API: v0.2.9.
 - Existing v0.16.x and v0.17.x Manager data is preserved.
 - Drive mapping requires Node API v0.2.4 or newer.
 - Real nodes should use the Manager-served updater.
@@ -363,7 +372,7 @@ title entry if the provider has no match.
 
 ### New interface does not appear
 
-Confirm Settings reports v0.18.8, then reload the page. Versioned asset URLs
+Confirm Settings reports v0.18.9, then reload the page. Versioned asset URLs
 prevent old interface files being reused.
 
 ## Checklist for future releases
