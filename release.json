@@ -1,10 +1,10 @@
 {
-  "version": "0.19.0",
+  "version": "0.19.1",
   "notes": [
-    "Add Set up / Repair SMB share to every real node management page.",
-    "Create an authenticated Rips share for the node's currently selected storage directory; guest access is never enabled.",
-    "Use SSH, sudo and SMB credentials only for the active request and never save them in Rip Manager, browser storage or source code.",
-    "Add Test existing share to verify the Samba service and the supplied username/password.",
-    "Fix fresh-node adoption to bundle Node API v0.2.9; Manager and Node updates remain manual-only."
+    "Make each real Node entry on System → Updates open a detailed Node Updates page.",
+    "Show installed and available versions for the Node API, required Ubuntu packages and Node Python packages.",
+    "Add separate manual controls for checking dependencies, installing dependency updates and installing the Node API update.",
+    "Use request-only SSH credentials and block dependency installation while any drive on that node is active.",
+    "Do not perform automatic dependency updates or Ubuntu release upgrades; all update actions remain manual-only."
   ]
 }
