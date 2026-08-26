@@ -1,10 +1,10 @@
 {
-  "version": "0.19.1",
+  "version": "0.19.2",
   "notes": [
-    "Make each real Node entry on System → Updates open a detailed Node Updates page.",
-    "Show installed and available versions for the Node API, required Ubuntu packages and Node Python packages.",
-    "Add separate manual controls for checking dependencies, installing dependency updates and installing the Node API update.",
-    "Use request-only SSH credentials and block dependency installation while any drive on that node is active.",
-    "Do not perform automatic dependency updates or Ubuntu release upgrades; all update actions remain manual-only."
+    "Move Node API and dependency version checks and manual update controls onto each real Node’s Manage Node page.",
+    "Make each real Node tile on System → Updates a full clickable link to that Node’s Manage Node page.",
+    "Make the Simulator tile on System → Updates a full clickable link to its Simulator management page.",
+    "Remove the separate Node Updates details page while preserving request-only SSH credentials and active-drive safety checks.",
+    "Keep Manager, Node API and dependency installation manual-only."
   ]
 }
