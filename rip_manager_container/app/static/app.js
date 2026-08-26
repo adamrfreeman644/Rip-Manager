@@ -1,4 +1,4 @@
-/* Rip Remote 0.19.1 — front end for Rip Manager.
+/* Rip Remote 0.19.2 — front end for Rip Manager.
  *
  * Sections, in order:
  *   1. State and small helpers
@@ -1054,7 +1054,7 @@ function renderSettingsRoute(page, ...args) {
     "add-node":addNodePage,
     "install-node-page":adoptionPage,
     "connect-node":existingNodePage,
-    "node-update-details":nodeUpdateDetailsPage,
+    "simulator-manage":simulatorManagePage,
   };
   (routes[page] || renderSettingsHome)(...args);
 }
@@ -1272,6 +1272,19 @@ function hardwarePage() {
       : `<div class="note compact-note">The simulator is not configured and does not affect normal operation.</div><button class="primary full-button" type="button" data-settings-action="add-simulator">Add built-in simulator</button>`}
     </div>${saveBar()}`);
 }
+
+function simulatorManagePage() {
+  const simulator=(State.draft.nodes||[]).find(isSimulatorNode);
+  drawer("Simulator",`${backBar()}<div class="settings-page-intro"><span class="settings-page-icon">◈</span><div><strong>Built-in Simulator</strong><small>Demonstration and training only</small></div></div>
+    <div class="settings-group simulator-settings"><div class="simulator-settings-head"><div>${groupHeading("Simulator node","simulator")}<small>Managed as part of Rip Manager</small></div><span class="update-badge simulator">BUILT-IN</span></div>
+      ${simulator ? `<div class="simulator-status-row"><span>Status</span><strong class="${simulator.enabled?"ok-text":"muted-inline"}">${simulator.enabled?"RUNNING":"OFF"}</strong></div>
+        <div class="note compact-note">Two simulated Blu-ray drives and four simulated DVD drives. It never accesses real hardware or storage.</div>
+        <button class="secondary full-button" type="button" data-settings-action="reset-simulator" ${simulator.enabled?"":"disabled"}>Reset simulator</button>
+        <button class="${simulator.enabled?"danger":"primary"} full-button" type="button" data-settings-action="toggle-simulator">${simulator.enabled?"Disable simulator":"Enable simulator"}</button>`
+      : `<div class="note compact-note">The simulator is not configured and does not affect normal operation.</div><button class="primary full-button" type="button" data-settings-action="add-simulator">Add built-in simulator</button>`}
+    </div>${saveBar()}`);
+}
+
 function hardwareNodePage(index) {
   const node=State.draft.nodes[Number(index)]; if(!node){hardwarePage();return;}
   const live=State.nodes.find(n=>n.id===node.id)||{};
@@ -1291,11 +1304,45 @@ function hardwareNodePage(index) {
       <div class="note compact-note">Create or repair an authenticated <strong>Rips</strong> share for this node’s current storage location. Credentials are used only for this SSH operation and are never saved by Rip Manager.</div>
       <button class="primary full-button" type="button" data-settings-action="setup-node-smb" data-node-index="${index}">Set up / Repair SMB share</button>
     </div>
+    <div class="settings-group"><h3>Node software</h3>
+      <div id="managedNodeApiStatus" class="update-line"><div><strong>Rip Node API</strong><small>Installed: ${esc(live.version||"Unknown")} · Checking available version…</small></div><span class="update-badge">CHECK</span></div>
+      <div class="note compact-note">Node API installation remains manual. Busy nodes wait until their active rips finish.</div>
+      <button id="managedNodeApiUpdate" class="primary full-button" type="button" data-settings-action="install-node-api-from-detail" disabled>Install Node API update</button>
+    </div>
+    <div class="settings-group"><h3>Dependencies</h3>
+      <div class="note compact-note">Compare installed and available Ubuntu packages and Node API Python packages. This never performs an Ubuntu release upgrade.</div>
+      <div class="field"><label>SSH username</label><input id="dependencyUser" value="adam" autocomplete="username"></div>
+      <div class="field"><label>SSH password</label><input id="dependencyPassword" type="password" autocomplete="current-password"></div>
+      <div class="field"><label>Sudo password <span class="muted-inline">(blank = same password)</span></label><input id="dependencySudo" type="password" autocomplete="off"></div>
+      <div class="field"><label>SSH port</label><input id="dependencyPort" type="number" min="1" max="65535" value="22"></div>
+      <div class="warning-box">Credentials are used for this request only and are never saved. Installation is blocked while any drive on the node is active.</div>
+      <div id="dependencyResult" class="note compact-note">Press Check dependencies to load installed and available versions.</div>
+      <div id="dependencyVersions"></div>
+      <button id="dependencyCheck" class="primary full-button" type="button" data-settings-action="check-node-deps" data-node-id="${esc(node.id)}">Check dependencies</button>
+      <button id="dependencyUpdate" class="secondary full-button" type="button" data-settings-action="update-node-deps" data-node-id="${esc(node.id)}" disabled>Update dependencies</button>
+    </div>
     <div class="settings-group danger-zone"><h3>Danger zone</h3>
       <div class="note compact-note">Remove this node from Rip Manager. This does not uninstall the Node API or delete completed rip history.</div>
       <button class="danger full-button" type="button" data-remove-node="${index}">Remove node</button>
     </div>${saveBar()}`);
   loadNodeStorage(node.id);
+  loadManagedNodeUpdateStatus(node.id,live.version);
+}
+
+async function loadManagedNodeUpdateStatus(nodeId, installedVersion) {
+  const line=$("#managedNodeApiStatus"), button=$("#managedNodeApiUpdate");
+  if(!line||!button)return;
+  try{
+    const status=await api("/updates/status");
+    State.latestUpdateStatus=status;
+    const node=(status.nodes||[]).find(item=>item.id===nodeId);
+    const available=status.node_update?.version;
+    const updateAvailable=Boolean(node?.update_available);
+    line.innerHTML=`<div><strong>Rip Node API</strong><small>Installed: ${esc(node?.version||installedVersion||"Unknown")} · Available: ${esc(available||"None found")}</small></div><span class="update-badge ${updateAvailable?"new":node?.version?"ok":""}">${updateAvailable?"UPDATE AVAILABLE":node?.version?"CURRENT":"CHECK FAILED"}</span>`;
+    button.disabled=!updateAvailable;
+  }catch(error){
+    line.innerHTML=`<div><strong>Rip Node API</strong><small>${esc(error.message)}</small></div><span class="update-badge">CHECK FAILED</span>`;
+  }
 }
 
 async function loadNodeStorage(nodeId) {
@@ -1935,37 +1982,6 @@ function dependencyCredentials() {
   };
 }
 
-async function nodeUpdateDetailsPage(nodeId) {
-  let status=State.latestUpdateStatus;
-  if(!status){
-    try{status=await api("/updates/status");State.latestUpdateStatus=status;}
-    catch(error){drawer("Node updates",`<div class="note bad">${esc(error.message)}</div>`);return;}
-  }
-  const node=(status.nodes||[]).find(item=>item.id===nodeId);
-  if(!node){drawer("Node updates",`<div class="note bad">Node update details are unavailable.</div>`);return;}
-  const available=status.node_update?.version;
-  const nodeState=node.update_available?"UPDATE AVAILABLE":node.version?"CURRENT":"CHECK FAILED";
-  drawer(`${node.name} updates`,`${backBar()}
-    <div class="settings-page-intro"><span class="settings-page-icon">↻</span><div><strong>${esc(node.name)}</strong><small>Node software and dependency versions</small></div></div>
-    <div class="settings-group"><h3>Node API</h3>
-      <div class="update-line"><div><strong>Rip Node API</strong><small>Installed: ${esc(node.version||"Unknown")} · Available: ${esc(available||"None found")}</small></div><span class="update-badge ${node.update_available?"new":"ok"}">${nodeState}</span></div>
-      <div class="note compact-note">Installing a Node API update queues the current release for all eligible real nodes. Busy nodes wait until their rips finish.</div>
-      <button class="primary full-button" type="button" data-settings-action="install-node-api-from-detail" ${node.update_available?"":"disabled"}>Install Node API update</button>
-    </div>
-    <div class="settings-group"><h3>Dependencies</h3>
-      <div class="note compact-note">Shows installed and available versions of Ubuntu packages and the Node API’s Python packages. This does not perform an Ubuntu release upgrade.</div>
-      <div class="field"><label>SSH username</label><input id="dependencyUser" value="adam" autocomplete="username"></div>
-      <div class="field"><label>SSH password</label><input id="dependencyPassword" type="password" autocomplete="current-password"></div>
-      <div class="field"><label>Sudo password <span class="muted-inline">(blank = same password)</span></label><input id="dependencySudo" type="password" autocomplete="off"></div>
-      <div class="field"><label>SSH port</label><input id="dependencyPort" type="number" min="1" max="65535" value="22"></div>
-      <div class="warning-box">Credentials are used for this request only and are never saved. Installation is blocked while any drive on the node is active.</div>
-      <div id="dependencyResult" class="note compact-note">Press Check dependencies to load installed and available versions.</div>
-      <div id="dependencyVersions"></div>
-      <button id="dependencyCheck" class="primary full-button" type="button" data-settings-action="check-node-deps" data-node-id="${esc(nodeId)}">Check dependencies</button>
-      <button id="dependencyUpdate" class="secondary full-button" type="button" data-settings-action="update-node-deps" data-node-id="${esc(nodeId)}" disabled>Update dependencies</button>
-    </div>`);
-}
-
 async function runNodeDependencyDetails(nodeId, action) {
   const status=$("#dependencyResult"), versions=$("#dependencyVersions");
   const check=$("#dependencyCheck"), update=$("#dependencyUpdate");
@@ -2064,12 +2080,10 @@ async function lockNow() {
 function updateLine(label, installed, available, state = "", nodeId = null) {
   const badge = state === "simulator" ? "BUILT-IN" : state === "new" ? "UPDATE AVAILABLE" : state === "ok" ? "CURRENT" : "CHECK";
   const detail = state === "simulator" ? " · Managed with Rip Manager" : available ? ` · Available: ${esc(available)}` : " · No update file found";
-  return `<div class="update-line">
-    <div><strong>${esc(label)}</strong><small>Installed: ${esc(installed || "Unknown")}${detail}</small></div>
-    <div class="update-line-actions"><span class="update-badge ${state}">${badge}</span>
-      ${nodeId && state !== "simulator" ? `<button class="secondary" type="button" data-node-update-details="${esc(nodeId)}">Details</button>` : ""}
-    </div>
-  </div>`;
+  const inner=`<div><strong>${esc(label)}</strong><small>Installed: ${esc(installed || "Unknown")}${detail}</small></div><span class="update-badge ${state}">${badge}</span>`;
+  return nodeId
+    ? `<button class="update-line update-line-link" type="button" data-update-node-id="${esc(nodeId)}" data-update-simulator="${state==="simulator"?"true":"false"}" aria-label="Manage ${esc(label)}">${inner}</button>`
+    : `<div class="update-line">${inner}</div>`;
 }
 
 async function loadUpdates(announce = false) {
@@ -2433,7 +2447,13 @@ $("#settingsContent").addEventListener("click", (event) => {
   if (button.dataset.hardwareNode !== undefined) { navigateSettings("hardware-node",{args:[Number(button.dataset.hardwareNode)]}); return; }
   if (button.dataset.removeNode !== undefined) { beginRemoveNode(Number(button.dataset.removeNode)); return; }
   if (button.dataset.providerPage) { navigateSettings("provider",{args:[button.dataset.providerPage]}); return; }
-  if (button.dataset.nodeUpdateDetails) { navigateSettings("node-update-details",{args:[button.dataset.nodeUpdateDetails]}); return; }
+  if (button.dataset.updateNodeId) {
+    if(button.dataset.updateSimulator==="true"){navigateSettings("simulator-manage");return;}
+    const index=(State.draft.nodes||[]).findIndex(node=>node.id===button.dataset.updateNodeId);
+    if(index>=0)navigateSettings("hardware-node",{args:[index]});
+    else toast("Node management page is unavailable");
+    return;
+  }
 
   switch (button.dataset.settingsAction) {
     case "home": renderSettingsHome(); return;
