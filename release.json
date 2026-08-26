@@ -1,10 +1,10 @@
 {
-  "version": "0.18.7",
+  "version": "0.18.8",
   "notes": [
-    "Added Storage location to each real node's management page, backed by persistent Node API settings rather than a Manager-only label.",
-    "Bundled Rip Node API v0.2.8 validates that the selected path is absolute, exists and is writable, and blocks storage changes during an active rip.",
-    "The chosen output directory survives Manager and Node API updates without storing SSH credentials.",
-    "Removed the built-in Simulator from the Output Shares popup because it has no real SMB output share.",
-    "The v0.18.6 empty scanner and label-status fixes are preserved; installations remain manual-only."
+    "Bundled Rip Node API v0.2.9 verifies false open or empty tray reports from USB optical bridges against actual readable media capacity.",
+    "Physically closed manual-close drives can now leave Waiting for disc and auto-start after their normal silent detection delay.",
+    "Rip startup uses the verified media result instead of rejecting a loaded disc solely because its USB bridge reports Tray open.",
+    "Supports Close remains enforced end-to-end: disabled drives expose no Close control and Manager rejects close requests.",
+    "Existing storage-location, scanner, drive-mapping and simulator-visibility fixes are preserved; installation remains manual-only."
   ]
 }

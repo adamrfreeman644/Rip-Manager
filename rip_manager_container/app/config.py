@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-VERSION = "0.18.7"
+VERSION = "0.18.8"
 
 DATA_DIR = Path(os.getenv("RIP_MANAGER_DATA", "/data"))
 CONFIG_DIR = Path(os.getenv("RIP_MANAGER_CONFIG", "/config"))
@@ -18,9 +18,9 @@ GITHUB_OWNER = os.getenv("RIP_GITHUB_OWNER", "Adamrfreeman644")
 GITHUB_MANAGER_REPO = os.getenv("RIP_GITHUB_MANAGER_REPO", "rip-manager")
 GITHUB_TOKEN_FILE = Path(os.getenv("RIP_GITHUB_TOKEN_FILE", "/run/secrets/github-token"))
 STATIC_DIR = Path(__file__).resolve().parent / "static"
-BUNDLED_NODE_VERSION = "0.2.8"
+BUNDLED_NODE_VERSION = "0.2.9"
 BUNDLED_NODE_FILENAME = f"rip_node_api_v{BUNDLED_NODE_VERSION}.py"
-BUNDLED_NODE_FILE = Path(__file__).resolve().parent / "bundled_rip_node_api_v0.2.8.py"
+BUNDLED_NODE_FILE = Path(__file__).resolve().parent / "bundled_rip_node_api_v0.2.9.py"
 
 DB_PATH = DATA_DIR / "rip-manager.db"
 NODES_FILE = CONFIG_DIR / "nodes.json"
