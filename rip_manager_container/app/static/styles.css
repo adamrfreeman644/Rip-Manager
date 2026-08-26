@@ -1279,3 +1279,24 @@ select option{
   text-decoration:none;
 }
 .hardware-actions .node-terminal-link{grid-column:1/-1}
+
+
+.update-line-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.update-line-actions .secondary {
+  min-height: 36px;
+  padding: 7px 12px;
+}
+.dependency-list {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+.dependency-list .update-line {
+  align-items: center;
+}
