@@ -1,10 +1,10 @@
 {
-  "version": "0.18.9",
+  "version": "0.19.0",
   "notes": [
-    "Keep completed and failed jobs attached to their drive tile while the physical disc remains loaded.",
-    "Show verification failures and their saved title/year/disc details instead of falling back to Unassigned disc.",
-    "Only reset a finished tile after the Node confirms that its disc was physically removed or ejected.",
-    "Successful verified rips continue to auto-eject, while failed verification remains visible for diagnosis and retry.",
-    "Bundled Rip Node API remains v0.2.9 and all updates remain manual-only."
+    "Add Set up / Repair SMB share to every real node management page.",
+    "Create an authenticated Rips share for the node's currently selected storage directory; guest access is never enabled.",
+    "Use SSH, sudo and SMB credentials only for the active request and never save them in Rip Manager, browser storage or source code.",
+    "Add Test existing share to verify the Samba service and the supplied username/password.",
+    "Fix fresh-node adoption to bundle Node API v0.2.9; Manager and Node updates remain manual-only."
   ]
 }
