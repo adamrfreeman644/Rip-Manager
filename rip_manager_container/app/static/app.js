@@ -1,4 +1,4 @@
-/* Rip Remote 0.17.8 — front end for Rip Manager.
+/* Rip Remote 0.18.9 — front end for Rip Manager.
  *
  * Sections, in order:
  *   1. State and small helpers
@@ -255,15 +255,16 @@ function tileJobFor(drive) {
   // the physical drive. Once that disc is ejected, let the live tray/media
   // state control the tile while retaining the job in History and jobFor().
   const tray = trayOf(drive);
-  const finishedJobDetached = job && !drive.active_job
+  // A finished job must stay attached while its disc is still loaded. This is
+  // especially important for verification failures: hiding the job would turn
+  // the tile into an unexplained "Unassigned disc" and conceal the error.
+  // Detach only after the drive positively reports that the disc was removed.
+  const finished = job && !drive.active_job
     && (job.state === "complete" || job.state === "cancelled"
       || FAILED_STATES.includes(job.state));
-  if (finishedJobDetached) return null;
-
-  const completedDiscRemoved = job?.state === "complete" && !drive.active_job
-    && (["open", "empty"].includes(tray)
-      || (tray === "unknown" && drive.media?.present === false));
-  return completedDiscRemoved ? null : job;
+  const discRemoved = ["open", "empty"].includes(tray)
+    || (tray === "unknown" && drive.media?.present === false);
+  return finished && discRemoved ? null : job;
 }
 
 /** Tray state, tolerating an older node that cannot report one. */

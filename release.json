@@ -1,10 +1,10 @@
 {
-  "version": "0.18.8",
+  "version": "0.18.9",
   "notes": [
-    "Bundled Rip Node API v0.2.9 verifies false open or empty tray reports from USB optical bridges against actual readable media capacity.",
-    "Physically closed manual-close drives can now leave Waiting for disc and auto-start after their normal silent detection delay.",
-    "Rip startup uses the verified media result instead of rejecting a loaded disc solely because its USB bridge reports Tray open.",
-    "Supports Close remains enforced end-to-end: disabled drives expose no Close control and Manager rejects close requests.",
-    "Existing storage-location, scanner, drive-mapping and simulator-visibility fixes are preserved; installation remains manual-only."
+    "Keep completed and failed jobs attached to their drive tile while the physical disc remains loaded.",
+    "Show verification failures and their saved title/year/disc details instead of falling back to Unassigned disc.",
+    "Only reset a finished tile after the Node confirms that its disc was physically removed or ejected.",
+    "Successful verified rips continue to auto-eject, while failed verification remains visible for diagnosis and retry.",
+    "Bundled Rip Node API remains v0.2.9 and all updates remain manual-only."
   ]
 }
