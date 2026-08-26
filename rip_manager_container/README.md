@@ -1,11 +1,22 @@
-# Rip Manager v0.19.1
+# Rip Manager v0.19.2
 
-Release date: 25 August 2026  
+Release date: 26 August 2026  
 Bundled Rip Node API: v0.2.9
 
 Rip Manager controls optical-disc ripping nodes from one mobile-friendly web
 interface. This package also includes a built-in simulator, the real Rip Node
 software, installation tools, manual GitHub updates and safe Manager rollback.
+
+## What is new in v0.19.2
+
+- Node API and dependency versions and their manual update controls now live
+  directly on each real Node's **Manage node** page.
+- Each real Node tile under **System → Updates** is now one large link to that
+  Node's management page.
+- The Simulator update tile likewise opens its dedicated management page.
+- The separate Node Updates details page has been removed.
+- SSH/sudo credentials remain request-only, active-drive safety checks remain
+  enforced, and all Manager, Node and dependency updates remain manual-only.
 
 ## What is new in v0.19.1
 
