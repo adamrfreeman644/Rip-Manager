@@ -11,6 +11,8 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: rip_manager_container/app:rip_manager_container
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -25,23 +27,17 @@ jobs:
       - name: Check Python syntax
         run: python3 -m compileall -q rip_manager_container/app rip_manager_container/simulator_node.py rip_manager_container/tests
       - name: PIN hashing test
-        env: {PYTHONPATH: rip_manager_container/app}
-        run: pytest -q rip_manager_container/tests/test_security.py::test_controller_pin_is_salted_hash_not_plaintext
+        run: python -m pytest -q rip_manager_container/tests/test_security.py::test_controller_pin_is_salted_hash_not_plaintext
       - name: PIN change session test
-        env: {PYTHONPATH: rip_manager_container/app}
-        run: pytest -q rip_manager_container/tests/test_security.py::test_pin_change_hashes_and_revokes_sessions
+        run: python -m pytest -q rip_manager_container/tests/test_security.py::test_pin_change_hashes_and_revokes_sessions
       - name: Console recovery preservation test
-        env: {PYTHONPATH: rip_manager_container/app}
-        run: pytest -q rip_manager_container/tests/test_security.py::test_console_recovery_preserves_configuration_and_nodes
+        run: python -m pytest -q rip_manager_container/tests/test_security.py::test_console_recovery_preserves_configuration_and_nodes
       - name: Node status secrecy test
-        env: {PYTHONPATH: rip_manager_container/app}
-        run: pytest -q rip_manager_container/tests/test_security.py::test_node_security_status_never_returns_token
+        run: python -m pytest -q rip_manager_container/tests/test_security.py::test_node_security_status_never_returns_token
       - name: Node bearer token test
-        env: {PYTHONPATH: rip_manager_container/app}
-        run: pytest -q rip_manager_container/tests/test_security.py::test_node_client_sends_bearer_token_without_human_pin
+        run: python -m pytest -q rip_manager_container/tests/test_security.py::test_node_client_sends_bearer_token_without_human_pin
       - name: Health secrecy test
-        env: {PYTHONPATH: rip_manager_container/app}
-        run: pytest -q rip_manager_container/tests/test_security.py::test_health_security_contract_is_basic
+        run: python -m pytest -q rip_manager_container/tests/test_security.py::test_health_security_contract_is_basic
       - name: Check JavaScript syntax
         run: node --check rip_manager_container/app/static/app.js
       - name: Check HTML and CSS
