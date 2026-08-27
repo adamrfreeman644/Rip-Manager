@@ -18,6 +18,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Prepare container-style test mounts
+        run: sudo mkdir -p /data /config /updates && sudo chown -R "$USER":"$USER" /data /config /updates
       - name: Install test dependencies
         run: python -m pip install -r rip_manager_container/requirements-dev.txt
       - name: Check Python syntax
