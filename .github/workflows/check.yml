@@ -11,27 +11,45 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: rip_manager_container/app:rip_manager_container
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare container-style test mounts
+        run: sudo mkdir -p /data /config /updates && sudo chown -R "$USER":"$USER" /data /config /updates
+      - name: Install test dependencies
+        run: python -m pip install -r rip_manager_container/requirements-dev.txt
       - name: Check Python syntax
-        run: python3 -m compileall -q rip_manager_container/app rip_manager_container/simulator_node.py
-
+        run: python3 -m compileall -q rip_manager_container/app rip_manager_container/simulator_node.py rip_manager_container/tests
+      - name: PIN hashing test
+        run: python -m pytest -q rip_manager_container/tests/test_security.py::test_controller_pin_is_salted_hash_not_plaintext
+      - name: PIN change session test
+        run: python -m pytest -q rip_manager_container/tests/test_security.py::test_pin_change_hashes_and_revokes_sessions
+      - name: Console recovery preservation test
+        run: python -m pytest -q rip_manager_container/tests/test_security.py::test_console_recovery_preserves_configuration_and_nodes
+      - name: Node status secrecy test
+        run: python -m pytest -q rip_manager_container/tests/test_security.py::test_node_security_status_never_returns_token
+      - name: Node bearer token test
+        run: python -m pytest -q rip_manager_container/tests/test_security.py::test_node_client_sends_bearer_token_without_human_pin
+      - name: Health secrecy test
+        run: python -m pytest -q rip_manager_container/tests/test_security.py::test_health_security_contract_is_basic
       - name: Check JavaScript syntax
         run: node --check rip_manager_container/app/static/app.js
-
       - name: Check HTML and CSS
         run: |
           python3 - <<'PY'
           from html.parser import HTMLParser
           from pathlib import Path
-
-          class Parser(HTMLParser):
-              pass
-
+          class Parser(HTMLParser): pass
           Parser().feed(Path("rip_manager_container/app/static/index.html").read_text())
           css = Path("rip_manager_container/app/static/styles.css").read_text()
           if css.count("{") != css.count("}"):
               raise SystemExit("Unbalanced CSS braces")
           PY
+      - name: Check Compose configuration
+        run: docker compose -f rip_manager_container/docker-compose.yml config >/dev/null

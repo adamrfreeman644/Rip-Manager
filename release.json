@@ -1,10 +1,11 @@
 {
-  "version": "0.19.2",
+  "version": "0.20.0",
   "notes": [
-    "Move Node API and dependency version checks and manual update controls onto each real Node’s Manage Node page.",
-    "Make each real Node tile on System → Updates a full clickable link to that Node’s Manage Node page.",
-    "Make the Simulator tile on System → Updates a full clickable link to its Simulator management page.",
-    "Remove the separate Node Updates details page while preserving request-only SSH credentials and active-drive safety checks.",
-    "Keep Manager, Node API and dependency installation manual-only."
+    "Keep Rip Manager as a lightweight controller with no Authentik, usernames, registration or password-recovery accounts.",
+    "Retain the salted PBKDF2 local controller PIN, brute-force throttling and server-side session revocation.",
+    "Add a console-only controller PIN reset that preserves configuration, nodes, storage paths, ripping history and update settings.",
+    "Add non-secret controller and node/API authentication status reporting.",
+    "Document that Rip Node control requests use independently generated bearer tokens rather than human credentials.",
+    "Preserve the existing manual Manager/Node updater workflows and health endpoints."
   ]
 }

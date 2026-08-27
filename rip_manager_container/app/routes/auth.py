@@ -1,4 +1,4 @@
-"""PIN lock endpoints."""
+"""PIN lock endpoints and non-secret security status."""
 
 from __future__ import annotations
 
@@ -18,13 +18,29 @@ def client_key(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def node_auth_status() -> dict:
+    rows = db.query("SELECT id,token FROM nodes ORDER BY id")
+    configured = sum(1 for row in rows if row["token"])
+    if not rows:
+        state = "not_configured"
+    elif configured == len(rows):
+        state = "authenticated"
+    elif configured:
+        state = "partial"
+    else:
+        state = "unauthenticated"
+    return {"state": state, "configured_nodes": len(rows), "authenticated_nodes": configured}
+
+
 @router.get("/auth/status")
 def auth_status(request: Request):
     enabled = db.get_setting_bool("lock_enabled")
     return {
+        "controller_protection": "enabled" if enabled else "disabled",
         "lock_enabled": enabled,
         "pin_set": auth.pin_is_set(),
         "authenticated": not enabled or auth.session_valid(request.cookies.get(SESSION_COOKIE)),
+        "node_api_authentication": node_auth_status(),
     }
 
 
