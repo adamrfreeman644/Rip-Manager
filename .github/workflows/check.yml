@@ -15,8 +15,21 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install test dependencies
+        run: python -m pip install -r rip_manager_container/requirements-dev.txt
+
       - name: Check Python syntax
-        run: python3 -m compileall -q rip_manager_container/app rip_manager_container/simulator_node.py
+        run: python3 -m compileall -q rip_manager_container/app rip_manager_container/simulator_node.py rip_manager_container/tests
+
+      - name: Run security and regression tests
+        env:
+          PYTHONPATH: rip_manager_container/app
+        run: pytest -q rip_manager_container/tests
 
       - name: Check JavaScript syntax
         run: node --check rip_manager_container/app/static/app.js
@@ -35,3 +48,6 @@ jobs:
           if css.count("{") != css.count("}"):
               raise SystemExit("Unbalanced CSS braces")
           PY
+
+      - name: Check Compose configuration
+        run: docker compose -f rip_manager_container/docker-compose.yml config >/dev/null
