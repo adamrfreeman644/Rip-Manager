@@ -1,11 +1,9 @@
 {
-  "version": "0.20.0",
+  "version": "0.20.1",
   "notes": [
-    "Keep Rip Manager as a lightweight controller with no Authentik, usernames, registration or password-recovery accounts.",
-    "Retain the salted PBKDF2 local controller PIN, brute-force throttling and server-side session revocation.",
-    "Add a console-only controller PIN reset that preserves configuration, nodes, storage paths, ripping history and update settings.",
-    "Add non-secret controller and node/API authentication status reporting.",
-    "Document that Rip Node control requests use independently generated bearer tokens rather than human credentials.",
-    "Preserve the existing manual Manager/Node updater workflows and health endpoints."
+    "Prevent the Unraid host updater from creating directories under /mnt/user before the user-share filesystem is mounted.",
+    "Wait for /mnt/user to become a genuine mountpoint before creating Updater logs or state and before starting the GitHub watcher.",
+    "Fail safely after a timeout instead of polluting the RAM root filesystem during early boot.",
+    "Preserve existing Rip Manager, node, storage, history and manual update behaviour."
   ]
 }
