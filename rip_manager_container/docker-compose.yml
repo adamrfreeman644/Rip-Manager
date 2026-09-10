@@ -12,8 +12,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ./data:/data
-      - ./config:/config
+      - ${HOST_PROJECT_DIR:-.}/data:/data
+      - ${HOST_PROJECT_DIR:-.}/config:/config
       - /mnt/user/Updater:/updates
       - /boot/config/rip-github/token:/run/secrets/github-token:ro
     environment:
@@ -23,10 +23,27 @@ services:
       RIP_MANAGER_UPDATES: "/updates"
       RIP_GITHUB_OWNER: "Adamrfreeman644"
       RIP_GITHUB_MANAGER_REPO: "rip-manager"
-      RIP_MANAGER_SHARED_UPDATER_URL: "${RIP_MANAGER_SHARED_UPDATER_URL:-http://host.docker.internal:8093/apps/rip-manager}"
       RIP_MANAGER_COOKIE_SECURE: "0"
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+
+  rip-manager-updater:
+    image: docker:27-cli
+    container_name: rip-manager-updater
+    working_dir: /project
+    command: ["sh", "-c", "apk add --no-cache bash curl jq unzip tar >/dev/null 2>&1 && bash /project/updater.sh"]
+    environment:
+      RIP_GITHUB_OWNER: "Adamrfreeman644"
+      RIP_GITHUB_MANAGER_REPO: "rip-manager"
+      RIP_MANAGER_PROJECT_DIR: "/project"
+      RIP_MANAGER_STATE_DIR: "/updates/State"
+      RIP_GITHUB_TOKEN_FILE: "/run/secrets/github-token"
+    volumes:
+      - ./:/project
+      - /mnt/user/Updater:/updates
+      - /boot/config/rip-github/token:/run/secrets/github-token:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
