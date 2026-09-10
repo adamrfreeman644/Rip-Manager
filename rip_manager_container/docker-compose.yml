@@ -4,16 +4,11 @@ services:
     container_name: rip-manager
     restart: unless-stopped
     labels:
-      # Unraid Docker/Compose Manager integration.
-      # The square logo is intentionally used here because it reads well in
-      # both light and dark Unraid themes.
       net.unraid.docker.managed: "composeman"
       net.unraid.docker.webui: "http://[IP]:[PORT:8080]"
       net.unraid.docker.icon: "/mnt/user/appdata/rip-manager/rip_manager_container/app/static/icons/remote-ripper-512.png"
     ports:
       - "8088:8080"
-    # Lets Rip Manager reach a Rip Node running on this same physical host.
-    # In Settings use http://host.docker.internal:8000 for that case.
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -28,8 +23,7 @@ services:
       RIP_MANAGER_UPDATES: "/updates"
       RIP_GITHUB_OWNER: "Adamrfreeman644"
       RIP_GITHUB_MANAGER_REPO: "rip-manager"
-      # Set to 1 once Rip Manager is served over HTTPS so the session cookie
-      # is only ever sent on an encrypted connection.
+      RIP_MANAGER_SHARED_UPDATER_URL: "${RIP_MANAGER_SHARED_UPDATER_URL:-http://host.docker.internal:8093/apps/rip-manager}"
       RIP_MANAGER_COOKIE_SECURE: "0"
     logging:
       driver: json-file
