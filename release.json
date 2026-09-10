@@ -1,9 +1,10 @@
 {
-  "version": "0.20.1",
+  "version": "0.20.2",
   "notes": [
-    "Prevent the Unraid host updater from creating directories under /mnt/user before the user-share filesystem is mounted.",
-    "Wait for /mnt/user to become a genuine mountpoint before creating Updater logs or state and before starting the GitHub watcher.",
-    "Fail safely after a timeout instead of polluting the RAM root filesystem during early boot.",
-    "Preserve existing Rip Manager, node, storage, history and manual update behaviour."
+    "Move local Rip Manager container updates to the AD53 Shared App Updater.",
+    "Keep remote Rip Node update delivery separate because it updates other machines rather than the local Docker stack.",
+    "Add a root VERSION marker for the shared updater and validate the running Manager through /api/info.",
+    "Use the existing private-repository GitHub token through the shared updater without exposing Docker control to Rip Manager.",
+    "Preserve existing Rip Manager data, node configuration, storage and history."
   ]
 }
