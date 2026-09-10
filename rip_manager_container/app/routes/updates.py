@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import json
+import os
 import time
+import urllib.error
+import urllib.request
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -10,9 +13,35 @@ from config import BUNDLED_NODE_FILE, VERSION
 import db, nodes as node_client, updates
 
 router=APIRouter(prefix="/updates",tags=["updates"])
+SHARED_UPDATER_URL=os.getenv("RIP_MANAGER_SHARED_UPDATER_URL","http://host.docker.internal:8093/apps/rip-manager").rstrip("/")
 
 class RollbackRequest(BaseModel):
     filename:str=Field(min_length=20,max_length=180)
+
+
+def shared_updater_status():
+    try:
+        req=urllib.request.Request(SHARED_UPDATER_URL+"/status",headers={"User-Agent":"rip-manager"})
+        with urllib.request.urlopen(req,timeout=10) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except Exception as exc:
+        return {"current":VERSION,"latest":"","update_available":False,"running":False,"last_result":"","last_log":"","error":f"Shared updater unavailable: {exc}"}
+
+
+def shared_updater_install():
+    req=urllib.request.Request(SHARED_UPDATER_URL+"/install",method="POST",headers={"User-Agent":"rip-manager"})
+    try:
+        with urllib.request.urlopen(req,timeout=15) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        try:
+            detail=json.loads(exc.read().decode("utf-8")).get("message") or str(exc)
+        except Exception:
+            detail=str(exc)
+        raise HTTPException(status_code=exc.code,detail=detail)
+    except Exception as exc:
+        raise HTTPException(status_code=503,detail=f"Shared updater unavailable: {exc}")
+
 
 @router.get("/latest-node-version")
 def latest_node_version():
@@ -26,7 +55,9 @@ def latest_node_file():
 
 @router.get("/status")
 async def updates_status():
-    manager=updates.manager_release(VERSION); node=updates.node_release(); node_versions=[]
+    shared=shared_updater_status(); manager=updates.manager_release(VERSION); node=updates.node_release(); node_versions=[]
+    if shared.get("latest"):
+        manager={**manager,"version":shared.get("latest"),"newer":bool(shared.get("update_available"))}
     for configured in db.query("SELECT id,name,url,enabled,token FROM nodes ORDER BY id"):
         version=None; error=None; info={}; enabled=bool(configured["enabled"]); simulator=configured["id"]=="simulator" or "/simulator-node" in configured["url"]
         if enabled:
@@ -35,14 +66,17 @@ async def updates_status():
             except Exception as exc: error=str(exc)
         simulator=bool(simulator or info.get("simulator") or str(version or "").endswith("-simulator"))
         node_versions.append({"id":configured["id"],"name":configured["name"],"version":version,"error":error,"api_node":info.get("node"),"simulator":simulator,"enabled":enabled,"update_available":bool(enabled and not simulator and version and updates.version_tuple(node["version"])>updates.version_tuple(version))})
-    return {"source":"GitHub Releases","automatic_install":False,"manager":{"installed":VERSION,"available":manager},"node_update":node,"nodes":node_versions,"host_updater":updates.read_json("State/github-manager-update.json"),"host_capabilities":updates.host_capabilities(),"rollback_backups":updates.rollback_backups(),"rollback_request":updates.read_json("rollback-manager.request.json") or {"pending":False},"node_updater_status":updates.read_json("State/github-node-update.json"),"node_update_request":updates.read_json("install-nodes.request.json") or {"pending":False}}
+    return {"source":"GitHub + AD53 Shared Updater","automatic_install":False,"manager":{"installed":VERSION,"available":manager},"shared_updater":shared,"node_update":node,"nodes":node_versions,"host_updater":shared,"host_capabilities":{"install":not bool(shared.get("error")),"rollback":False,"shared_updater":True},"rollback_backups":[],"rollback_request":{"pending":False},"node_updater_status":updates.read_json("State/github-node-update.json"),"node_update_request":updates.read_json("install-nodes.request.json") or {"pending":False}}
 
 @router.post("/install-manager")
 def install_manager():
-    item=updates.manager_release(VERSION)
-    if not item["newer"]: raise HTTPException(status_code=409,detail="No newer Manager release is available")
-    updates.write_request("install-manager.request.json",{"requested_at":time.time(),"version":item["version"],"asset_id":item["asset_id"],"filename":item["filename"],"request_id":updates.new_request_id()})
-    return {"ok":True,"message":f"Rip Manager v{item['version']} installation queued","update":item}
+    status=shared_updater_status()
+    if status.get("error"):
+        raise HTTPException(status_code=503,detail=status["error"])
+    if not status.get("update_available"):
+        raise HTTPException(status_code=409,detail="No newer Manager release is available")
+    result=shared_updater_install()
+    return {"ok":True,"message":result.get("message") or f"Rip Manager v{status.get('latest')} installation queued","update":{"version":status.get("latest"),"newer":True}}
 
 @router.get("/node-install-request")
 def node_install_request(): return updates.read_json("install-nodes.request.json") or {"pending":False}
@@ -60,20 +94,10 @@ def cancel_node_install():
 
 @router.post("/rollback")
 def request_rollback(req:RollbackRequest):
-    if not updates.host_capabilities().get("rollback"):raise HTTPException(status_code=409,detail="Install the v2 Unraid host updater before using rollback")
-    backup=next((item for item in updates.rollback_backups(20) if item["filename"]==req.filename),None)
-    if not backup:raise HTTPException(status_code=404,detail="Verified rollback backup was not found")
-    updates.write_request("rollback-manager.request.json",{"pending":True,"requested_at":time.time(),"filename":backup["filename"],"version":backup["version"],"request_id":updates.new_request_id()})
-    return {"ok":True,"message":f"Rollback to v{backup['version']} queued","backup":backup}
+    raise HTTPException(status_code=409,detail="Manager rollback is now handled automatically by the AD53 Shared Updater if an update fails validation")
 
 @router.post("/node-installed")
 async def node_installed(request: Request):
-    """Accept updater acknowledgements without FastAPI rejecting malformed legacy JSON.
-
-    Older installed updater scripts build this small payload in shell. Parse it
-    defensively so a successful Node installation is never reported as failed
-    solely because its final acknowledgement was imperfect.
-    """
     raw = await request.body()
     try:
         payload = json.loads(raw.decode("utf-8")) if raw else {}
