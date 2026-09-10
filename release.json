@@ -1,10 +1,10 @@
 {
-  "version": "0.20.2",
+  "version": "0.20.3",
   "notes": [
-    "Move local Rip Manager container updates to the AD53 Shared App Updater.",
-    "Keep remote Rip Node update delivery separate because it updates other machines rather than the local Docker stack.",
-    "Add a root VERSION marker for the shared updater and validate the running Manager through /api/info.",
-    "Use the existing private-repository GitHub token through the shared updater without exposing Docker control to Rip Manager.",
+    "Restore self-contained Rip Manager updates with a dedicated updater container.",
+    "Keep remote Rip Node update delivery separate and unchanged.",
+    "Preserve code-only backups, health validation and rollback for Manager updates.",
+    "Remove the dependency on the AD53 shared updater.",
     "Preserve existing Rip Manager data, node configuration, storage and history."
   ]
 }
