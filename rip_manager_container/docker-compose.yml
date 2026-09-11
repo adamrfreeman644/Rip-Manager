@@ -42,7 +42,7 @@ services:
       RIP_MANAGER_STATE_DIR: "/updates/State"
       RIP_GITHUB_TOKEN_FILE: "/run/secrets/github-token"
     volumes:
-      - ./:/project
+      - ${HOST_PROJECT_DIR:-.}:/project
       - /mnt/user/Updater:/updates
       - /boot/config/rip-github/token:/run/secrets/github-token:ro
       - /var/run/docker.sock:/var/run/docker.sock
