@@ -1,10 +1,10 @@
 {
-  "version": "0.20.7",
+  "version": "0.20.8",
   "notes": [
-    "Fix the Manager updater so it no longer deletes or replaces its own running updater script and compose file before the new Manager has been validated.",
-    "Stage updater.sh and docker-compose.yml and only swap them into place after the new Manager passes health and version validation.",
-    "Keep automatic rollback, code-only backups and existing settings, PIN, nodes and history intact.",
-    "Keep the metadata lookup improvements and Google verification from 0.20.4 onward.",
+    "Replace Compose-based Manager rebuilds inside the updater with direct docker build/docker run so the updater no longer depends on Compose project state while it is modifying the project files.",
+    "Keep the updater container alive and isolated while rebuilding only the Rip Manager container, then validate /health and /api/info before accepting the update.",
+    "Preserve the existing data, config, PIN, nodes, history, automatic rollback and code-only backups.",
+    "Keep the improved metadata lookup with prominent media type, release date and Google verification.",
     "Keep the black browser theme metadata for the mobile header, tab colour and bottom browser chrome."
   ]
 }
