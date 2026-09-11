@@ -12,19 +12,16 @@ REQUEST="$UPDATE_DIR/install-manager.request.json"
 ROLLBACK_REQUEST="$UPDATE_DIR/rollback-manager.request.json"
 STATUS="$STATE_DIR/github-manager-update.json"
 CAPABILITIES="$STATE_DIR/host-updater-capabilities.json"
+MANAGER_IMAGE="rip-manager:local"
 
 mkdir -p "$STATE_DIR" "$BACKUPS" "$UPDATE_DIR/Logs"
 
-echo '{"version":"5","rollback":true,"code_only_backups":true,"dedicated_container":true,"diagnostic_validation":true,"safe_self_update":true}' > "$CAPABILITIES"
+echo '{"version":"6","rollback":true,"code_only_backups":true,"dedicated_container":true,"diagnostic_validation":true,"safe_self_update":true,"direct_docker_rebuild":true}' > "$CAPABILITIES"
 
 log(){ printf '[rip-manager-updater] %s\n' "$*"; }
 
 if ! docker version >/dev/null 2>&1; then
   log 'ERROR: Docker socket unavailable'
-  exit 1
-fi
-if ! docker compose version >/dev/null 2>&1; then
-  log 'ERROR: Docker Compose plugin unavailable'
   exit 1
 fi
 if [[ ! -f "$TOKEN_FILE" ]]; then
@@ -37,7 +34,6 @@ if [[ -z "$HOST_PROJECT_DIR" ]]; then
   log 'ERROR: Could not determine host project path'
   exit 1
 fi
-export HOST_PROJECT_DIR
 
 current_version(){
   docker exec rip-manager python -c 'import urllib.request,json; print(json.load(urllib.request.urlopen("http://127.0.0.1:8080/api/info",timeout=3)).get("version","unknown"))' 2>/dev/null || printf unknown
@@ -67,21 +63,50 @@ create_code_backup(){
 clean_code(){
   rm -rf "$PROJECT/app" "$PROJECT/node" "$PROJECT/unraid"
   rm -f "$PROJECT/Dockerfile" "$PROJECT/requirements.txt" "$PROJECT/simulator_node.py" "$PROJECT/README.md"
-  # Keep docker-compose.yml and updater.sh while this updater container is alive.
-  # Replacing either one mid-run can invalidate the bind mount/script the current
-  # process depends on. They are copied in after the new manager validates.
+}
+
+capture_manager_settings(){
+  MANAGER_RESTART="$(docker inspect rip-manager --format '{{.HostConfig.RestartPolicy.Name}}' 2>/dev/null || true)"
+  [[ -n "$MANAGER_RESTART" ]] || MANAGER_RESTART="unless-stopped"
 }
 
 start_manager(){
   cd "$PROJECT"
-  if ! docker compose build rip-manager; then
+  capture_manager_settings
+  log "Building $MANAGER_IMAGE directly from $HOST_PROJECT_DIR"
+  if ! docker build -t "$MANAGER_IMAGE" "$HOST_PROJECT_DIR"; then
     log 'Manager image build failed'
     return 1
   fi
-  if ! docker compose up -d --no-deps rip-manager; then
+
+  docker rm -f rip-manager >/dev/null 2>&1 || true
+  if ! docker run -d \
+      --name rip-manager \
+      --restart "$MANAGER_RESTART" \
+      --label net.unraid.docker.managed=composeman \
+      --label 'net.unraid.docker.webui=http://[IP]:[PORT:8080]' \
+      --label net.unraid.docker.icon=/mnt/user/appdata/rip-manager/rip_manager_container/app/static/icons/remote-ripper-512.png \
+      -p 8088:8080 \
+      --add-host host.docker.internal:host-gateway \
+      -v "$HOST_PROJECT_DIR/data:/data" \
+      -v "$HOST_PROJECT_DIR/config:/config" \
+      -v /mnt/user/Updater:/updates \
+      -v /boot/config/rip-github/token:/run/secrets/github-token:ro \
+      -e RIP_MANAGER_IDLE_POLL=5 \
+      -e RIP_MANAGER_ACTIVE_POLL=2 \
+      -e RIP_MANAGER_REQUEST_TIMEOUT=8 \
+      -e RIP_MANAGER_UPDATES=/updates \
+      -e RIP_GITHUB_OWNER="$OWNER" \
+      -e RIP_GITHUB_MANAGER_REPO="$REPO" \
+      -e RIP_MANAGER_COOKIE_SECURE=0 \
+      --log-driver json-file \
+      --log-opt max-size=10m \
+      --log-opt max-file=3 \
+      "$MANAGER_IMAGE"; then
     log 'Manager container failed to start'
     return 1
   fi
+
   for _ in $(seq 1 90); do
     if docker exec rip-manager python -c 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8080/health",timeout=2).read()' >/dev/null 2>&1; then
       return 0
@@ -89,7 +114,7 @@ start_manager(){
     sleep 2
   done
   log 'Manager health endpoint did not become ready in time'
-  docker logs --tail 120 rip-manager 2>&1 | sed 's/^/[rip-manager] /' || true
+  docker logs --tail 150 rip-manager 2>&1 | sed 's/^/[rip-manager] /' || true
   return 1
 }
 
