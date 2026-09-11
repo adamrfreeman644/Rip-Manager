@@ -1,10 +1,10 @@
 {
-  "version": "0.20.3",
+  "version": "0.20.9",
   "notes": [
-    "Restore self-contained Rip Manager updates with a dedicated updater container.",
-    "Keep remote Rip Node update delivery separate and unchanged.",
-    "Preserve code-only backups, health validation and rollback for Manager updates.",
-    "Remove the dependency on the AD53 shared updater.",
-    "Preserve existing Rip Manager data, node configuration, storage and history."
+    "Reset Rip Manager application and updater code to the known-working v0.20.3 baseline.",
+    "Change only the Manager version number to v0.20.9 so the updater path can be verified independently of new features.",
+    "Keep Rip Node 0.2.9 and all existing settings, PIN, node configuration, storage and history behaviour from v0.20.3.",
+    "Do not include the metadata lookup, browser theme or updater experiments from v0.20.4 through v0.20.8.",
+    "Once v0.20.9 installs successfully, build the new feature set separately as v0.20.10."
   ]
 }
