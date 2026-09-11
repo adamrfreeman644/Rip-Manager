@@ -1,10 +1,10 @@
 {
-  "version": "0.20.9",
+  "version": "0.20.10",
   "notes": [
-    "Reset Rip Manager application and updater code to the known-working v0.20.3 baseline.",
-    "Change only the Manager version number to v0.20.9 so the updater path can be verified independently of new features.",
-    "Keep Rip Node 0.2.9 and all existing settings, PIN, node configuration, storage and history behaviour from v0.20.3.",
-    "Do not include the metadata lookup, browser theme or updater experiments from v0.20.4 through v0.20.8.",
-    "Once v0.20.9 installs successfully, build the new feature set separately as v0.20.10."
+    "Add improved barcode metadata results with a prominent media-type badge and release date so matches are easier to verify before ripping.",
+    "Add a Google this action beside each lookup result for quick independent verification without changing the selected metadata.",
+    "Set the browser theme metadata to black so supported mobile browser header, tab and bottom chrome match Rip Manager's dark interface.",
+    "Permanently fix the dedicated updater so it removes the existing rip-manager container after building the replacement image, avoiding the container-name conflict that blocked v0.20.9 installs.",
+    "Preserve existing data, config, PIN, node settings, storage and history, with Rip Node remaining at v0.2.9."
   ]
 }
