@@ -15,7 +15,7 @@ CAPABILITIES="$STATE_DIR/host-updater-capabilities.json"
 
 mkdir -p "$STATE_DIR" "$BACKUPS" "$UPDATE_DIR/Logs"
 
-echo '{"version":"4","rollback":true,"code_only_backups":true,"dedicated_container":true,"diagnostic_validation":true}' > "$CAPABILITIES"
+echo '{"version":"5","rollback":true,"code_only_backups":true,"dedicated_container":true,"diagnostic_validation":true,"safe_self_update":true}' > "$CAPABILITIES"
 
 log(){ printf '[rip-manager-updater] %s\n' "$*"; }
 
@@ -66,14 +66,14 @@ create_code_backup(){
 
 clean_code(){
   rm -rf "$PROJECT/app" "$PROJECT/node" "$PROJECT/unraid"
-  rm -f "$PROJECT/Dockerfile" "$PROJECT/docker-compose.yml" "$PROJECT/requirements.txt" "$PROJECT/simulator_node.py" "$PROJECT/README.md" "$PROJECT/updater.sh"
+  rm -f "$PROJECT/Dockerfile" "$PROJECT/requirements.txt" "$PROJECT/simulator_node.py" "$PROJECT/README.md"
+  # Keep docker-compose.yml and updater.sh while this updater container is alive.
+  # Replacing either one mid-run can invalidate the bind mount/script the current
+  # process depends on. They are copied in after the new manager validates.
 }
 
 start_manager(){
   cd "$PROJECT"
-  # Do not force-refresh the base image on every application update. A registry
-  # timeout should not turn an otherwise valid Rip Manager release into a
-  # failed update. Normal Docker cache behaviour is enough here.
   if ! docker compose build rip-manager; then
     log 'Manager image build failed'
     return 1
@@ -89,8 +89,28 @@ start_manager(){
     sleep 2
   done
   log 'Manager health endpoint did not become ready in time'
-  docker logs --tail 80 rip-manager 2>&1 | sed 's/^/[rip-manager] /' || true
+  docker logs --tail 120 rip-manager 2>&1 | sed 's/^/[rip-manager] /' || true
   return 1
+}
+
+copy_release_code(){
+  local source_dir="$1"
+  clean_code
+  cp -a "$source_dir/app" "$PROJECT/"
+  [[ -d "$source_dir/node" ]] && cp -a "$source_dir/node" "$PROJECT/"
+  [[ -d "$source_dir/unraid" ]] && cp -a "$source_dir/unraid" "$PROJECT/"
+  cp -a "$source_dir/Dockerfile" "$PROJECT/"
+  cp -a "$source_dir/requirements.txt" "$PROJECT/"
+  cp -a "$source_dir/simulator_node.py" "$PROJECT/"
+  [[ -f "$source_dir/README.md" ]] && cp -a "$source_dir/README.md" "$PROJECT/"
+}
+
+finalize_updater_files(){
+  local source_dir="$1"
+  [[ -f "$source_dir/docker-compose.yml" ]] && cp -a "$source_dir/docker-compose.yml" "$PROJECT/docker-compose.yml.next"
+  [[ -f "$source_dir/updater.sh" ]] && cp -a "$source_dir/updater.sh" "$PROJECT/updater.sh.next"
+  if [[ -f "$PROJECT/docker-compose.yml.next" ]]; then mv -f "$PROJECT/docker-compose.yml.next" "$PROJECT/docker-compose.yml"; fi
+  if [[ -f "$PROJECT/updater.sh.next" ]]; then chmod 0755 "$PROJECT/updater.sh.next" && mv -f "$PROJECT/updater.sh.next" "$PROJECT/updater.sh"; fi
 }
 
 restore_archive(){
@@ -99,7 +119,13 @@ restore_archive(){
   staging="$(mktemp -d /tmp/rip-manager-restore.XXXXXX)"
   tar -C "$staging" -xzf "$archive"
   clean_code
-  cp -a "$staging/." "$PROJECT/"
+  cp -a "$staging/app" "$PROJECT/" 2>/dev/null || true
+  cp -a "$staging/node" "$PROJECT/" 2>/dev/null || true
+  cp -a "$staging/unraid" "$PROJECT/" 2>/dev/null || true
+  cp -a "$staging/Dockerfile" "$PROJECT/" 2>/dev/null || true
+  cp -a "$staging/requirements.txt" "$PROJECT/" 2>/dev/null || true
+  cp -a "$staging/simulator_node.py" "$PROJECT/" 2>/dev/null || true
+  cp -a "$staging/README.md" "$PROJECT/" 2>/dev/null || true
   rm -rf "$staging"
   start_manager
 }
@@ -117,6 +143,7 @@ install_requested(){
     write_status failed 'Requested release no longer matches GitHub latest release' "$wanted"
     return 1
   fi
+
   tmp="$(mktemp -d /tmp/rip-manager-update.XXXXXX)"
   trap 'rm -rf "$tmp"' RETURN
   curl -fsSL -H "Authorization: Bearer $token" -H 'Accept: application/octet-stream' "https://api.github.com/repos/$OWNER/$REPO/releases/assets/$asset_id" -o "$tmp/release.zip"
@@ -126,12 +153,14 @@ install_requested(){
   [[ -d "$source_dir" && -f "$source_dir/docker-compose.yml" && -f "$source_dir/app/config.py" ]] || {
     write_status failed 'Release archive is missing Rip Manager files' "$wanted"; return 1;
   }
+
   backup="$(create_code_backup "$(current_version)")"
-  clean_code
-  cp -a "$source_dir/." "$PROJECT/"
+  copy_release_code "$source_dir"
+
   if start_manager; then
     installed="$(current_version)"
     if [[ "$installed" == "$version" ]]; then
+      finalize_updater_files "$source_dir"
       rm -f "$REQUEST"
       write_status success "Rip Manager v$version installed successfully" "$version"
       log "Installed v$version"
@@ -139,6 +168,7 @@ install_requested(){
     fi
     log "Health passed but version check returned '$installed' instead of '$version'"
   fi
+
   log 'New version failed validation; restoring previous code'
   restore_archive "$backup" || true
   write_status failed "v$version failed validation; previous code restored" "$version"
