@@ -72,6 +72,10 @@ clean_code(){
 start_manager(){
   cd "$PROJECT"
   docker compose build --pull rip-manager
+  # The running Manager may have been created by a different Compose project
+  # name. Remove it explicitly after the replacement image is built so Compose
+  # can recreate the fixed container name without a name conflict.
+  docker rm -f rip-manager >/dev/null 2>&1 || true
   docker compose up -d --no-deps rip-manager
   for _ in $(seq 1 60); do
     if docker exec rip-manager python -c 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8080/health",timeout=2).read()' >/dev/null 2>&1; then
