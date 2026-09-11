@@ -1,10 +1,10 @@
 {
-  "version": "0.20.12",
+  "version": "0.20.13",
   "notes": [
-    "Match the Android/PWA system-bar setup used by StockTake: use a standard theme-color meta tag plus a web app manifest with black theme_color and background_color.",
-    "Remove the previous CSS safe-area overlay workaround and the extra color-scheme/browser-specific status-bar metadata that did not affect the Android status bar on the tested device.",
-    "Add standalone PWA metadata and the existing Rip Remote 512px icon so Android has the same app-chrome configuration path as StockTake.",
-    "Keep the 0.20.10 barcode metadata improvements, Google verification action and the permanent dedicated updater fix.",
+    "Restore Manager-stored disc titles, year, season, disc number and other media metadata on active ripping tiles when the node live job ID changes or does not match the Manager history record.",
+    "Only use the fallback metadata match when both records are active and their start times are compatible, preventing an old completed disc title being carried onto a genuinely new rip.",
+    "Force the tile grid to repaint after the fix loads so already-running rips can regain their titles without waiting for a new job.",
+    "Keep the 0.20.12 black Android/PWA theme setup, barcode lookup improvements and permanent dedicated updater fix.",
     "Preserve existing data, config, PIN, node settings, storage and history, with Rip Node remaining at v0.2.9."
   ]
 }
