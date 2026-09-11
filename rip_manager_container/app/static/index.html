@@ -7,6 +7,22 @@
   <meta name="theme-color" content="#000000">
   <meta name="msapplication-TileColor" content="#000000">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <style>
+    html, body { background:#000; }
+    @supports (padding-top: env(safe-area-inset-top)) {
+      body::before {
+        content:"";
+        position:fixed;
+        z-index:2147483647;
+        top:0;
+        left:0;
+        right:0;
+        height:env(safe-area-inset-top);
+        background:#000;
+        pointer-events:none;
+      }
+    }
+  </style>
   <title>Rip Remote</title>
   <link rel="stylesheet" href="/static/styles.css?v=0.19.2">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32x32.png?v=0.10.6">
@@ -185,6 +201,6 @@
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script src="/static/app.js?v=0.19.2"></script>
-<script src="/static/lookup-enhancements.js?v=0.20.10"></script>
+<script src="/static/lookup-enhancements.js?v=0.20.11"></script>
 </body>
 </html>
