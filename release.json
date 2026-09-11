@@ -1,10 +1,10 @@
 {
-  "version": "0.20.4",
+  "version": "0.20.5",
   "notes": [
-    "Make barcode metadata matches show their media type prominently.",
-    "Show the release date when supplied by the provider, falling back to the release year.",
-    "Add a Google this button to each lookup result for quick verification in a separate tab.",
-    "Make the lookup heading clearly say whether movie, TV or mixed media matches were found.",
-    "Keep Google verification completely separate from stored metadata and the rip workflow."
+    "Keep the 0.20.4 metadata lookup improvements, including prominent media type, release date and Google verification.",
+    "Set the mobile browser header, tab theme and bottom browser chrome to black for Rip Manager.",
+    "Make Manager update validation more resilient by avoiding a forced base-image pull on every app update.",
+    "Increase the Manager health-check wait window and add clearer validation diagnostics for future update failures.",
+    "Preserve automatic rollback to the previous working Manager code if validation still fails."
   ]
 }
