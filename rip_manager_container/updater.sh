@@ -15,7 +15,7 @@ CAPABILITIES="$STATE_DIR/host-updater-capabilities.json"
 
 mkdir -p "$STATE_DIR" "$BACKUPS" "$UPDATE_DIR/Logs"
 
-echo '{"version":"3","rollback":true,"code_only_backups":true,"dedicated_container":true}' > "$CAPABILITIES"
+echo '{"version":"4","rollback":true,"code_only_backups":true,"dedicated_container":true,"diagnostic_validation":true}' > "$CAPABILITIES"
 
 log(){ printf '[rip-manager-updater] %s\n' "$*"; }
 
@@ -71,14 +71,25 @@ clean_code(){
 
 start_manager(){
   cd "$PROJECT"
-  docker compose build --pull rip-manager
-  docker compose up -d --no-deps rip-manager
-  for _ in $(seq 1 60); do
+  # Do not force-refresh the base image on every application update. A registry
+  # timeout should not turn an otherwise valid Rip Manager release into a
+  # failed update. Normal Docker cache behaviour is enough here.
+  if ! docker compose build rip-manager; then
+    log 'Manager image build failed'
+    return 1
+  fi
+  if ! docker compose up -d --no-deps rip-manager; then
+    log 'Manager container failed to start'
+    return 1
+  fi
+  for _ in $(seq 1 90); do
     if docker exec rip-manager python -c 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8080/health",timeout=2).read()' >/dev/null 2>&1; then
       return 0
     fi
     sleep 2
   done
+  log 'Manager health endpoint did not become ready in time'
+  docker logs --tail 80 rip-manager 2>&1 | sed 's/^/[rip-manager] /' || true
   return 1
 }
 
@@ -126,6 +137,7 @@ install_requested(){
       log "Installed v$version"
       return 0
     fi
+    log "Health passed but version check returned '$installed' instead of '$version'"
   fi
   log 'New version failed validation; restoring previous code'
   restore_archive "$backup" || true
