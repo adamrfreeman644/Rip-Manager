@@ -1,10 +1,9 @@
 {
-  "version": "0.20.10",
+  "version": "0.20.11",
   "notes": [
-    "Add improved barcode metadata results with a prominent media-type badge and release date so matches are easier to verify before ripping.",
-    "Add a Google this action beside each lookup result for quick independent verification without changing the selected metadata.",
-    "Set the browser theme metadata to black so supported mobile browser header, tab and bottom chrome match Rip Manager's dark interface.",
-    "Permanently fix the dedicated updater so it removes the existing rip-manager container after building the replacement image, avoiding the container-name conflict that blocked v0.20.9 installs.",
+    "Force Rip Manager's mobile browser/status-bar area to black to match the dark Rip Remote header instead of inheriting a coloured browser chrome.",
+    "Keep the 0.20.10 barcode metadata improvements, release-date display and Google verification action.",
+    "Keep the permanent dedicated updater container-name conflict fix introduced after the successful 0.20.9 recovery.",
     "Preserve existing data, config, PIN, node settings, storage and history, with Rip Node remaining at v0.2.9."
   ]
 }
