@@ -3,6 +3,32 @@
  * while results are made easier to verify before a rip starts.
  */
 
+function setRipManagerBrowserTheme() {
+  let theme = document.querySelector('meta[name="theme-color"]');
+  if (!theme) {
+    theme = document.createElement("meta");
+    theme.name = "theme-color";
+    document.head.appendChild(theme);
+  }
+  theme.content = "#000000";
+
+  let tile = document.querySelector('meta[name="msapplication-TileColor"]');
+  if (!tile) {
+    tile = document.createElement("meta");
+    tile.name = "msapplication-TileColor";
+    document.head.appendChild(tile);
+  }
+  tile.content = "#000000";
+
+  let apple = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+  if (!apple) {
+    apple = document.createElement("meta");
+    apple.name = "apple-mobile-web-app-status-bar-style";
+    document.head.appendChild(apple);
+  }
+  apple.content = "black";
+}
+
 function lookupMediaLabel(value) {
   const labels = {
     movie: "MOVIE",
@@ -143,4 +169,5 @@ function showBarcodeMatches(matches) {
   };
 }
 
+setRipManagerBrowserTheme();
 installLookupEnhancementStyles();
