@@ -1,10 +1,10 @@
 {
-  "version": "0.20.6",
+  "version": "0.20.7",
   "notes": [
-    "Fix the Rip Manager updater self-update bind mount so the Manager rebuild always uses the real host project path instead of the updater container overlay.",
-    "Preserve automatic rollback and health validation while allowing the updater sidecar to survive Manager code replacement correctly.",
-    "Keep the improved metadata lookup UI with prominent media type, release date and Google verification.",
-    "Set the mobile browser theme colour to black directly in the document head as well as at runtime for more reliable black header and bottom browser chrome.",
-    "Preserve existing settings, PIN, nodes, history and Rip Node version 0.2.9."
+    "Fix the Manager updater so it no longer deletes or replaces its own running updater script and compose file before the new Manager has been validated.",
+    "Stage updater.sh and docker-compose.yml and only swap them into place after the new Manager passes health and version validation.",
+    "Keep automatic rollback, code-only backups and existing settings, PIN, nodes and history intact.",
+    "Keep the metadata lookup improvements and Google verification from 0.20.4 onward.",
+    "Keep the black browser theme metadata for the mobile header, tab colour and bottom browser chrome."
   ]
 }
