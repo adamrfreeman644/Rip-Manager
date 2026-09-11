@@ -3,27 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="color-scheme" content="dark light">
   <meta name="theme-color" content="#000000">
-  <meta name="msapplication-TileColor" content="#000000">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <style>
-    html, body { background:#000; }
-    @supports (padding-top: env(safe-area-inset-top)) {
-      body::before {
-        content:"";
-        position:fixed;
-        z-index:2147483647;
-        top:0;
-        left:0;
-        right:0;
-        height:env(safe-area-inset-top);
-        background:#000;
-        pointer-events:none;
-      }
-    }
-  </style>
   <title>Rip Remote</title>
+  <link rel="manifest" href="/static/site.webmanifest">
   <link rel="stylesheet" href="/static/styles.css?v=0.19.2">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32x32.png?v=0.10.6">
   <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16x16.png?v=0.10.6">
@@ -68,7 +50,6 @@
   <main id="driveGrid" class="drive-grid" aria-live="polite"></main>
 </div>
 
-<!-- Disc intake: barcode, then details, then the action that suits the tray -->
 <div id="intakeModal" class="modal-backdrop hidden">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="intakeHeading">
     <div class="modal-head">
@@ -201,6 +182,6 @@
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script src="/static/app.js?v=0.19.2"></script>
-<script src="/static/lookup-enhancements.js?v=0.20.11"></script>
+<script src="/static/lookup-enhancements.js?v=0.20.12"></script>
 </body>
 </html>
