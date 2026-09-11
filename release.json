@@ -1,10 +1,10 @@
 {
-  "version": "0.20.5",
+  "version": "0.20.6",
   "notes": [
-    "Keep the 0.20.4 metadata lookup improvements, including prominent media type, release date and Google verification.",
-    "Set the mobile browser header, tab theme and bottom browser chrome to black for Rip Manager.",
-    "Make Manager update validation more resilient by avoiding a forced base-image pull on every app update.",
-    "Increase the Manager health-check wait window and add clearer validation diagnostics for future update failures.",
-    "Preserve automatic rollback to the previous working Manager code if validation still fails."
+    "Fix the Rip Manager updater self-update bind mount so the Manager rebuild always uses the real host project path instead of the updater container overlay.",
+    "Preserve automatic rollback and health validation while allowing the updater sidecar to survive Manager code replacement correctly.",
+    "Keep the improved metadata lookup UI with prominent media type, release date and Google verification.",
+    "Set the mobile browser theme colour to black directly in the document head as well as at runtime for more reliable black header and bottom browser chrome.",
+    "Preserve existing settings, PIN, nodes, history and Rip Node version 0.2.9."
   ]
 }
