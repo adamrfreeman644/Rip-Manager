@@ -1,10 +1,12 @@
 {
-  "version": "0.22.1",
+  "version": "0.22.2",
   "notes": [
-    "Use the Rip Manager logo as the single refresh control across desktop and mobile.",
-    "Remove the separate header refresh icon and burger-menu Refresh entry.",
-    "Move Rip Node SMB share paths into the Mover page beneath the transfer queue.",
-    "Remove the standalone Shares header button, burger-menu entry and popup.",
-    "Keep the logo's full cache-busting refresh so live data, HTML, JavaScript and CSS all reload together."
+    "Convert System Stats from a popup into a full /stats page that retains the shared Rip Manager header and browser navigation.",
+    "Add overall node, active-drive and free ripping-storage summaries above the existing per-node and optical-drive statistics.",
+    "Keep the Stats page live by repainting it during the normal Manager refresh cycle.",
+    "Fix active rip tiles so Manager-owned metadata remains attached when live Node and history job identifiers differ in representation.",
+    "Show active and queued media as Title (Year) in the main drive-tile heading.",
+    "Stop loading the obsolete active-title compatibility override now that the corrected merge logic is built into the main application.",
+    "Preserve the full-page Physical media and Mover routes, Mover shares, settings redesign and existing stored data."
   ]
 }

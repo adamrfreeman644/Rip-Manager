@@ -1,4 +1,4 @@
-/* Rip Remote 0.22.1 — front end for Rip Manager.
+/* Rip Remote 0.22.2 — front end for Rip Manager.
  *
  * Sections, in order:
  *   1. State and small helpers
@@ -222,13 +222,19 @@ function jobFor(drive) {
     job.node_id === drive.node_id && job.drive === drive.name);
   const live = drive.active_job;
 
-  if (live && history && history.node_job_id === live.id) {
-    return { ...history, ...live, title: history.title, year: history.year,
-      season: history.season, disc: history.disc, barcode: history.barcode,
-      media_type: history.media_type, creator: history.creator,
-      narrator: history.narrator, raw: live };
+  const matchingActiveHistory = live && history && (
+    String(history.node_job_id || "") === String(live.id || "")
+    || ACTIVE_STATES.includes(history.state)
+  );
+  if (matchingActiveHistory) {
+    return { ...history, ...live, title: history.title || live.title || live.media?.title,
+      year: history.year ?? live.year ?? live.media?.year,
+      season: history.season ?? live.season, disc: history.disc ?? live.disc,
+      barcode: history.barcode || live.barcode, media_type: history.media_type || live.media_type,
+      creator: history.creator || live.creator, narrator: history.narrator || live.narrator,
+      raw: live };
   }
-  if (live) return live;
+  if (live) return { ...live, title: live.title || live.media?.title, year: live.year ?? live.media?.year };
   return history;
 }
 
@@ -297,9 +303,18 @@ function tileState(drive, job) {
   return ["empty", "Empty"];
 }
 
+function titleWithYear(item) {
+  const title=String(item?.title || item?.media?.title || "").trim();
+  const year=item?.year ?? item?.media?.year;
+  if (!title) return "";
+  if (!year || title.includes(String(year))) return title;
+  return `${title} (${year})`;
+}
+
 function tileTitle(drive, job) {
-  if (drive.pending_intake) return drive.pending_intake.title;
-  if (job?.title) return job.title;
+  if (drive.pending_intake) return titleWithYear(drive.pending_intake);
+  const storedTitle=titleWithYear(job);
+  if (storedTitle) return storedTitle;
   if (job?.raw?.output_dir) return job.raw.output_dir.split("/").pop();
   if (job?.output_dir) return job.output_dir.split("/").pop();
   if (drive.media?.present) return drive.media.label || "Unassigned disc";
@@ -900,10 +915,20 @@ function opticalDriveRows(drives) {
   return `<div class="stats-subtitle">Optical drive read speeds</div><div class="drive-list">${rows}</div>`;
 }
 
-function showStats() {
+function renderStatsPage() {
+  const box=$("#statsPageContent");
+  if(!box)return;
+  const realNodes=State.nodes.filter(node=>node.enabled&&!isSimulatorNode(node));
+  const activeDrives=State.drives.filter(drive=>isActive(tileJobFor(drive)));
+  const freeBytes=State.stats.reduce((total,entry)=>total+Number(entry.stats?.disks?.ripping?.free||0),0);
   const manager = `<div class="manager-refresh">
     <div><span>RIP MANAGER LAST REFRESH</span><strong>${esc(stamp(State.refreshedAt))}</strong></div>
     <b>${relativeSpan(State.refreshedAt)}</b>
+  </div>
+  <div class="kpis stats-overview">
+    ${kpi("NODES ONLINE", `${realNodes.filter(node=>node.online).length}/${realNodes.length}`)}
+    ${kpi("ACTIVE DRIVES", activeDrives.length)}
+    ${kpi("RIPPING STORAGE FREE", freeBytes ? formatBytes(freeBytes) : "—")}
   </div>`;
 
   const cards = State.stats.length
@@ -934,7 +959,7 @@ function showStats() {
     }).join("")
     : `<div class="note">No statistics available.</div>`;
 
-  openModal("System Stats", `${manager}<div class="stats-grid">${cards}</div>`);
+  box.innerHTML=`${manager}<div class="stats-grid">${cards}</div>`;
   updateRelativeTimes();
 }
 
@@ -2278,14 +2303,9 @@ async function refresh(announce = false) {
 
     renderGrid();
 
-    // Keep an open popup honest instead of showing a frozen snapshot.
-    if (!$("#genericModal").classList.contains("hidden")
-        && $("#genericModalTitle").textContent === "System Stats") {
-      showStats();
-    }
-    if (!$("#genericModal").classList.contains("hidden")
-        && $("#genericModalTitle").textContent !== "System Stats"
-        && State.openDriveKey) {
+    if (location.pathname === "/stats") renderStatsPage();
+    // Keep an open drive popup honest instead of showing a frozen snapshot.
+    if (!$("#genericModal").classList.contains("hidden") && State.openDriveKey) {
       const liveDrive = State.drives.find((drive) =>
         drive.node_id === State.openDriveKey.nodeId && drive.name === State.openDriveKey.name);
       if (liveDrive && isActive(tileJobFor(liveDrive))) openDrive(liveDrive);
@@ -2402,7 +2422,7 @@ $("#intakeModal").addEventListener("click", (event) => {
 });
 
 $("#archiveButton").onclick = () => window.openArchive();
-$("#statsButton").onclick = showStats;
+$("#statsButton").onclick = () => window.openStats();
 $("#settingsButton").onclick = openSettings;
 $("#brandRefresh").onclick = async () => {
   const brand=$("#brandRefresh");brand.disabled=true;brand.setAttribute("aria-label","Refreshing Rip Manager");
@@ -2439,7 +2459,7 @@ mobileNavMenu.onclick = (event) => {
     dashboard: () => window.openDashboard(),
     archive: () => window.openArchive(),
     mover: () => window.openMover(),
-    stats: showStats,
+    stats: () => window.openStats(),
     settings: openSettings,
   };
   actions[button.dataset.mobileAction]?.();
