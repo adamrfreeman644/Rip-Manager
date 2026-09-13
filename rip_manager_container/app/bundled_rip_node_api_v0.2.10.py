@@ -416,6 +416,16 @@ class Job:
             "started_at": self.started_at,
             "finished_at": self.finished_at,
             "return_code": self.return_code,
+            # Keep the human-entered title available at the top level for
+            # older dashboard clients; `media` remains for compatibility.
+            "title": self.request.title,
+            "year": self.request.year,
+            "season": self.request.season,
+            "disc": self.request.disc,
+            "barcode": self.request.barcode,
+            "media_type": self.request.media_type,
+            "creator": self.request.creator,
+            "narrator": self.request.narrator,
             "progress": self.progress,
             "progress_raw": {
                 "current": self.progress_raw_current,
