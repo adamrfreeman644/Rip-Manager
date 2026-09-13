@@ -38,8 +38,12 @@ jobs:
         run: python -m pytest -q rip_manager_container/tests/test_security.py::test_node_client_sends_bearer_token_without_human_pin
       - name: Health secrecy test
         run: python -m pytest -q rip_manager_container/tests/test_security.py::test_health_security_contract_is_basic
+      - name: Physical archive and mover tests
+        run: python -m pytest -q rip_manager_container/tests/test_archive_mover.py
       - name: Check JavaScript syntax
-        run: node --check rip_manager_container/app/static/app.js
+        run: |
+          node --check rip_manager_container/app/static/app.js
+          node --check rip_manager_container/app/static/archive.js
       - name: Check HTML and CSS
         run: |
           python3 - <<'PY'
@@ -48,6 +52,7 @@ jobs:
           class Parser(HTMLParser): pass
           Parser().feed(Path("rip_manager_container/app/static/index.html").read_text())
           css = Path("rip_manager_container/app/static/styles.css").read_text()
+          css += Path("rip_manager_container/app/static/archive.css").read_text()
           if css.count("{") != css.count("}"):
               raise SystemExit("Unbalanced CSS braces")
           PY

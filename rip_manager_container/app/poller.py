@@ -21,6 +21,7 @@ import db
 import intake
 import jobs as job_history
 import nodes as node_client
+import mover
 
 log = logging.getLogger("rip-manager.poller")
 
@@ -32,7 +33,7 @@ def has_active_jobs(job_list: List[dict]) -> bool:
     return any(job.get("state") in ACTIVE_JOB_STATES for job in job_list)
 
 
-def _store_node_results(node_id: str, now: float, drives_result, jobs_result, stats_result) -> None:
+def _store_node_results(node_id: str, now: float, drives_result, jobs_result, stats_result) -> list[str]:
     """Persist one poll. Partial failures reuse the previous good payload."""
     drives_ok = isinstance(drives_result, list)
     jobs_ok = isinstance(jobs_result, list)
@@ -48,6 +49,7 @@ def _store_node_results(node_id: str, now: float, drives_result, jobs_result, st
             detail = str(result).strip() or type(result).__name__
             warnings.append(f"{label} temporarily unavailable: {detail}")
 
+    newly_completed = []
     with db.write() as conn:
         previous = conn.execute(
             "SELECT drives_json,jobs_json,stats_json,fetched_at FROM node_cache WHERE node_id=?",
@@ -75,12 +77,14 @@ def _store_node_results(node_id: str, now: float, drives_result, jobs_result, st
         )
 
         if not jobs_ok:
-            return
+            return []
 
         for job in jobs_result:
-            job_history.upsert_polled_job(conn, node_id, job)
+            if job_history.upsert_polled_job(conn, node_id, job):
+                newly_completed.append(f"{node_id}:{job.get('id')}")
         reported = {str(job.get("id")) for job in jobs_result if job.get("id")}
         job_history.mark_missing_jobs_interrupted(conn, node_id, reported, now)
+    return newly_completed
 
 
 async def _start_pending(node: sqlite3.Row, drives: List[dict]) -> None:
@@ -167,7 +171,9 @@ async def poll_node(node_id: str) -> None:
     )
 
     try:
-        await asyncio.to_thread(_store_node_results, node_id, now, drives_result, jobs_result, stats_result)
+        completed = await asyncio.to_thread(_store_node_results, node_id, now, drives_result, jobs_result, stats_result)
+        for manager_job_id in completed:
+            await asyncio.to_thread(mover.enqueue, manager_job_id)
     except sqlite3.Error as exc:
         log.error("Could not store poll results for %s: %s", node_id, exc)
         return

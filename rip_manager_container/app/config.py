@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-VERSION = "0.20.13"
+VERSION = "0.21.0"
 
 DATA_DIR = Path(os.getenv("RIP_MANAGER_DATA", "/data"))
 CONFIG_DIR = Path(os.getenv("RIP_MANAGER_CONFIG", "/config"))
@@ -18,6 +18,7 @@ GITHUB_OWNER = os.getenv("RIP_GITHUB_OWNER", "Adamrfreeman644")
 GITHUB_MANAGER_REPO = os.getenv("RIP_GITHUB_MANAGER_REPO", "rip-manager")
 GITHUB_TOKEN_FILE = Path(os.getenv("RIP_GITHUB_TOKEN_FILE", "/run/secrets/github-token"))
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+PHYSICAL_MEDIA_DIR = DATA_DIR / "physical-media"
 BUNDLED_NODE_VERSION = "0.2.9"
 BUNDLED_NODE_FILENAME = f"rip_node_api_v{BUNDLED_NODE_VERSION}.py"
 BUNDLED_NODE_FILE = Path(__file__).resolve().parent / "bundled_rip_node_api_v0.2.9.py"
@@ -63,6 +64,7 @@ def ensure_directories() -> None:
     """Create the writable directories, tolerating a read-only update share."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    PHYSICAL_MEDIA_DIR.mkdir(parents=True, exist_ok=True)
     try:
         UPDATE_DIR.mkdir(parents=True, exist_ok=True)
     except OSError:

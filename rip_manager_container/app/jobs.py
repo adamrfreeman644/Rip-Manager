@@ -61,10 +61,10 @@ def add_event(conn: sqlite3.Connection, node_id: str, node_job_id: Optional[str]
 
 
 def clear_drive(node_id: str, drive: str) -> None:
-    """Remove finished job cards for one drive without touching media files."""
+    """Hide finished job cards while retaining physical-media history."""
     with db.write() as conn:
         conn.execute(
-            "DELETE FROM jobs_history WHERE node_id=? AND drive=? AND state NOT IN ('starting','ripping','verifying','cancelling')",
+            "UPDATE jobs_history SET cleared=1 WHERE node_id=? AND drive=? AND state NOT IN ('starting','ripping','verifying','cancelling')",
             (node_id, drive.upper()),
         )
 
@@ -82,7 +82,7 @@ def _row_values(node_id: str, job: dict, metadata: dict, auto_started: bool) -> 
     )
 
 
-def upsert_polled_job(conn: sqlite3.Connection, node_id: str, job: dict) -> None:
+def upsert_polled_job(conn: sqlite3.Connection, node_id: str, job: dict) -> bool:
     """Record a job seen during polling, keeping the metadata we already hold.
 
     A node that has been restarted mid-set may report a job we have never seen.
@@ -91,7 +91,7 @@ def upsert_polled_job(conn: sqlite3.Connection, node_id: str, job: dict) -> None
     """
     job_id = str(job.get("id") or "")
     if not job_id:
-        return
+        return False
     manager_job_id = f"{node_id}:{job_id}"
 
     existing = conn.execute(
@@ -125,6 +125,7 @@ def upsert_polled_job(conn: sqlite3.Connection, node_id: str, job: dict) -> None
     state = job.get("state")
     if state in FINISHED_JOB_STATES and state != previous_state:
         add_event(conn, node_id, job_id, job.get("drive"), state, job)
+    return state == "complete" and previous_state != "complete"
 
 
 def record_started_job(node_id: str, drive: str, metadata: dict, result: dict,
@@ -179,4 +180,5 @@ def row_to_dict(row: sqlite3.Row) -> dict:
     item["verification"] = json.loads(item.pop("verification_json") or "null")
     item["raw"] = json.loads(item.pop("raw_json") or "{}")
     item["auto_started"] = bool(item.get("auto_started"))
+    item["cleared"] = bool(item.get("cleared"))
     return item

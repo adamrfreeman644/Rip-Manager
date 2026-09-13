@@ -170,7 +170,7 @@ def pending_intake():
 @router.get("/jobs")
 def list_jobs(limit: int = Query(default=200, ge=1, le=1000)):
     rows = db.query(
-        "SELECT * FROM jobs_history ORDER BY COALESCE(started_at,updated_at) DESC LIMIT ?",
+        "SELECT * FROM jobs_history WHERE cleared=0 ORDER BY COALESCE(started_at,updated_at) DESC LIMIT ?",
         (limit,),
     )
     return [job_history.row_to_dict(row) for row in rows]

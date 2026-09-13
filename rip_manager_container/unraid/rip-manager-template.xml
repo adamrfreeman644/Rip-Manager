@@ -23,5 +23,7 @@
   <Config Name="Data" Target="/data" Default="/mnt/user/appdata/rip-manager/rip_manager_container/data" Mode="rw" Description="Manager data" Type="Path" Display="advanced" Required="true" Mask="false">/mnt/user/appdata/rip-manager/rip_manager_container/data</Config>
   <Config Name="Config" Target="/config" Default="/mnt/user/appdata/rip-manager/rip_manager_container/config" Mode="rw" Description="Manager configuration" Type="Path" Display="advanced" Required="true" Mask="false">/mnt/user/appdata/rip-manager/rip_manager_container/config</Config>
   <Config Name="Updater State" Target="/updates" Default="/mnt/user/Updater" Mode="rw" Description="Update status, requests and backups" Type="Path" Display="advanced" Required="true" Mask="false">/mnt/user/Updater</Config>
+  <Config Name="Byte-Me Media" Target="/media" Default="/mnt/user/Media" Mode="rw" Description="Only the media share used for verified final copies and sidecars" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/Media</Config>
+  <Config Name="Rip Node 1 Share" Target="/rip-nodes/rip-node-1" Default="/mnt/remotes/rip-node-1_ripping" Mode="rw" Description="Mounted rip-node-1 ripping share" Type="Path" Display="always" Required="true" Mask="false">/mnt/remotes/rip-node-1_ripping</Config>
   <Config Name="GitHub Token" Target="/run/secrets/github-token" Default="/boot/config/rip-github/token" Mode="ro" Description="Read-only GitHub token" Type="Path" Display="advanced" Required="true" Mask="true">/boot/config/rip-github/token</Config>
 </Container>

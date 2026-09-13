@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS jobs_history (
     output_dir TEXT,
     verification_json TEXT,
     raw_json TEXT,
+    cleared INTEGER NOT NULL DEFAULT 0,
     updated_at REAL NOT NULL
 );
 
@@ -124,11 +125,42 @@ CREATE TABLE IF NOT EXISTS upc_cache (
     fetched_at REAL NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS physical_media (
+    manager_job_id TEXT PRIMARY KEY,
+    user_text TEXT NOT NULL DEFAULT '',
+    front_image TEXT,
+    rear_image TEXT,
+    extras_json TEXT NOT NULL DEFAULT '[]',
+    final_dir TEXT,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    FOREIGN KEY(manager_job_id) REFERENCES jobs_history(manager_job_id)
+);
+
+CREATE TABLE IF NOT EXISTS transfer_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    manager_job_id TEXT NOT NULL UNIQUE,
+    state TEXT NOT NULL DEFAULT 'queued',
+    source_dir TEXT,
+    destination_dir TEXT,
+    bytes_total INTEGER NOT NULL DEFAULT 0,
+    bytes_copied INTEGER NOT NULL DEFAULT 0,
+    files_total INTEGER NOT NULL DEFAULT 0,
+    files_copied INTEGER NOT NULL DEFAULT 0,
+    error TEXT,
+    created_at REAL NOT NULL,
+    started_at REAL,
+    finished_at REAL,
+    updated_at REAL NOT NULL,
+    FOREIGN KEY(manager_job_id) REFERENCES jobs_history(manager_job_id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_jobs_node_state ON jobs_history(node_id, state);
 CREATE INDEX IF NOT EXISTS idx_jobs_drive ON jobs_history(node_id, drive, started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_jobs_started ON jobs_history(started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at);
 CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON auth_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_transfer_state_created ON transfer_queue(state, created_at);
 """
 
 DEFAULT_SETTINGS = {
@@ -159,6 +191,12 @@ DEFAULT_SETTINGS = {
     "dashboard_rows": "2",
     "dashboard_tiles": "[]",
     "dashboard_spacing_percent": "100",
+    "mover_enabled": "0",
+    "mover_delete_source": "1",
+    "mover_destination_root": "/media",
+    "mover_node_mounts": "{}",
+    "mover_node_source_roots": "{}",
+    "mover_destination_folders": "{\"movie\":\"Movies\",\"tv\":\"TV\",\"music\":\"Music\",\"audiobook\":\"Audiobooks\"}",
 }
 
 
@@ -210,6 +248,7 @@ def init_db() -> None:
             ("creator", "TEXT"),
             ("narrator", "TEXT"),
             ("auto_started", "INTEGER NOT NULL DEFAULT 0"),
+            ("cleared", "INTEGER NOT NULL DEFAULT 0"),
         ):
             if column not in job_columns:
                 conn.execute(f"ALTER TABLE jobs_history ADD COLUMN {column} {definition}")
@@ -366,6 +405,8 @@ def prune_history() -> None:
             """
             DELETE FROM jobs_history WHERE manager_job_id IN (
                 SELECT manager_job_id FROM jobs_history
+                WHERE manager_job_id NOT IN (SELECT manager_job_id FROM physical_media)
+                  AND manager_job_id NOT IN (SELECT manager_job_id FROM transfer_queue)
                 ORDER BY COALESCE(started_at, updated_at) DESC
                 LIMIT -1 OFFSET ?
             )

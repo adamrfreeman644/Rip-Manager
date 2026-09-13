@@ -42,6 +42,12 @@ class SettingsUpdate(BaseModel):
     dashboard_spacing_percent: Optional[int] = Field(default=None, ge=50, le=300)
     simulation: Optional[bool] = None
     lock_enabled: Optional[bool] = None
+    mover_enabled: Optional[bool] = None
+    mover_delete_source: Optional[bool] = None
+    mover_destination_root: Optional[str] = Field(default=None, max_length=500)
+    mover_node_mounts: Optional[Dict[str, str]] = None
+    mover_node_source_roots: Optional[Dict[str, str]] = None
+    mover_destination_folders: Optional[Dict[str, str]] = None
     current_pin: Optional[str] = Field(default=None, pattern=r"^\d{4,8}$")
     new_pin: Optional[str] = Field(default=None, pattern=r"^\d{4,8}$")
     nodes: Optional[List[SettingsNode]] = None

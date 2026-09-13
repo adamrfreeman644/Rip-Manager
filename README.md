@@ -1,6 +1,36 @@
-# Rip Manager v0.20.2
+# Rip Manager v0.21.0
 
 Remote controller for Rip Manager and its Rip Nodes.
+
+## Physical media archive and automatic mover
+
+Open **Media** in the Manager header or **Physical media** in the mobile menu.
+The library includes current and completed movie, TV, music and audiobook disc
+jobs. Each record supports a front image, rear image, unlimited horizontally
+scrollable extras, and an editable `disc-info.txt` view.
+
+Rip Manager owns a delimited automatic section inside `disc-info.txt`. Anything
+the user writes outside that section is preserved when rip, transfer or future
+HandBrake details are refreshed. A structured `disc-info.json` is generated
+beside the readable text file.
+
+The mover is disabled until its two host paths are mounted and it is enabled in
+**Media → Mover → Mover settings**. The default container paths are:
+
+```text
+/media                    → /mnt/user/Media on Byte-Me
+/rip-nodes/rip-node-1     → /mnt/remotes/rip-node-1_ripping on Byte-Me
+```
+
+The Rip Node SMB share must first be mounted on Byte-Me at the host path above
+(or set `HOST_RIP_NODE_1_DIR` to its actual mounted path). Set
+`HOST_MEDIA_DIR` if the Byte-Me media share is not `/mnt/user/Media`.
+
+Only one folder is copied at a time. A newly completed rip is queued
+immediately, copied to a hidden `.partial` folder, checked file-by-file with
+SHA-256, renamed into place, and supplied with its archive sidecars. The source
+folder is deleted only after verification and successful sidecar generation.
+Old job history is not automatically queued when the update is installed.
 
 ## Security model
 
