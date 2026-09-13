@@ -3,6 +3,7 @@
 const q=s=>document.querySelector(s), E=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let media=[],current=null,slot=null,refreshTimer=null;
 const overlay=q("#archiveOverlay"), list=q("#archiveList"), file=q("#archiveFile");
+q(".app").appendChild(overlay);
 function request(path,options={}){return api(path,options)}
 function showPanel(id){overlay.querySelectorAll(".archive-panel,.archive-head-tab").forEach(x=>x.classList.remove("active"));q("#"+id).classList.add("active");overlay.querySelector(`[data-archive-panel="${id}"]`)?.classList.add("active")}
 function title(x){return `${x.title||"Untitled disc"}${x.year?` (${x.year})`:""}`}
@@ -19,11 +20,22 @@ function choose(kind){slot=kind;file.value="";file.click()}
 file.onchange=()=>{const selected=file.files[0];if(!selected||!current||!slot)return;if(selected.size>20*1024*1024){toast("Photo must be 20 MB or smaller");return}const reader=new FileReader();reader.onload=async()=>{try{await request(`/archive/${encodeURIComponent(current.manager_job_id)}/images/${slot}`,{method:"PUT",body:JSON.stringify({data_url:reader.result})});await loadMedia();current=media.find(x=>x.manager_job_id===current.manager_job_id);renderDetail();toast("Photo added")}catch(e){toast(e.message)}};reader.readAsDataURL(selected)};
 async function remove(kind,index){const suffix=kind==="extra"?`?index=${index}`:"";await request(`/archive/${encodeURIComponent(current.manager_job_id)}/images/${kind}${suffix}`,{method:"DELETE"});await loadMedia();current=media.find(x=>x.manager_job_id===current.manager_job_id);renderDetail();toast("Photo removed")}
 async function loadTransfers(){const rows=await request("/archive/mover/transfers");q("#transferList").innerHTML=rows.length?rows.map(x=>{const p=x.bytes_total?Math.min(100,x.bytes_copied/x.bytes_total*100):0;return `<article class="transfer-card"><div class="transfer-top"><div><strong>${E(title(x))}</strong><small>${E(x.node_id)} → Byte-Me</small></div><b>${E(x.state)}</b></div><div class="transfer-track"><div class="transfer-fill" style="width:${p}%"></div></div><small>${formatBytes(x.bytes_copied)} / ${formatBytes(x.bytes_total)} · ${x.files_copied}/${x.files_total} files${x.error?` · ${E(x.error)}`:""}</small>${x.state==="failed"?`<button class="archive-button" data-retry="${x.id}">Retry</button>`:""}${x.state==="queued"?`<button class="archive-button" data-cancel="${x.id}">Remove</button>`:""}</article>`}).join(""):`<div class="note">No transfers queued. Completed rips will appear here when the mover is enabled.</div>`}
-
-
-window.openArchive=async()=>{q("#archiveHeading").textContent="Physical media";q("#archiveSubheading").textContent="Photos and disc details";overlay.classList.remove("hidden");showPanel("archiveLibrary");await loadMedia();clearInterval(refreshTimer)};
-window.openMover=async()=>{q("#archiveHeading").textContent="Mover";q("#archiveSubheading").textContent="One folder at a time to Byte-Me";overlay.classList.remove("hidden");showPanel("archiveTransfers");await loadTransfers();clearInterval(refreshTimer);refreshTimer=setInterval(loadTransfers,2000)};
-q("#archiveClose").onclick=()=>{overlay.classList.add("hidden");clearInterval(refreshTimer)};q("#archiveBack").onclick=()=>{q("#archiveDetail").classList.remove("active");q("#archiveLibrary").classList.add("active");current=null};q("#archiveSaveText").onclick=saveText;q("#archiveTextArea").oninput=()=>q("#archiveTextState").textContent="Unsaved changes";
+function markRoute(route){document.querySelectorAll("[data-app-route]").forEach(x=>x.classList.toggle("current-page",x.dataset.appRoute===route));q("#archiveButton")?.classList.toggle("current-page",route==="physical-media")}
+async function renderRoute(route){
+  clearInterval(refreshTimer);refreshTimer=null;markRoute(route);
+  if(route==="dashboard"){overlay.classList.add("hidden");q("#driveGrid").classList.remove("hidden");document.title="Rip Remote";return}
+  q("#driveGrid").classList.add("hidden");overlay.classList.remove("hidden");
+  if(route==="mover"){q("#archiveHeading").textContent="Mover";q("#archiveSubheading").textContent="One folder at a time to Byte-Me";document.title="Mover · Rip Remote";showPanel("archiveTransfers");await loadTransfers();refreshTimer=setInterval(loadTransfers,2000);return}
+  q("#archiveHeading").textContent="Physical media";q("#archiveSubheading").textContent="Photos and disc details";document.title="Physical Media · Rip Remote";showPanel("archiveLibrary");await loadMedia()
+}
+function routeFromPath(){return location.pathname==="/mover"?"mover":location.pathname==="/physical-media"?"physical-media":"dashboard"}
+async function navigate(route,push=true){const path=route==="mover"?"/mover":route==="physical-media"?"/physical-media":"/";if(push&&location.pathname!==path)history.pushState({route},"",path);await renderRoute(route)}
+window.openDashboard=()=>navigate("dashboard");
+window.openArchive=()=>navigate("physical-media");
+window.openMover=()=>navigate("mover");
+window.addEventListener("popstate",()=>renderRoute(routeFromPath()));
+q("#archiveBack").onclick=()=>{q("#archiveDetail").classList.remove("active");q("#archiveLibrary").classList.add("active");current=null};q("#archiveSaveText").onclick=saveText;q("#archiveTextArea").oninput=()=>q("#archiveTextState").textContent="Unsaved changes";
 q("#archiveScan").onclick=async()=>{try{const result=await request("/archive/scan",{method:"POST"});await loadMedia();toast(result.imported?`${result.imported} existing folder${result.imported===1?"":"s"} added`:`Scan complete · ${result.folders_seen} already known`)}catch(e){toast(e.message)}};
 overlay.onclick=async e=>{const m=e.target.closest("[data-media]");if(m){openDetail(Number(m.dataset.media));return}const del=e.target.closest("[data-remove]");if(del){remove(del.dataset.remove,Number(del.dataset.index));return}const add=e.target.closest("[data-add]");if(add){choose(add.dataset.add);return}const tab=e.target.closest("[data-detail-panel]");if(tab){activateDetail(tab.dataset.detailPanel);return}const top=e.target.closest("[data-archive-panel]");if(top){showPanel(top.dataset.archivePanel);if(top.dataset.archivePanel==="archiveTransfers")loadTransfers();return}const retry=e.target.closest("[data-retry]");if(retry){await request(`/archive/mover/transfers/${retry.dataset.retry}/retry`,{method:"POST"});loadTransfers();return}const cancel=e.target.closest("[data-cancel]");if(cancel){await request(`/archive/mover/transfers/${cancel.dataset.cancel}/cancel`,{method:"POST"});loadTransfers()}};
+renderRoute(routeFromPath());
 })();

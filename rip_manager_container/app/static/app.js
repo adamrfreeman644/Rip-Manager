@@ -2422,6 +2422,15 @@ $("#archiveButton").onclick = () => window.openArchive();
 $("#statsButton").onclick = showStats;
 $("#settingsButton").onclick = openSettings;
 $("#refreshButton").onclick = () => refresh(true);
+$("#brandRefresh").onclick = async () => {
+  const brand=$("#brandRefresh");brand.disabled=true;brand.setAttribute("aria-label","Force refreshing Rip Manager");
+  try{
+    const resources=[...document.querySelectorAll('link[rel="stylesheet"][href],script[src]')].map(element=>element.href||element.src);
+    await Promise.allSettled(resources.map(url=>fetch(url,{cache:"reload",credentials:"same-origin"})));
+  }finally{
+    const url=new URL(location.href);url.searchParams.set("_refresh",Date.now());location.replace(url);
+  }
+};
 
 const mobileNavToggle = $("#mobileNavToggle");
 const mobileNavMenu = $("#mobileNavMenu");
@@ -2445,6 +2454,7 @@ mobileNavMenu.onclick = (event) => {
   if (!button) return;
   setMobileNav(false);
   const actions = {
+    dashboard: () => window.openDashboard(),
     refresh: () => refresh(true),
     archive: () => window.openArchive(),
     mover: () => window.openMover(),

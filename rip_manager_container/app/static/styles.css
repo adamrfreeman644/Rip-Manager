@@ -737,7 +737,14 @@ html[data-theme="dark"] .drive.tray-open{background:#FFC94A !important;border-co
   align-items:center;
   min-width:0;
   gap:12px;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:inherit;
+  text-align:left;
 }
+.v02-brand:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:8px}
+.v02-action.current-page,.mobile-nav-menu button.current-page{background:var(--accent);color:#fff;border-color:var(--accent)}
 .v02-brand-icon-wrap{
   position:relative;
   width:58px;
