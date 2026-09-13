@@ -1,7 +1,7 @@
 # Rip Manager v0.19.2
 
 Release date: 26 August 2026  
-Bundled Rip Node API: v0.2.9
+Bundled Rip Node API: v0.2.10
 
 Rip Manager controls optical-disc ripping nodes from one mobile-friendly web
 interface. This package also includes a built-in simulator, the real Rip Node
