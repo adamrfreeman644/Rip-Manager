@@ -1,12 +1,9 @@
 {
-  "version": "0.22.2",
+  "version": "0.22.3",
   "notes": [
-    "Convert System Stats from a popup into a full /stats page that retains the shared Rip Manager header and browser navigation.",
-    "Add overall node, active-drive and free ripping-storage summaries above the existing per-node and optical-drive statistics.",
-    "Keep the Stats page live by repainting it during the normal Manager refresh cycle.",
-    "Fix active rip tiles so Manager-owned metadata remains attached when live Node and history job identifiers differ in representation.",
-    "Show active and queued media as Title (Year) in the main drive-tile heading.",
-    "Stop loading the obsolete active-title compatibility override now that the corrected merge logic is built into the main application.",
-    "Preserve the full-page Physical media and Mover routes, Mover shares, settings redesign and existing stored data."
+    "Restyle the Physical media, Mover and Stats page titles as plain typographic headers instead of bordered, rounded cards.",
+    "Keep each page title and its short description for orientation while removing the panel background and button-like outline.",
+    "Retain descriptive subtitles on narrow screens so page context is not lost on mobile.",
+    "Preserve the full-page routes, centralized Settings area, Mover shares, logo refresh behavior and active-rip title/year fix."
   ]
 }
