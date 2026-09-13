@@ -41,13 +41,15 @@ async function renderRoute(route){
   if(route==="dashboard"){overlay.classList.add("hidden");q("#driveGrid").classList.remove("hidden");document.title="Rip Remote";return}
   q("#driveGrid").classList.add("hidden");overlay.classList.remove("hidden");
   if(route==="mover"){q("#archiveHeading").textContent="Mover";q("#archiveSubheading").textContent="One folder at a time to Byte-Me";document.title="Mover · Rip Remote";showPanel("archiveTransfers");renderMoverShares();await loadTransfers();refreshTimer=setInterval(loadTransfers,2000);return}
+  if(route==="stats"){q("#archiveHeading").textContent="Stats";q("#archiveSubheading").textContent="Live system health and drive performance";document.title="Stats · Rip Remote";showPanel("archiveStats");renderStatsPage();return}
   q("#archiveHeading").textContent="Physical media";q("#archiveSubheading").textContent="Photos and disc details";document.title="Physical Media · Rip Remote";showPanel("archiveLibrary");await loadMedia()
 }
-function routeFromPath(){return location.pathname==="/mover"?"mover":location.pathname==="/physical-media"?"physical-media":"dashboard"}
-async function navigate(route,push=true){const path=route==="mover"?"/mover":route==="physical-media"?"/physical-media":"/";if(push&&location.pathname!==path)history.pushState({route},"",path);await renderRoute(route)}
+function routeFromPath(){return location.pathname==="/mover"?"mover":location.pathname==="/physical-media"?"physical-media":location.pathname==="/stats"?"stats":"dashboard"}
+async function navigate(route,push=true){const path=route==="mover"?"/mover":route==="physical-media"?"/physical-media":route==="stats"?"/stats":"/";if(push&&location.pathname!==path)history.pushState({route},"",path);await renderRoute(route)}
 window.openDashboard=()=>navigate("dashboard");
 window.openArchive=()=>navigate("physical-media");
 window.openMover=()=>navigate("mover");
+window.openStats=()=>navigate("stats");
 window.addEventListener("popstate",()=>renderRoute(routeFromPath()));
 q("#archiveBack").onclick=()=>{q("#archiveDetail").classList.remove("active");q("#archiveLibrary").classList.add("active");current=null};q("#archiveSaveText").onclick=saveText;q("#archiveTextArea").oninput=()=>q("#archiveTextState").textContent="Unsaved changes";
 q("#archiveScan").onclick=async()=>{try{const result=await request("/archive/scan",{method:"POST"});await loadMedia();toast(result.imported?`${result.imported} existing folder${result.imported===1?"":"s"} added`:`Scan complete · ${result.folders_seen} already known`)}catch(e){toast(e.message)}};
