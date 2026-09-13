@@ -1,8 +1,12 @@
 {
-  "version": "0.21.6",
+  "version": "0.22.0",
   "notes": [
-    "Remove the Mover-page settings shortcut so the live Mover page contains queue controls only.",
-    "Keep all Mover configuration exclusively in the main Settings control centre under Mover & storage.",
-    "Retain the Settings-to-Mover queue shortcut, dynamic multi-node paths and every v0.21.5 efficiency improvement."
+    "Replace the seven technical Settings categories with four task-based choices: Ripping & disc information, Nodes & drives, Storage & mover, and App & system.",
+    "Combine barcode lookup, media defaults, metadata providers, completion behaviour and notifications into one ripping workflow page.",
+    "Make each Rip Node the single entry point for its connection, drives, storage, SMB share, software, dependencies and removal controls.",
+    "Remove the competing Manage drives button from node cards while keeping drive mapping inside each node's settings.",
+    "Group dashboard appearance, PIN access, updates, diagnostics, advanced controls and restart under App & system.",
+    "Keep all Mover configuration in Settings while retaining the live Mover queue as a clean main-menu page.",
+    "Preserve existing settings, nodes, drive mappings, credentials policy, history and mover configuration."
   ]
 }

@@ -1,4 +1,4 @@
-/* Rip Remote 0.21.6 — front end for Rip Manager.
+/* Rip Remote 0.22.0 — front end for Rip Manager.
  *
  * Sections, in order:
  *   1. State and small helpers
@@ -1045,7 +1045,6 @@ function renderSettingsRoute(page, ...args) {
     hardware:hardwarePage,
     "hardware-node":hardwareNodePage,
     "hardware-drives":hardwareDrivesPage,
-    metadata:metadataPage,
     mover:moverSettingsPage,
     provider:providerPage,
     system:systemPage,
@@ -1105,23 +1104,18 @@ async function openSettings() {
 
 function renderSettingsHome() {
   ensureSettingsNav();
-  if (!State.settingsNav.length || State.settingsNav[State.settingsNav.length-1]?.page !== "home") {
-    State.settingsNav = [{page:"home",args:[]}];
-  }
+  if (!State.settingsNav.length || State.settingsNav[State.settingsNav.length-1]?.page !== "home") State.settingsNav = [{page:"home",args:[]}];
   const nodes=(State.draft?.nodes||[]).filter(node=>!isSimulatorNode(node));
   const driveCount=(State.drives||[]).filter(drive=>drive.node_id!=="simulator").length;
   const providerCount=["metadata_musicbrainz","metadata_google_books","metadata_upcitemdb","metadata_omdb"].filter(k=>State.draft?.[k]).length;
   const cards=[
-    ["ripping","Ripping","Disc handling, video defaults and notifications","▶"],
-    ["dashboard","Dashboard","Grid layout, tile placement and theme","▦"],
-    ["hardware","Hardware","Rip Nodes, drive mapping and connections","▣",`${nodes.length} node${nodes.length===1?"":"s"} · ${driveCount} drive${driveCount===1?"":"s"}`],
-    ["metadata","Metadata","Barcode lookup and metadata sources","⌗",`${providerCount}/4 enabled`],
-    ["mover","Mover & storage","Queueing, Byte-Me folders and Rip Node access","⇄",State.draft?.mover_enabled?"Enabled":"Disabled"],
-    ["system","System","Updates, advanced options and diagnostics","↻"],
-    ["security","Security","PIN protection and access","◇"],
+    ["ripping","Ripping & disc information","Disc handling, barcode lookup, metadata and notifications","▶",`${providerCount}/4 metadata sources`],
+    ["hardware","Nodes & drives","Connections, drive mapping, storage and node software","▣",`${nodes.length} node${nodes.length===1?"":"s"} · ${driveCount} drive${driveCount===1?"":"s"}`],
+    ["mover","Storage & mover","Rip Node sources, Byte-Me destinations and transfer behaviour","⇄",State.draft?.mover_enabled?"Mover enabled":"Mover disabled"],
+    ["system","App & system","Dashboard, access, updates and diagnostics","↻"],
   ];
   drawer("Settings", `<div class="settings-hero">
-    <div><span class="settings-eyebrow">RIP MANAGER</span><h2>Control centre</h2><p>Everything needed to run the ripping system, grouped by what you are trying to do.</p></div>
+    <div><span class="settings-eyebrow">RIP MANAGER</span><h2>What do you want to manage?</h2><p>Settings are grouped around the jobs you perform, with no duplicated configuration.</p></div>
     <div class="settings-version-pill">${esc($("#managerVersion")?.textContent||"")}</div>
   </div>
   <div class="settings-dashboard">${cards.map(([page,title,desc,icon,badge])=>`<button class="settings-dashboard-card" type="button" data-settings-page="${page}">
@@ -1261,10 +1255,10 @@ function hardwarePage() {
     return `<div class="hardware-node-card">
       <div class="hardware-node-head"><div><strong>${esc(node.name)}</strong><small>${esc(node.url)}</small></div><span class="hardware-state ${live.online?"ok":"bad"}">${live.online?"ONLINE":"OFFLINE"}</span></div>
       <div class="hardware-summary"><span>${drives.length} drive${drives.length===1?"":"s"}</span><span>${live.version?`Node API v${esc(live.version)}`:"Node API version unknown"}</span></div>
-      <div class="hardware-actions"><button class="secondary" type="button" data-hardware-node="${realIndex}">Manage node</button><button class="primary" type="button" data-hardware-drives="${esc(node.id)}">Manage drives</button><a class="node-terminal-link" href="${esc(nodeTerminalUrl(node))}" target="_blank" rel="noopener noreferrer">Terminal</a></div>
+      <div class="hardware-actions"><button class="primary" type="button" data-hardware-node="${realIndex}">Open node settings</button><a class="node-terminal-link" href="${esc(nodeTerminalUrl(node))}" target="_blank" rel="noopener noreferrer">Terminal</a></div>
     </div>`;
   }).join("")||`<div class="note">No Rip Nodes are configured.</div>`;
-  drawer("Hardware",`${backBar()}<div class="settings-page-intro"><span class="settings-page-icon">▣</span><div><strong>Nodes and drives</strong><small>Manage each node and the drives connected to it.</small></div></div>
+  drawer("Nodes & drives",`${backBar()}<div class="settings-page-intro"><span class="settings-page-icon">▣</span><div><strong>Nodes and drives</strong><small>Choose a machine to manage its connection, drives, storage and software in one place.</small></div></div>
     <div class="settings-group"><h3>Rip Nodes</h3>${cards}</div>
     <div class="settings-group"><h3>Add hardware</h3><button class="primary full-button" type="button" data-settings-page="add-node">Add Rip Node</button></div>
     <div class="settings-group simulator-settings"><div class="simulator-settings-head"><div>${groupHeading("Built-in Simulator","simulator")}<small>Demonstration and training only</small></div><span class="update-badge simulator">BUILT-IN</span></div>
@@ -1611,17 +1605,27 @@ async function loadDriveMapping(nodeId=null) {
 
 function rippingPage() {
   const soundsOn=Boolean(State.draft.sounds);
-  drawer("Ripping",`${backBar()}
-    <div class="settings-page-intro"><span class="settings-page-icon">▶</span><div><strong>Ripping behaviour</strong><small>What happens before, during and after a rip.</small></div></div>
-    <div class="settings-group">${groupHeading("Disc handling","verify-rips")}
+  const providers=[
+    ["musicbrainz","Music","MusicBrainz","Music CD release and artist metadata",State.draft.metadata_musicbrainz],
+    ["google_books","Books / Audiobooks","Google Books","Book title and author metadata",State.draft.metadata_google_books],
+    ["upcitemdb","DVD / Blu-ray / TV","UPCitemdb","General UPC/EAN metadata",State.draft.metadata_upcitemdb],
+    ["omdb","Movie / TV enrichment","OMDb","Structured title and release year enrichment",State.draft.metadata_omdb],
+  ];
+  drawer("Ripping & disc information",`${backBar()}
+    <div class="settings-page-intro"><span class="settings-page-icon">▶</span><div><strong>From disc insertion to a finished rip</strong><small>Control identification, ripping behaviour and completion alerts in one place.</small></div></div>
+    <div class="settings-group">${groupHeading("When a disc is inserted","barcode")}
+      ${toggleRow("Enable barcode lookup","Scan UPC, EAN or ISBN and choose from metadata matches",State.draft.upc_lookup,`data-toggle-key="upc_lookup"`)}
+      <div class="field"><label>Minimum video title length (minutes)</label><input type="number" min="0" max="120" value="${State.draft.minimum_video_minutes??2}" data-setting-input="minimum_video_minutes"></div>
+      ${toggleRow("Prefer English audio","Prefer English-language audio tracks",State.draft.prefer_english_audio,`data-toggle-key="prefer_english_audio"`)}
+      ${toggleRow("Prefer English subtitles","Prefer English subtitle tracks",State.draft.prefer_english_subtitles,`data-toggle-key="prefer_english_subtitles"`)}
+    </div>
+    <div class="settings-group">${groupHeading("Metadata sources","metadata-providers")}
+      <div class="provider-list">${providers.map(([id,type,name,desc,on])=>`<button class="provider-card" type="button" data-provider-page="${id}"><span><strong>${esc(type)}</strong><small>${esc(name)} · ${esc(desc)}</small></span><span class="provider-status ${on?"ok":"off"}">${on?"ENABLED":"OFF"}</span><span>›</span></button>`).join("")}</div>
+    </div>
+    <div class="settings-group">${groupHeading("When the rip finishes","verify-rips")}
       ${toggleRow("Verify completed rips","Check produced files before considering a rip complete",State.draft.verify_before_eject,`data-toggle-key="verify_before_eject"`)}
       ${toggleRowHelp("Auto-eject after successful rip","Open the tray after a successful rip",State.draft.auto_eject,`data-toggle-key="auto_eject"`,"auto-eject")}
       ${toggleRow("Confirm manual eject","Ask before ejecting a disc by hand",State.draft.confirm_eject,`data-toggle-key="confirm_eject"`)}
-    </div>
-    <div class="settings-group">${groupHeading("Video defaults","video-defaults")}
-      <div class="field"><label>Minimum title length (minutes)</label><input type="number" min="0" max="120" value="${State.draft.minimum_video_minutes??2}" data-setting-input="minimum_video_minutes"></div>
-      ${toggleRow("Prefer English audio","Prefer English-language audio tracks",State.draft.prefer_english_audio,`data-toggle-key="prefer_english_audio"`)}
-      ${toggleRow("Prefer English subtitles","Prefer English subtitle tracks",State.draft.prefer_english_subtitles,`data-toggle-key="prefer_english_subtitles"`)}
     </div>
     <div class="settings-group"><h3>Notifications</h3>
       ${toggleRow("Browser sounds","Play completion and failure alerts",State.draft.sounds,`data-toggle-key="sounds"`)}
@@ -1629,17 +1633,6 @@ function rippingPage() {
     </div>${saveBar()}`);
 }
 
-function metadataPage() {
-  const providers=[
-    ["musicbrainz","Music","MusicBrainz","Music CD release and artist metadata",State.draft.metadata_musicbrainz],
-    ["google_books","Books / Audiobooks","Google Books","Book title and author metadata",State.draft.metadata_google_books],
-    ["upcitemdb","DVD / Blu-ray / TV","UPCitemdb","General UPC/EAN metadata",State.draft.metadata_upcitemdb],
-    ["omdb","Movie / TV enrichment","OMDb","Structured title and release year enrichment",State.draft.metadata_omdb],
-  ];
-  drawer("Metadata",`${backBar()}<div class="settings-page-intro"><span class="settings-page-icon">⌗</span><div><strong>Barcode and metadata</strong><small>Choose the sources used when a disc is scanned.</small></div></div>
-    <div class="settings-group">${groupHeading("Barcode lookup","barcode")}${toggleRow("Enable barcode lookup","Scan UPC, EAN or ISBN and choose from metadata matches",State.draft.upc_lookup,`data-toggle-key="upc_lookup"`)}</div>
-    <div class="settings-group">${groupHeading("Sources","metadata-providers")}<div class="provider-list">${providers.map(([id,type,name,desc,on])=>`<button class="provider-card" type="button" data-provider-page="${id}"><span><strong>${esc(type)}</strong><small>${esc(name)} · ${esc(desc)}</small></span><span class="provider-status ${on?"ok":"off"}">${on?"ENABLED":"OFF"}</span><span>›</span></button>`).join("")}</div></div>${saveBar()}`);
-}
 function providerPage(provider) {
   if(provider==="musicbrainz"){
     drawer("MusicBrainz",`${backBar()}<div class="settings-group"><h3>MusicBrainz</h3>${toggleRow("Enabled","Use MusicBrainz for music metadata",State.draft.metadata_musicbrainz,`data-toggle-key="metadata_musicbrainz"`)}<button class="secondary full-button" type="button" data-settings-action="test-metadata" data-provider="musicbrainz">Test connection</button></div>${saveBar()}`);return;
@@ -1932,7 +1925,7 @@ function moverSettingsPage() {
       <div class="note compact-note">Node ID: <code>${esc(node.id)}</code>. These settings describe existing Docker mounts; saving them does not mount a host folder by itself.</div>
     </div>`;
   }).join("")||`<div class="settings-group"><div class="note">Add a real Rip Node before configuring mover source folders.</div></div>`;
-  drawer("Mover & storage",`${backBar()}
+  drawer("Storage & mover",`${backBar()}
     <div class="settings-page-intro"><span class="settings-page-icon">⇄</span><div><strong>Mover & file access</strong><small>Configure the queue and the mounted folders used by Byte-Me and Rip Nodes.</small></div></div>
     <div class="settings-group">${groupHeading("Mover","mover-storage")}
       ${toggleRow("Automatically queue completed rips","Copy completed folders to Byte-Me, one folder at a time",Boolean(State.draft.mover_enabled),`data-toggle-key="mover_enabled"`)}
@@ -1960,10 +1953,13 @@ function openMoverFromSettings() {
 }
 
 function systemPage() {
-  drawer("System",`${backBar()}<div class="settings-page-intro"><span class="settings-page-icon">↻</span><div><strong>System</strong><small>Updates, advanced behaviour and troubleshooting.</small></div></div>
-    <div class="settings-group"><h3>Updates</h3>${navRow("Updates","Manager, Rip Nodes and Update System","updates")}</div>
-    <div class="settings-group"><h3>Advanced</h3>${navRow("Advanced settings","Polling, API tools and developer options","advanced")}</div>
-    <div class="settings-group"><h3>Tools</h3>${navRow("Run system diagnostics","Check Manager, nodes and update share","diagnostics")}</div>
+  const hasPin=Boolean(State.draft.pin_set),lockOn=Boolean(State.draft.lock_enabled);
+  drawer("App & system",`${backBar()}<div class="settings-page-intro"><span class="settings-page-icon">↻</span><div><strong>Rip Manager</strong><small>Dashboard appearance, access, updates and troubleshooting.</small></div></div>
+    <div class="settings-group"><h3>Dashboard</h3>${navRow("Dashboard layout & appearance","Grid size, drive placement, spacing and theme","dashboard")}</div>
+    <div class="settings-group"><h3>Access</h3>${navRow("PIN protection",lockOn&&hasPin?"Lock enabled":"Manage who can operate Rip Manager","security")}</div>
+    <div class="settings-group"><h3>Updates</h3>${navRow("Manager & node updates","Check versions, install updates and roll back Manager","updates")}</div>
+    <div class="settings-group"><h3>Diagnostics</h3>${navRow("Run system diagnostics","Check Manager, nodes and update support","diagnostics")}</div>
+    <div class="settings-group"><h3>Advanced</h3>${navRow("Polling & API tools","Adjust refresh intervals or open developer tools","advanced")}</div>
     <div class="settings-group"><h3>Restart</h3><div class="note compact-note">Restarts Rip Manager only. Active rips continue on their Rip Nodes.</div><button class="secondary system-restart-button" type="button" data-settings-action="restart-manager">Restart Rip Manager</button></div>`);
 }
 
@@ -2551,7 +2547,7 @@ $("#settingsContent").addEventListener("click", (event) => {
   if (button.dataset.toggleKey) {
     toggleDraft(button.dataset.toggleKey, button); updateDirtySaveButtons();
     const title=$("#drawerTitle")?.textContent||"";
-    if(title==="Ripping")rippingPage();
+    if(title==="Ripping & disc information")rippingPage();
     if(title==="Google Books")providerPage("google_books");
     if(title==="UPCitemdb")providerPage("upcitemdb");
     if(title==="OMDb")providerPage("omdb");
