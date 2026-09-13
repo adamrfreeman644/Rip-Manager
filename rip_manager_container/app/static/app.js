@@ -1,4 +1,4 @@
-/* Rip Remote 0.21.5 — front end for Rip Manager.
+/* Rip Remote 0.21.6 — front end for Rip Manager.
  *
  * Sections, in order:
  *   1. State and small helpers

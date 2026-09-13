@@ -1,12 +1,8 @@
 {
-  "version": "0.21.5",
+  "version": "0.21.6",
   "notes": [
-    "Generate Mover source-path settings dynamically for every configured real Rip Node instead of hard-coding rip-node-1.",
-    "Open drive mapping from a node's Manage drives button already filtered to that node while retaining the full fleet drive-mapping route.",
-    "Add safe two-way navigation between Mover settings and the live Mover queue without duplicating configuration.",
-    "Keep Mover in the burger-menu popup only, preserving the intentionally uncluttered main header.",
-    "Run independent MusicBrainz, Google Books and UPCitemdb lookups concurrently, then enrich eligible movie and TV matches concurrently with OMDb.",
-    "Remove the unused legacy simulation setting from the public settings model; the built-in Simulator node remains fully supported.",
-    "Retain existing settings, node mappings, media history, mover paths and updater behaviour."
+    "Remove the Mover-page settings shortcut so the live Mover page contains queue controls only.",
+    "Keep all Mover configuration exclusively in the main Settings control centre under Mover & storage.",
+    "Retain the Settings-to-Mover queue shortcut, dynamic multi-node paths and every v0.21.5 efficiency improvement."
   ]
 }
