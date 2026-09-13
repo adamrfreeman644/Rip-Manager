@@ -1,4 +1,4 @@
-/* Rip Remote 0.19.2 — front end for Rip Manager.
+/* Rip Remote 0.21.5 — front end for Rip Manager.
  *
  * Sections, in order:
  *   1. State and small helpers
@@ -1261,7 +1261,7 @@ function hardwarePage() {
     return `<div class="hardware-node-card">
       <div class="hardware-node-head"><div><strong>${esc(node.name)}</strong><small>${esc(node.url)}</small></div><span class="hardware-state ${live.online?"ok":"bad"}">${live.online?"ONLINE":"OFFLINE"}</span></div>
       <div class="hardware-summary"><span>${drives.length} drive${drives.length===1?"":"s"}</span><span>${live.version?`Node API v${esc(live.version)}`:"Node API version unknown"}</span></div>
-      <div class="hardware-actions"><button class="secondary" type="button" data-hardware-node="${realIndex}">Manage node</button><button class="primary" type="button" data-settings-page="hardware-drives">Manage drives</button><a class="node-terminal-link" href="${esc(nodeTerminalUrl(node))}" target="_blank" rel="noopener noreferrer">Terminal</a></div>
+      <div class="hardware-actions"><button class="secondary" type="button" data-hardware-node="${realIndex}">Manage node</button><button class="primary" type="button" data-hardware-drives="${esc(node.id)}">Manage drives</button><a class="node-terminal-link" href="${esc(nodeTerminalUrl(node))}" target="_blank" rel="noopener noreferrer">Terminal</a></div>
     </div>`;
   }).join("")||`<div class="note">No Rip Nodes are configured.</div>`;
   drawer("Hardware",`${backBar()}<div class="settings-page-intro"><span class="settings-page-icon">▣</span><div><strong>Nodes and drives</strong><small>Manage each node and the drives connected to it.</small></div></div>
@@ -1297,7 +1297,7 @@ function hardwareNodePage(index) {
       <div class="field"><label>Node URL</label><input value="${esc(node.url)}" data-node-index="${index}" data-node-field="url"></div>
       ${toggleRow("Enabled","Include this node in polling and control",node.enabled,`data-node-toggle="${index}"`)}
     </div>
-    <div class="settings-group"><h3>Drives</h3><button class="primary full-button" type="button" data-settings-page="hardware-drives">Manage drive mapping</button></div>
+    <div class="settings-group"><h3>Drives</h3><button class="primary full-button" type="button" data-hardware-drives="${esc(node.id)}">Manage drive mapping</button></div>
     <div class="settings-group"><h3>Storage location</h3>
       <div class="field"><label>Rip output directory on this node</label><input id="nodeStoragePath" value="" placeholder="Loading…" autocomplete="off" disabled></div>
       <div id="nodeStorageStatus" class="note compact-note">Reading storage settings from the Node API…</div>
@@ -1461,25 +1461,26 @@ function confirmRemoveNode(index) {
   };
   input.focus();
 }
-async function hardwareDrivesPage() {
-  drawer("Drives", `${backBar()}
+async function hardwareDrivesPage(nodeId=null) {
+  const selected=(State.draft.nodes||[]).find(node=>node.id===nodeId);
+  drawer(selected ? `${selected.name} drives` : "Drives", `${backBar()}
     <div class="settings-page-intro"><span class="settings-page-icon">▣</span>
-      <div><strong>Drive mapping</strong><small>Add, remove, replace or swap optical drives without SSH.</small></div>
+      <div><strong>Drive mapping</strong><small>${selected ? `Manage optical drives connected to ${esc(selected.name)}.` : "Add, remove, replace or swap optical drives without SSH."}</small></div>
       ${helpButton("drive-mapping","More information about drive mapping")}
     </div>
     <div id="driveMappingContent"><div class="note">Loading drive mappings…</div></div>
     `);
-  await loadDriveMapping();
+  await loadDriveMapping(nodeId);
 }
 
 function physicalDriveLabel(drive) {
   return [drive.device, drive.vendor, drive.model].filter(Boolean).join(" · ");
 }
 
-async function loadDriveMapping() {
+async function loadDriveMapping(nodeId=null) {
   const box = $("#driveMappingContent");
   if (!box) return;
-  const nodes = (State.draft.nodes || []).filter(node=>!isSimulatorNode(node));
+  const nodes = (State.draft.nodes || []).filter(node=>!isSimulatorNode(node) && (!nodeId || node.id===nodeId));
   if (!nodes.length) { box.innerHTML = `<div class="note">No Rip Nodes are configured.</div>`; return; }
 
   const sections = [];
@@ -1554,7 +1555,7 @@ async function loadDriveMapping() {
     try {
       const result=await api(`/nodes/${encodeURIComponent(nodeId)}/drive-mapping/reconcile`,{method:"POST"});
       toast(result.message || "Drive mappings rebuilt");
-      await loadDriveMapping();
+      await loadDriveMapping(nodeId);
       await refresh(true);
     } catch(error) {
       toast(error.message);
@@ -1573,7 +1574,7 @@ async function loadDriveMapping() {
         method:"PUT", body:JSON.stringify({device:select.value,swap:true})
       });
       toast(`${name} mapping updated`);
-      await loadDriveMapping();
+      await loadDriveMapping(nodeId);
       await refresh(true);
     } catch (error) { toast(error.message); btn.disabled=false; }
   });
@@ -1584,7 +1585,7 @@ async function loadDriveMapping() {
     try {
       await api(`/nodes/${encodeURIComponent(nodeId)}/drive-mapping/${encodeURIComponent(name)}`, {method:"DELETE"});
       toast(`${name} removed`);
-      await loadDriveMapping();
+      await loadDriveMapping(nodeId);
       await refresh(true);
     } catch (error) { toast(error.message); }
   });
@@ -1600,7 +1601,7 @@ async function loadDriveMapping() {
         method:"PUT",body:JSON.stringify({device,swap:true})
       });
       toast(`${name} added`);
-      await loadDriveMapping();
+      await loadDriveMapping(nodeId);
       await refresh(true);
     } catch (error) { toast(error.message); }
   });
@@ -1922,11 +1923,21 @@ function moverSettingsPage() {
   const folders=State.draft.mover_destination_folders||{};
   const mounts=State.draft.mover_node_mounts||{};
   const roots=State.draft.mover_node_source_roots||{};
+  const nodes=(State.draft.nodes||[]).filter(node=>!isSimulatorNode(node));
+  const sourceSections=nodes.map(node=>{
+    const defaultMount=`/rip-nodes/${node.id}`;
+    return `<div class="settings-group"><h3>${esc(node.name)} source</h3>
+      <div class="field"><label>Mounted share inside Manager container</label><input value="${esc(mounts[node.id]||defaultMount)}" data-mover-mount="${esc(node.id)}"></div>
+      <div class="field"><label>Output path reported by Rip Node</label><input value="${esc(roots[node.id]||"/mnt/ripping")}" data-mover-source-root="${esc(node.id)}"></div>
+      <div class="note compact-note">Node ID: <code>${esc(node.id)}</code>. These settings describe existing Docker mounts; saving them does not mount a host folder by itself.</div>
+    </div>`;
+  }).join("")||`<div class="settings-group"><div class="note">Add a real Rip Node before configuring mover source folders.</div></div>`;
   drawer("Mover & storage",`${backBar()}
     <div class="settings-page-intro"><span class="settings-page-icon">⇄</span><div><strong>Mover & file access</strong><small>Configure the queue and the mounted folders used by Byte-Me and Rip Nodes.</small></div></div>
     <div class="settings-group">${groupHeading("Mover","mover-storage")}
       ${toggleRow("Automatically queue completed rips","Copy completed folders to Byte-Me, one folder at a time",Boolean(State.draft.mover_enabled),`data-toggle-key="mover_enabled"`)}
       ${toggleRow("Remove verified source folder","Delete the Rip Node copy only after every copied file is verified",Boolean(State.draft.mover_delete_source),`data-toggle-key="mover_delete_source"`)}
+      <button class="secondary full-button" type="button" data-settings-action="open-mover">Open Mover queue</button>
     </div>
     <div class="settings-group"><h3>Byte-Me destination</h3>
       <div class="field"><label>Media share inside container</label><input value="${esc(State.draft.mover_destination_root||"/media")}" data-setting-input="mover_destination_root" placeholder="/media"></div>
@@ -1936,13 +1947,17 @@ function moverSettingsPage() {
       <div class="field"><label>Audiobooks folder</label><input value="${esc(folders.audiobook||"Audiobooks")}" data-mover-folder="audiobook"></div>
       <div class="note compact-note">Destination folders are relative to <code>${esc(State.draft.mover_destination_root||"/media")}</code>. Nested paths such as <code>Video/Movies</code> are supported.</div>
     </div>
-    <div class="settings-group"><h3>rip-node-1 source</h3>
-      <div class="field"><label>Mounted share inside Manager container</label><input value="${esc(mounts["rip-node-1"]||"/rip-nodes/rip-node-1")}" data-mover-mount="rip-node-1"></div>
-      <div class="field"><label>Output path reported by Rip Node</label><input value="${esc(roots["rip-node-1"]||"/mnt/ripping")}" data-mover-source-root="rip-node-1"></div>
-      <div class="note compact-note">These settings describe existing Docker mounts; saving them does not mount a host folder by itself.</div>
-    </div>${saveBar()}`);
+    ${sourceSections}${saveBar()}`);
 }
 
+function openMoverFromSettings() {
+  if(settingsDirty()){
+    toast("Save or cancel your settings changes before opening the Mover queue");
+    return;
+  }
+  cancelSettings();
+  window.openMover();
+}
 
 function systemPage() {
   drawer("System",`${backBar()}<div class="settings-page-intro"><span class="settings-page-icon">↻</span><div><strong>System</strong><small>Updates, advanced behaviour and troubleshooting.</small></div></div>
@@ -2487,6 +2502,7 @@ $("#settingsContent").addEventListener("click", (event) => {
   if (button.dataset.helpTopic) { openSettingsHelp(button.dataset.helpTopic); return; }
   if (button.dataset.settingsPage) { navigateSettings(button.dataset.settingsPage); return; }
   if (button.dataset.hardwareNode !== undefined) { navigateSettings("hardware-node",{args:[Number(button.dataset.hardwareNode)]}); return; }
+  if (button.dataset.hardwareDrives !== undefined) { navigateSettings("hardware-drives",{args:[button.dataset.hardwareDrives]}); return; }
   if (button.dataset.removeNode !== undefined) { beginRemoveNode(Number(button.dataset.removeNode)); return; }
   if (button.dataset.providerPage) { navigateSettings("provider",{args:[button.dataset.providerPage]}); return; }
   if (button.dataset.updateNodeId) {
@@ -2517,6 +2533,7 @@ $("#settingsContent").addEventListener("click", (event) => {
     case "update-node-deps": runNodeDependencyDetails(button.dataset.nodeId,"update"); return;
     case "install-node-api-from-detail": pushNodeUpdates(); return;
     case "setup-node-smb": openNodeSmbSetup(button.dataset.nodeIndex); return;
+    case "open-mover": openMoverFromSettings(); return;
     case "test-metadata": testMetadataProvider(button.dataset.provider); return;
     default: break;
   }

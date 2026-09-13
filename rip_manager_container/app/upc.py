@@ -1,5 +1,6 @@
 """Multi-provider barcode metadata lookup and enrichment for Rip Manager."""
 from __future__ import annotations
+import asyncio
 import re
 from typing import Optional
 import httpx
@@ -186,10 +187,12 @@ async def lookup(code:str)->dict:
     barcode=normalise(code)
     if not barcode:return {"found":False,"barcode":code,"matches":[],"error":"That barcode does not look valid"}
     matches=[];errors=[]
-    for name,fn in (("MusicBrainz",_musicbrainz),("Google Books",_books),("UPCitemdb",_upc)):
-        try:matches.extend(await fn(barcode))
-        except httpx.HTTPStatusError as e:errors.append(f"{name}: HTTP {e.response.status_code}")
-        except Exception as e:errors.append(f"{name}: {type(e).__name__}")
+    providers=(("MusicBrainz",_musicbrainz),("Google Books",_books),("UPCitemdb",_upc))
+    provider_results=await asyncio.gather(*(fn(barcode) for _,fn in providers),return_exceptions=True)
+    for (name,_),result in zip(providers,provider_results):
+        if isinstance(result,httpx.HTTPStatusError):errors.append(f"{name}: HTTP {result.response.status_code}")
+        elif isinstance(result,Exception):errors.append(f"{name}: {type(result).__name__}")
+        else:matches.extend(result)
     unique={}
     for x in matches:
         key=(re.sub(r"\W+","",x["title"].lower()),x.get("year"),x["media_type"])
@@ -198,16 +201,16 @@ async def lookup(code:str)->dict:
 
     # Secondary film/TV metadata pass. One failed enrichment must never hide the
     # UPC result; the editable fields still receive the cleaned provider data.
+    enrichment_results=await asyncio.gather(*(_omdb_enrich(item) for item in matches),return_exceptions=True)
     enriched=[]
-    for item in matches:
-        try:
-            enriched.append(await _omdb_enrich(item))
-        except httpx.HTTPStatusError as e:
-            errors.append(f"OMDb: HTTP {e.response.status_code}")
+    for item,result in zip(matches,enrichment_results):
+        if isinstance(result,httpx.HTTPStatusError):
+            errors.append(f"OMDb: HTTP {result.response.status_code}")
             enriched.append(item)
-        except Exception as e:
-            errors.append(f"OMDb: {type(e).__name__}")
+        elif isinstance(result,Exception):
+            errors.append(f"OMDb: {type(result).__name__}")
             enriched.append(item)
+        else:enriched.append(result)
     matches=enriched
 
     return {"found":bool(matches),"barcode":barcode,"matches":matches,"errors":errors,
