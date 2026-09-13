@@ -1,6 +1,9 @@
 {
-  "version": "0.21.2",
+  "version": "0.21.3",
   "notes": [
+    "Validate mover paths and media folder mappings when they are saved from the main Settings screen, and wake the mover immediately after a settings change.",
+    "Keep mover configuration in one place by removing the separate settings button and form from the live Mover page.",
+    "Add Mover & storage to the main Settings control centre with every new queue, Byte-Me destination and Rip Node access variable.",
     "Remove the duplicate Mover button from the main header; Mover is now available only from the burger-menu popup.",
     "Show only physical-media records whose real folder currently exists on Byte-Me or the mounted Rip Node share, instead of displaying the full database history.",
     "Keep current rips visible as soon as their output folder is created on the node.",
