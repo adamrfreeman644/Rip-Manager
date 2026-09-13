@@ -3,6 +3,8 @@
   "notes": [
     "Use the Rip Manager logo as the single refresh control across desktop and mobile.",
     "Remove the separate header refresh icon and burger-menu Refresh entry.",
+    "Move Rip Node SMB share paths into the Mover page beneath the transfer queue.",
+    "Remove the standalone Shares header button, burger-menu entry and popup.",
     "Keep the logo's full cache-busting refresh so live data, HTML, JavaScript and CSS all reload together."
   ]
 }

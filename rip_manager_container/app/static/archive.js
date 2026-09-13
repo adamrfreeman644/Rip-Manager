@@ -19,13 +19,28 @@ async function saveText(){const text=q("#archiveTextArea").value;const data=awai
 function choose(kind){slot=kind;file.value="";file.click()}
 file.onchange=()=>{const selected=file.files[0];if(!selected||!current||!slot)return;if(selected.size>20*1024*1024){toast("Photo must be 20 MB or smaller");return}const reader=new FileReader();reader.onload=async()=>{try{await request(`/archive/${encodeURIComponent(current.manager_job_id)}/images/${slot}`,{method:"PUT",body:JSON.stringify({data_url:reader.result})});await loadMedia();current=media.find(x=>x.manager_job_id===current.manager_job_id);renderDetail();toast("Photo added")}catch(e){toast(e.message)}};reader.readAsDataURL(selected)};
 async function remove(kind,index){const suffix=kind==="extra"?`?index=${index}`:"";await request(`/archive/${encodeURIComponent(current.manager_job_id)}/images/${kind}${suffix}`,{method:"DELETE"});await loadMedia();current=media.find(x=>x.manager_job_id===current.manager_job_id);renderDetail();toast("Photo removed")}
+function renderMoverShares(){
+  const box=q("#moverShares");
+  if(!box)return;
+  const nodes=State.nodes.filter(node=>node.enabled&&!isSimulatorNode(node));
+  box.innerHTML=nodes.length?nodes.map(node=>{
+    const share=nodeShare(node);
+    return `<div class="share-card">
+      <div class="node-top"><strong>${E(node.name)}</strong><span class="status ${node.online?"":"offline"}">● ${node.online?"ONLINE":"OFFLINE"}</span></div>
+      <div class="share-path">${E(share.unc)}</div>
+      <div class="share-actions"><a class="primary" href="${E(share.link)}">Open share</a><button class="secondary" type="button" data-copy-share="${E(share.unc)}">Copy path</button></div>
+    </div>`;
+  }).join(""):`<div class="note">No real Rip Nodes are configured.</div>`;
+  box.querySelectorAll("[data-copy-share]").forEach(button=>button.onclick=()=>copyShare(button.dataset.copyShare));
+}
+
 async function loadTransfers(){const rows=await request("/archive/mover/transfers");q("#transferList").innerHTML=rows.length?rows.map(x=>{const p=x.bytes_total?Math.min(100,x.bytes_copied/x.bytes_total*100):0;return `<article class="transfer-card"><div class="transfer-top"><div><strong>${E(title(x))}</strong><small>${E(x.node_id)} → Byte-Me</small></div><b>${E(x.state)}</b></div><div class="transfer-track"><div class="transfer-fill" style="width:${p}%"></div></div><small>${formatBytes(x.bytes_copied)} / ${formatBytes(x.bytes_total)} · ${x.files_copied}/${x.files_total} files${x.error?` · ${E(x.error)}`:""}</small>${x.state==="failed"?`<button class="archive-button" data-retry="${x.id}">Retry</button>`:""}${x.state==="queued"?`<button class="archive-button" data-cancel="${x.id}">Remove</button>`:""}</article>`}).join(""):`<div class="note">No transfers queued. Completed rips will appear here when the mover is enabled.</div>`}
 function markRoute(route){document.querySelectorAll("[data-app-route]").forEach(x=>x.classList.toggle("current-page",x.dataset.appRoute===route));q("#archiveButton")?.classList.toggle("current-page",route==="physical-media")}
 async function renderRoute(route){
   clearInterval(refreshTimer);refreshTimer=null;markRoute(route);
   if(route==="dashboard"){overlay.classList.add("hidden");q("#driveGrid").classList.remove("hidden");document.title="Rip Remote";return}
   q("#driveGrid").classList.add("hidden");overlay.classList.remove("hidden");
-  if(route==="mover"){q("#archiveHeading").textContent="Mover";q("#archiveSubheading").textContent="One folder at a time to Byte-Me";document.title="Mover · Rip Remote";showPanel("archiveTransfers");await loadTransfers();refreshTimer=setInterval(loadTransfers,2000);return}
+  if(route==="mover"){q("#archiveHeading").textContent="Mover";q("#archiveSubheading").textContent="One folder at a time to Byte-Me";document.title="Mover · Rip Remote";showPanel("archiveTransfers");renderMoverShares();await loadTransfers();refreshTimer=setInterval(loadTransfers,2000);return}
   q("#archiveHeading").textContent="Physical media";q("#archiveSubheading").textContent="Photos and disc details";document.title="Physical Media · Rip Remote";showPanel("archiveLibrary");await loadMedia()
 }
 function routeFromPath(){return location.pathname==="/mover"?"mover":location.pathname==="/physical-media"?"physical-media":"dashboard"}
