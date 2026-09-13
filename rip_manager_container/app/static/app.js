@@ -990,6 +990,7 @@ const SETTINGS_HELP = {
   "existing-node": {title:"Connect an existing Node API",does:"Adds a node where the Rip Node software is already installed and running.",use:"Use this instead of the Ubuntu installer when the API already answers on its port.",recommended:"Test the connection before adding it. Give each node a unique ID.",effect:"No SSH changes are made. Manager stores the API address and optional API token.",problems:"The address must work from inside the Manager container.",undo:"Remove or disable the node under Hardware."},
   "fresh-install": {title:"Install on fresh Ubuntu",does:"Uses SSH once to install the bundled Rip Node software, its services and optional NAS storage, then adds it to Manager.",use:"Use this on a clean supported Ubuntu machine or VM intended to become a Rip Node.",recommended:"Give the machine a fixed LAN address first. Test SSH and sudo before installing.",effect:"System packages and Rip Node services are installed on the selected Ubuntu host. SSH and NAS passwords are not saved by Manager.",problems:"Do not point this at Byte-Me or an unrelated computer. The account must be allowed to use sudo.",undo:"Remove the node from Manager and uninstall its services on Ubuntu if you no longer need it."},
   "nas-mount": {title:"NAS storage",does:"Mounts an SMB share on the new node so completed rips can be written directly to your NAS.",use:"Enter the share as //SERVER/SHARE and choose the local output path, normally /mnt/ripping.",recommended:"Use a dedicated NAS account with access only to the ripping share.",effect:"The installer creates the mount and stores the NAS credentials on the node, not in Rip Manager.",problems:"The node must be able to reach the NAS and the share name, username and password must be correct.",undo:"Remove or change the mount on the node."},
+  "mover-storage": {title:"Mover and file access",does:"Controls how completed rip folders are found on Rip Nodes and copied into the Byte-Me media share.",use:"Set the container paths to match the volume mappings in Docker Compose. Destination folders are relative to the Byte-Me root.",recommended:"Use /media for Byte-Me, /rip-nodes/rip-node-1 for the mounted node share, and /mnt/ripping as the path reported by the node.",effect:"Only one complete folder is copied at a time. The source is removed only after the copy is verified when that option is enabled.",problems:"Changing these fields does not create Docker mounts. The same paths must also exist in the container configuration.",undo:"Disable automatic queueing or restore the previous paths and save."},
   "network-addresses": {title:"Manager and node addresses",does:"Sets the address Manager uses to control the node and the address the node uses to download future bundled updates from Manager.",use:"Use fixed LAN addresses when the machines are separate. Addresses must be reachable from the service using them.",recommended:"Node URL: http://NODE-IP:8000. Manager URL: your Manager LAN URL and published port.",effect:"A wrong address can make control or updates appear offline even when both computers are running.",undo:"Correct the saved node URL under Hardware; rerun the node updater installer if its Manager address is wrong."},
   "polling": {title:"Dashboard polling",does:"Controls how often Manager asks nodes for fresh drive state, progress and statistics.",use:"Active polling is used while a rip is running; idle polling is used at other times.",recommended:"Idle 5 seconds and active 2 seconds.",effect:"Lower numbers feel faster but create more network, node and database activity.",problems:"Very low values can make slow nodes less reliable and do not make the optical drive rip faster.",undo:"Restore 5 seconds idle and 2 seconds active."},
   "api-tools": {title:"API tools",does:"Opens the technical API documentation and lets developers test Manager endpoints directly.",use:"Use this only for diagnostics, integration work or support instructions.",recommended:"Most users do not need it.",effect:"Some actions can control drives or change data, just like the normal interface.",problems:"Do not run an endpoint unless you understand what it changes.",undo:"Close the API page; opening it alone changes nothing."},
@@ -1045,6 +1046,7 @@ function renderSettingsRoute(page, ...args) {
     "hardware-node":hardwareNodePage,
     "hardware-drives":hardwareDrivesPage,
     metadata:metadataPage,
+    mover:moverSettingsPage,
     provider:providerPage,
     system:systemPage,
     advanced:advancedPage,
@@ -1114,6 +1116,7 @@ function renderSettingsHome() {
     ["dashboard","Dashboard","Grid layout, tile placement and theme","▦"],
     ["hardware","Hardware","Rip Nodes, drive mapping and connections","▣",`${nodes.length} node${nodes.length===1?"":"s"} · ${driveCount} drive${driveCount===1?"":"s"}`],
     ["metadata","Metadata","Barcode lookup and metadata sources","⌗",`${providerCount}/4 enabled`],
+    ["mover","Mover & storage","Queueing, Byte-Me folders and Rip Node access","⇄",State.draft?.mover_enabled?"Enabled":"Disabled"],
     ["system","System","Updates, advanced options and diagnostics","↻"],
     ["security","Security","PIN protection and access","◇"],
   ];
@@ -1915,6 +1918,32 @@ function resumeAdoptionProgress() {
   watchAdoptionProgress(jobId);
 }
 
+function moverSettingsPage() {
+  const folders=State.draft.mover_destination_folders||{};
+  const mounts=State.draft.mover_node_mounts||{};
+  const roots=State.draft.mover_node_source_roots||{};
+  drawer("Mover & storage",`${backBar()}
+    <div class="settings-page-intro"><span class="settings-page-icon">⇄</span><div><strong>Mover & file access</strong><small>Configure the queue and the mounted folders used by Byte-Me and Rip Nodes.</small></div></div>
+    <div class="settings-group">${groupHeading("Mover","mover-storage")}
+      ${toggleRow("Automatically queue completed rips","Copy completed folders to Byte-Me, one folder at a time",Boolean(State.draft.mover_enabled),`data-toggle-key="mover_enabled"`)}
+      ${toggleRow("Remove verified source folder","Delete the Rip Node copy only after every copied file is verified",Boolean(State.draft.mover_delete_source),`data-toggle-key="mover_delete_source"`)}
+    </div>
+    <div class="settings-group"><h3>Byte-Me destination</h3>
+      <div class="field"><label>Media share inside container</label><input value="${esc(State.draft.mover_destination_root||"/media")}" data-setting-input="mover_destination_root" placeholder="/media"></div>
+      <div class="field"><label>Movies folder</label><input value="${esc(folders.movie||"Movies")}" data-mover-folder="movie"></div>
+      <div class="field"><label>TV folder</label><input value="${esc(folders.tv||"TV")}" data-mover-folder="tv"></div>
+      <div class="field"><label>Music folder</label><input value="${esc(folders.music||"Music")}" data-mover-folder="music"></div>
+      <div class="field"><label>Audiobooks folder</label><input value="${esc(folders.audiobook||"Audiobooks")}" data-mover-folder="audiobook"></div>
+      <div class="note compact-note">Destination folders are relative to <code>${esc(State.draft.mover_destination_root||"/media")}</code>. Nested paths such as <code>Video/Movies</code> are supported.</div>
+    </div>
+    <div class="settings-group"><h3>rip-node-1 source</h3>
+      <div class="field"><label>Mounted share inside Manager container</label><input value="${esc(mounts["rip-node-1"]||"/rip-nodes/rip-node-1")}" data-mover-mount="rip-node-1"></div>
+      <div class="field"><label>Output path reported by Rip Node</label><input value="${esc(roots["rip-node-1"]||"/mnt/ripping")}" data-mover-source-root="rip-node-1"></div>
+      <div class="note compact-note">These settings describe existing Docker mounts; saving them does not mount a host folder by itself.</div>
+    </div>${saveBar()}`);
+}
+
+
 function systemPage() {
   drawer("System",`${backBar()}<div class="settings-page-intro"><span class="settings-page-icon">↻</span><div><strong>System</strong><small>Updates, advanced behaviour and troubleshooting.</small></div></div>
     <div class="settings-group"><h3>Updates</h3>${navRow("Updates","Manager, Rip Nodes and Update System","updates")}</div>
@@ -2537,6 +2566,21 @@ $("#settingsContent").addEventListener("input", (event) => {
       if(preview) preview.style.setProperty("--layout-preview-gap",`${Math.round(7*Number(input.value)/100)}px`);
     }
     if(key==="metadata_upcitemdb_mode")providerPage("upcitemdb");
+  }
+  if (input.dataset.moverFolder) {
+    State.draft.mover_destination_folders ||= {};
+    State.draft.mover_destination_folders[input.dataset.moverFolder] = input.value;
+    updateDirtySaveButtons();
+  }
+  if (input.dataset.moverMount) {
+    State.draft.mover_node_mounts ||= {};
+    State.draft.mover_node_mounts[input.dataset.moverMount] = input.value;
+    updateDirtySaveButtons();
+  }
+  if (input.dataset.moverSourceRoot) {
+    State.draft.mover_node_source_roots ||= {};
+    State.draft.mover_node_source_roots[input.dataset.moverSourceRoot] = input.value;
+    updateDirtySaveButtons();
   }
   if (input.dataset.nodeField !== undefined) {
     State.draft.nodes[Number(input.dataset.nodeIndex)][input.dataset.nodeField] = input.value; updateDirtySaveButtons();
