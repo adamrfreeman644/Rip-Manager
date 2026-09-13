@@ -21,6 +21,15 @@ def current_settings() -> dict:
     configured = [dict(row) for row in db.query("SELECT id,name,url,enabled FROM nodes ORDER BY id")]
     for node in configured:
         node["enabled"] = bool(node["enabled"])
+    real_node_ids = [
+        node["id"] for node in configured
+        if node["id"] != "simulator" and "/simulator-node" not in node["url"]
+    ]
+    mover_node_mounts = db.get_setting_json("mover_node_mounts", {})
+    mover_node_source_roots = db.get_setting_json("mover_node_source_roots", {})
+    for node_id in real_node_ids:
+        mover_node_mounts.setdefault(node_id, f"/rip-nodes/{node_id}")
+        mover_node_source_roots.setdefault(node_id, "/mnt/ripping")
     return {
         "idle_poll_seconds": db.get_setting_int("idle_poll_seconds", DEFAULT_IDLE_POLL),
         "active_poll_seconds": db.get_setting_int("active_poll_seconds", DEFAULT_ACTIVE_POLL),
@@ -47,13 +56,12 @@ def current_settings() -> dict:
         "dashboard_rows": db.get_setting_int("dashboard_rows", 2),
         "dashboard_tiles": db.get_setting_json("dashboard_tiles", []),
         "dashboard_spacing_percent": db.get_setting_int("dashboard_spacing_percent", 100),
-        "simulation": db.get_setting_bool("simulation"),
         "lock_enabled": db.get_setting_bool("lock_enabled"),
         "mover_enabled": db.get_setting_bool("mover_enabled"),
         "mover_delete_source": db.get_setting_bool("mover_delete_source", True),
         "mover_destination_root": db.get_setting("mover_destination_root", "/media"),
-        "mover_node_mounts": db.get_setting_json("mover_node_mounts", {}),
-        "mover_node_source_roots": db.get_setting_json("mover_node_source_roots", {}),
+        "mover_node_mounts": mover_node_mounts,
+        "mover_node_source_roots": mover_node_source_roots,
         "mover_destination_folders": db.get_setting_json("mover_destination_folders", {"movie":"Movies","tv":"TV","music":"Music","audiobook":"Audiobooks"}),
         "pin_set": auth.pin_is_set(),
         "nodes": configured,
@@ -120,7 +128,6 @@ def update_settings(req: SettingsUpdate, response: Response):
         "verify_before_eject": None if req.verify_before_eject is None else int(req.verify_before_eject),
         "prefer_english_audio": None if req.prefer_english_audio is None else int(req.prefer_english_audio),
         "prefer_english_subtitles": None if req.prefer_english_subtitles is None else int(req.prefer_english_subtitles),
-        "simulation": None if req.simulation is None else int(req.simulation),
         "lock_enabled": None if req.lock_enabled is None else int(req.lock_enabled),
         "drive_preferences": (
             json.dumps(req.drive_preferences, separators=(",", ":"))

@@ -40,7 +40,6 @@ class SettingsUpdate(BaseModel):
     dashboard_rows: Optional[int] = Field(default=None, ge=1, le=8)
     dashboard_tiles: Optional[List[Optional[str]]] = Field(default=None, max_length=48)
     dashboard_spacing_percent: Optional[int] = Field(default=None, ge=50, le=300)
-    simulation: Optional[bool] = None
     lock_enabled: Optional[bool] = None
     mover_enabled: Optional[bool] = None
     mover_delete_source: Optional[bool] = None

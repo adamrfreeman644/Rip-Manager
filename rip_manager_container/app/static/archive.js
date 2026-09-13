@@ -23,6 +23,8 @@ async function loadTransfers(){const rows=await request("/archive/mover/transfer
 function markRoute(route){document.querySelectorAll("[data-app-route]").forEach(x=>x.classList.toggle("current-page",x.dataset.appRoute===route));q("#archiveButton")?.classList.toggle("current-page",route==="physical-media")}
 async function renderRoute(route){
   clearInterval(refreshTimer);refreshTimer=null;markRoute(route);
+  const settingsLink=q("#archiveMoverSettings");
+  if(settingsLink)settingsLink.classList.toggle("hidden",route!=="mover");
   if(route==="dashboard"){overlay.classList.add("hidden");q("#driveGrid").classList.remove("hidden");document.title="Rip Remote";return}
   q("#driveGrid").classList.add("hidden");overlay.classList.remove("hidden");
   if(route==="mover"){q("#archiveHeading").textContent="Mover";q("#archiveSubheading").textContent="One folder at a time to Byte-Me";document.title="Mover · Rip Remote";showPanel("archiveTransfers");await loadTransfers();refreshTimer=setInterval(loadTransfers,2000);return}
@@ -33,6 +35,7 @@ async function navigate(route,push=true){const path=route==="mover"?"/mover":rou
 window.openDashboard=()=>navigate("dashboard");
 window.openArchive=()=>navigate("physical-media");
 window.openMover=()=>navigate("mover");
+q("#archiveMoverSettings").onclick=async()=>{await openSettings();navigateSettings("mover")};
 window.addEventListener("popstate",()=>renderRoute(routeFromPath()));
 q("#archiveBack").onclick=()=>{q("#archiveDetail").classList.remove("active");q("#archiveLibrary").classList.add("active");current=null};q("#archiveSaveText").onclick=saveText;q("#archiveTextArea").oninput=()=>q("#archiveTextState").textContent="Unsaved changes";
 q("#archiveScan").onclick=async()=>{try{const result=await request("/archive/scan",{method:"POST"});await loadMedia();toast(result.imported?`${result.imported} existing folder${result.imported===1?"":"s"} added`:`Scan complete · ${result.folders_seen} already known`)}catch(e){toast(e.message)}};
