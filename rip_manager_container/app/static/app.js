@@ -1,4 +1,4 @@
-/* Rip Remote 0.22.0 — front end for Rip Manager.
+/* Rip Remote 0.22.1 — front end for Rip Manager.
  *
  * Sections, in order:
  *   1. State and small helpers
@@ -865,33 +865,6 @@ async function copyShare(value) {
   }
 }
 
-function showShares() {
-  const shareNodes = State.nodes.filter((node) => node.enabled && !isSimulatorNode(node));
-  const cards = shareNodes.length
-    ? shareNodes.map((node) => {
-      const share = nodeShare(node);
-      return `<div class="share-card">
-        <div class="node-top">
-          <strong>${esc(node.name)}</strong>
-          <span class="status ${node.online ? "" : "offline"}">● ${node.online ? "ONLINE" : "OFFLINE"}</span>
-        </div>
-        <div class="share-path">${esc(share.unc)}</div>
-        <div class="share-actions">
-          <a class="primary" href="${esc(share.link)}">Open share</a>
-          <button class="secondary" type="button" data-copy="${esc(share.unc)}">Copy path</button>
-        </div>
-      </div>`;
-    }).join("")
-    : `<div class="note">No nodes configured.</div>`;
-
-  openModal("Output Shares",
-    `<div class="shares">${cards}</div>
-     <div class="note share-note">If Chrome blocks SMB links, use Copy path and paste it into File Explorer.</div>`);
-
-  $("#genericModalBody").querySelectorAll("[data-copy]").forEach((button) => {
-    button.onclick = () => copyShare(button.dataset.copy);
-  });
-}
 
 const relativeSpan = (ts) => `<span class="live-ago" data-ts="${ts || 0}">${esc(ago(ts))}</span>`;
 
@@ -2428,13 +2401,11 @@ $("#intakeModal").addEventListener("click", (event) => {
   if (button.dataset.action === "close-intake") closeModal("intakeModal");
 });
 
-$("#sharesButton").onclick = showShares;
 $("#archiveButton").onclick = () => window.openArchive();
 $("#statsButton").onclick = showStats;
 $("#settingsButton").onclick = openSettings;
-$("#refreshButton").onclick = () => refresh(true);
 $("#brandRefresh").onclick = async () => {
-  const brand=$("#brandRefresh");brand.disabled=true;brand.setAttribute("aria-label","Force refreshing Rip Manager");
+  const brand=$("#brandRefresh");brand.disabled=true;brand.setAttribute("aria-label","Refreshing Rip Manager");
   try{
     const resources=[...document.querySelectorAll('link[rel="stylesheet"][href],script[src]')].map(element=>element.href||element.src);
     await Promise.allSettled(resources.map(url=>fetch(url,{cache:"reload",credentials:"same-origin"})));
@@ -2466,10 +2437,8 @@ mobileNavMenu.onclick = (event) => {
   setMobileNav(false);
   const actions = {
     dashboard: () => window.openDashboard(),
-    refresh: () => refresh(true),
     archive: () => window.openArchive(),
     mover: () => window.openMover(),
-    shares: showShares,
     stats: showStats,
     settings: openSettings,
   };
