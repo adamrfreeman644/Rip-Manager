@@ -1,4 +1,4 @@
-# Rip Manager v0.21.2
+# Rip Manager v0.21.3
 
 Remote controller for Rip Manager and its Rip Nodes.
 
@@ -16,9 +16,10 @@ HandBrake details are refreshed. A structured `disc-info.json` is generated
 beside the readable text file.
 
 The mover is disabled until its two host paths are mounted and it is enabled in
-the separate **Mover → Mover settings** main-menu page. That page also controls
-the Movies, TV, Music and Audiobooks folder paths beneath `/media`. The default
-container paths are:
+**Settings → Mover & storage**. This is the single configuration area for
+automatic queueing, verified source removal, the Movies, TV, Music and
+Audiobooks folders beneath `/media`, and Rip Node mount/source mappings. The
+default container paths are:
 
 ```text
 /media                    → /mnt/user/Media on Byte-Me
