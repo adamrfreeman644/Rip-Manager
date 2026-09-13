@@ -2390,6 +2390,7 @@ $("#intakeModal").addEventListener("click", (event) => {
 
 $("#sharesButton").onclick = showShares;
 $("#archiveButton").onclick = () => window.openArchive();
+$("#moverButton").onclick = () => window.openMover();
 $("#statsButton").onclick = showStats;
 $("#settingsButton").onclick = openSettings;
 $("#refreshButton").onclick = () => refresh(true);
@@ -2418,6 +2419,7 @@ mobileNavMenu.onclick = (event) => {
   const actions = {
     refresh: () => refresh(true),
     archive: () => window.openArchive(),
+    mover: () => window.openMover(),
     shares: showShares,
     stats: showStats,
     settings: openSettings,

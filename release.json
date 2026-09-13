@@ -1,11 +1,10 @@
 {
-  "version": "0.21.0",
+  "version": "0.21.1",
   "notes": [
-    "Add a responsive Physical Media library for current and completed movie, TV, music and audiobook discs, with front, rear and unlimited extra photos.",
-    "Add per-disc editable disc-info.txt records whose user-owned text is preserved whenever Rip Manager refreshes its automatic technical section.",
-    "Add a persistent one-folder-at-a-time mover queue that copies completed rips from mounted Rip Node shares to Byte-Me, verifies every file, finalises through a hidden partial folder and only then removes the source.",
-    "Store disc-info.json, disc-info.txt and physical-edition images beside verified final media without using Jellyfin artwork filenames or interfering with HandBrake inputs.",
-    "Add Mover settings, live transfer progress, safe retry/cancel handling and restricted /media plus /rip-nodes/rip-node-1 container mounts.",
-    "Preserve existing data, config, PIN, node settings, storage and history, with Rip Node remaining at v0.2.9."
+    "Show only physical-media records whose real folder currently exists on Byte-Me or the mounted Rip Node share, instead of displaying the full database history.",
+    "Keep current rips visible as soon as their output folder is created on the node.",
+    "Move Mover into its own main-menu option and add editable Movies, TV, Music and Audiobooks paths beneath the /media share.",
+    "Populate the documented rip-node-1 mount mapping for existing v0.21.0 installations that still have the untouched empty mapping.",
+    "Keep the v0.21.0 photo, editable details, Byte-Me scanner and safe single-folder mover features, with Rip Node remaining at v0.2.9."
   ]
 }

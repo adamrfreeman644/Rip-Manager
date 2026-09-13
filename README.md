@@ -1,12 +1,13 @@
-# Rip Manager v0.21.0
+# Rip Manager v0.21.1
 
 Remote controller for Rip Manager and its Rip Nodes.
 
 ## Physical media archive and automatic mover
 
 Open **Media** in the Manager header or **Physical media** in the mobile menu.
-The library includes current and completed movie, TV, music and audiobook disc
-jobs. Each record supports a front image, rear image, unlimited horizontally
+The library includes only movie, TV, music and audiobook records whose real
+folder currently exists on Byte-Me or the mounted Rip Node share. Current rips
+appear as soon as their output folder is created. Each record supports a front image, rear image, unlimited horizontally
 scrollable extras, and an editable `disc-info.txt` view.
 
 Rip Manager owns a delimited automatic section inside `disc-info.txt`. Anything
@@ -15,7 +16,9 @@ HandBrake details are refreshed. A structured `disc-info.json` is generated
 beside the readable text file.
 
 The mover is disabled until its two host paths are mounted and it is enabled in
-**Media → Mover → Mover settings**. The default container paths are:
+the separate **Mover → Mover settings** main-menu page. That page also controls
+the Movies, TV, Music and Audiobooks folder paths beneath `/media`. The default
+container paths are:
 
 ```text
 /media                    → /mnt/user/Media on Byte-Me

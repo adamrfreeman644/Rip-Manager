@@ -69,6 +69,25 @@ def test_mover_maps_only_beneath_configured_mount(tmp_path, monkeypatch):
     assert destination == (media / "Movies" / "Test Film").resolve()
 
 
+def test_media_list_excludes_history_without_an_existing_folder(tmp_path, monkeypatch):
+    db = fresh_database(tmp_path, monkeypatch)
+    node_mount = tmp_path / "node"
+    existing = node_mount / "Movies" / "Still Here"
+    existing.mkdir(parents=True)
+    add_complete_job(db, "/mnt/ripping/Movies/Missing")
+    with db.write() as conn:
+        conn.execute("UPDATE jobs_history SET manager_job_id='rip-node-1:missing',node_job_id='missing'")
+    add_complete_job(db, "/mnt/ripping/Movies/Still Here")
+    db.set_settings({
+        "mover_node_mounts": json.dumps({"rip-node-1": str(node_mount)}),
+        "mover_node_source_roots": json.dumps({"rip-node-1": "/mnt/ripping"}),
+    })
+    import archive
+    rows = archive.list_media()
+    assert [row["manager_job_id"] for row in rows] == ["rip-node-1:job-1"]
+    assert rows[0]["existing_dir"] == str(existing.resolve())
+
+
 def test_failed_copy_keeps_source(tmp_path, monkeypatch):
     db = fresh_database(tmp_path, monkeypatch)
     node_mount = tmp_path / "node"

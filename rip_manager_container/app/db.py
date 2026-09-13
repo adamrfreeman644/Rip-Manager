@@ -194,8 +194,8 @@ DEFAULT_SETTINGS = {
     "mover_enabled": "0",
     "mover_delete_source": "1",
     "mover_destination_root": "/media",
-    "mover_node_mounts": "{}",
-    "mover_node_source_roots": "{}",
+    "mover_node_mounts": "{\"rip-node-1\":\"/rip-nodes/rip-node-1\"}",
+    "mover_node_source_roots": "{\"rip-node-1\":\"/mnt/ripping\"}",
     "mover_destination_folders": "{\"movie\":\"Movies\",\"tv\":\"TV\",\"music\":\"Music\",\"audiobook\":\"Audiobooks\"}",
 }
 
@@ -275,6 +275,16 @@ def init_db() -> None:
 
         # Upgrade the old untouched default without overriding a custom value.
         conn.execute("UPDATE settings SET value='5' WHERE key='idle_poll_seconds' AND value='10'")
+        # v0.21.0 stored empty maps on first upgrade. Fill only those untouched
+        # values so rip-node-1 folders are visible through the documented mount.
+        conn.execute(
+            "UPDATE settings SET value=? WHERE key='mover_node_mounts' AND value='{}'",
+            ('{"rip-node-1":"/rip-nodes/rip-node-1"}',),
+        )
+        conn.execute(
+            "UPDATE settings SET value=? WHERE key='mover_node_source_roots' AND value='{}'",
+            ('{"rip-node-1":"/mnt/ripping"}',),
+        )
 
         # v0.17.6 gives the two simulated Blu-ray drives BR names. Migrate
         # saved tile positions and preferences once without disturbing layout.
