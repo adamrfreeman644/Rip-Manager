@@ -80,6 +80,8 @@ app.mount("/simulator-node", simulator_node.app, name="simulator-node")
 # systemd units with no browser session to present.
 PUBLIC_PATHS = {
     "/",
+    "/physical-media",
+    "/mover",
     "/health",
     "/api/info",
     "/auth/status",
@@ -108,6 +110,12 @@ async def require_login(request: Request, call_next):
 
 @app.get("/", include_in_schema=False)
 def index():
+    return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-store, max-age=0"})
+
+
+@app.get("/physical-media", include_in_schema=False)
+@app.get("/mover", include_in_schema=False)
+def application_page():
     return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-store, max-age=0"})
 
 
