@@ -661,7 +661,7 @@ html[data-theme="dark"] .drive.error{background:#FF626C !important;border-color:
 .share-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.share-actions a{text-align:center;text-decoration:none}.share-note{margin-top:10px}
 @media(max-width:600px){
   .v02-header{align-items:flex-start;position:relative}
-  .v02-pill,.v02-actions>#refreshButton,.v02-actions>#archiveButton,.v02-actions>#sharesButton,.v02-actions>#statsButton,.v02-actions>#settingsButton{display:none}
+  .v02-pill,.v02-actions>#refreshButton,.v02-actions>#archiveButton,.v02-actions>#moverButton,.v02-actions>#sharesButton,.v02-actions>#statsButton,.v02-actions>#settingsButton{display:none}
   .v02-actions{gap:0;flex-wrap:nowrap}
   .mobile-nav-wrap{display:block}
   .mobile-nav-toggle{display:block;width:40px;height:40px}

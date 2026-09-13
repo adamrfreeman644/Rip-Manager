@@ -210,6 +210,35 @@ def _image_url(manager_job_id: str, filename: Optional[str]) -> Optional[str]:
     return f"/archive/{manager_job_id}/images/{filename}" if filename else None
 
 
+def existing_folder(item: dict) -> Optional[Path]:
+    """Return the real folder backing a row, or None for stale history."""
+    if item.get("final_dir"):
+        final_dir = Path(item["final_dir"])
+        if final_dir.is_dir():
+            return final_dir
+
+    output = Path(item.get("output_dir") or "")
+    if item.get("node_id") == "Byte-Me" and output.is_dir():
+        return output
+    if not output.is_absolute():
+        return None
+
+    node_id = item.get("node_id")
+    mounts = db.get_setting_json("mover_node_mounts", {})
+    source_roots = db.get_setting_json("mover_node_source_roots", {})
+    configured_mount = mounts.get(node_id)
+    if not configured_mount:
+        return None
+    mount = Path(configured_mount).resolve()
+    try:
+        relative = output.relative_to(Path(source_roots.get(node_id, "/mnt/ripping")))
+        candidate = (mount / relative).resolve()
+        candidate.relative_to(mount)
+    except (OSError, ValueError):
+        return None
+    return candidate if candidate.is_dir() else None
+
+
 def list_media() -> list[dict]:
     rows = db.query(
         """SELECT j.*,p.front_image,p.rear_image,p.extras_json,p.final_dir
@@ -219,7 +248,11 @@ def list_media() -> list[dict]:
     out = []
     for row in rows:
         item = dict(row)
+        folder = existing_folder(item)
+        if folder is None:
+            continue
         extras = json.loads(item.pop("extras_json") or "[]")
+        item["existing_dir"] = str(folder)
         item["front_url"] = _image_url(item["manager_job_id"], item.pop("front_image"))
         item["rear_url"] = _image_url(item["manager_job_id"], item.pop("rear_image"))
         item["extra_urls"] = [_image_url(item["manager_job_id"], name) for name in extras]

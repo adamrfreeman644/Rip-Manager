@@ -118,6 +118,8 @@ def save_mover_config(req: MoverConfig):
     allowed_types = {"movie", "tv", "music", "audiobook"}
     if set(req.destination_folders) - allowed_types:
         raise HTTPException(status_code=422, detail="Unknown destination media type")
+    if set(req.destination_folders) != allowed_types or any(not value.strip() for value in req.destination_folders.values()):
+        raise HTTPException(status_code=422, detail="Set a folder for movies, TV, music and audiobooks")
     if any(Path(value).is_absolute() or ".." in Path(value).parts for value in req.destination_folders.values()):
         raise HTTPException(status_code=422, detail="Destination folders must be safe relative paths")
     db.set_settings({
