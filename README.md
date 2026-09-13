@@ -1,10 +1,14 @@
-# Rip Manager v0.21.3
+# Rip Manager v0.21.4
 
 Remote controller for Rip Manager and its Rip Nodes.
 
 ## Physical media archive and automatic mover
 
 Open **Media** in the Manager header or **Physical media** in the mobile menu.
+Physical Media and Mover are full application pages at `/physical-media` and
+`/mover`. Both retain the normal Rip Manager header and support browser Back and
+Forward navigation. Selecting the Rip Manager logo performs a forced asset
+refresh equivalent to Ctrl+F5 on devices that do not expose that shortcut.
 The library includes only movie, TV, music and audiobook records whose real
 folder currently exists on Byte-Me or the mounted Rip Node share. Current rips
 appear as soon as their output folder is created. Each record supports a front image, rear image, unlimited horizontally
