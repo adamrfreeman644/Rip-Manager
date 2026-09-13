@@ -1,9 +1,10 @@
 {
-  "version": "0.22.3",
+  "version": "0.22.4",
   "notes": [
-    "Restyle the Physical media, Mover and Stats page titles as plain typographic headers instead of bordered, rounded cards.",
-    "Keep each page title and its short description for orientation while removing the panel background and button-like outline.",
-    "Retain descriptive subtitles on narrow screens so page context is not lost on mobile.",
-    "Preserve the full-page routes, centralized Settings area, Mover shares, logo refresh behavior and active-rip title/year fix."
+    "Add a persistent Use this drive switch to every mapped drive under Settings → Nodes & drives.",
+    "Mark switched-off drives as Do not use on the dashboard while keeping them visible and retaining tray controls.",
+    "Block manual starts, queued intake, retries and automatic starts for drives marked Do not use.",
+    "Cancel any waiting-for-disc intake when a drive is switched off, without interrupting an already-running rip.",
+    "Preserve all existing drive mappings, dashboard positions and per-drive tray capability settings."
   ]
 }

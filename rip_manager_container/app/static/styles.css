@@ -1315,3 +1315,10 @@ select option{
   outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
   outline-offset: 2px;
 }
+
+/* Drives intentionally taken out of service remain visible and controllable. */
+.drive.do-not-use{background:#30363d !important;border-color:#6e7681 !important;color:#c9d1d9 !important;filter:saturate(.45)}
+html[data-theme="light"] .drive.do-not-use{background:#e5e7eb !important;border-color:#9ca3af !important;color:#374151 !important;filter:none}
+@media(prefers-color-scheme:light){
+  html[data-theme="system"] .drive.do-not-use{background:#e5e7eb !important;border-color:#9ca3af !important;color:#374151 !important;filter:none}
+}
