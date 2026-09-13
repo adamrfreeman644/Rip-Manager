@@ -305,8 +305,13 @@ function tileState(drive, job) {
 }
 
 function titleWithYear(item) {
-  const title=String(item?.title || item?.media?.title || "").trim();
-  const year=item?.year ?? item?.media?.year;
+  // Titles have existed at both the top level and under `media` across node
+  // versions. Prefer the first non-empty value instead of allowing an empty
+  // top-level field to mask the authoritative media title.
+  const candidates = [item?.title, item?.media?.title, item?.metadata?.title];
+  const title = candidates.map(value => String(value ?? "").trim())
+    .find(value => value.length > 0) || "";
+  const year=item?.year ?? item?.media?.year ?? item?.metadata?.year;
   if (!title) return "";
   if (!year || title.includes(String(year))) return title;
   return `${title} (${year})`;
@@ -315,7 +320,7 @@ function titleWithYear(item) {
 function tileTitle(drive, job) {
   if (!driveUseAllowed(drive) && !isActive(job)) return "Drive disabled";
   if (drive.pending_intake) return titleWithYear(drive.pending_intake);
-  const storedTitle=titleWithYear(job);
+  const storedTitle=titleWithYear(job) || titleWithYear(job?.raw);
   if (storedTitle) return storedTitle;
   if (job?.raw?.output_dir) return job.raw.output_dir.split("/").pop();
   if (job?.output_dir) return job.output_dir.split("/").pop();
