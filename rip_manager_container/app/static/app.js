@@ -1,4 +1,4 @@
-/* Rip Remote 0.22.0 — front end for Rip Manager.
+/* Rip Remote 0.22.1 — front end for Rip Manager.
  *
  * Sections, in order:
  *   1. State and small helpers
@@ -2432,9 +2432,8 @@ $("#sharesButton").onclick = showShares;
 $("#archiveButton").onclick = () => window.openArchive();
 $("#statsButton").onclick = showStats;
 $("#settingsButton").onclick = openSettings;
-$("#refreshButton").onclick = () => refresh(true);
 $("#brandRefresh").onclick = async () => {
-  const brand=$("#brandRefresh");brand.disabled=true;brand.setAttribute("aria-label","Force refreshing Rip Manager");
+  const brand=$("#brandRefresh");brand.disabled=true;brand.setAttribute("aria-label","Refreshing Rip Manager");
   try{
     const resources=[...document.querySelectorAll('link[rel="stylesheet"][href],script[src]')].map(element=>element.href||element.src);
     await Promise.allSettled(resources.map(url=>fetch(url,{cache:"reload",credentials:"same-origin"})));
@@ -2466,7 +2465,6 @@ mobileNavMenu.onclick = (event) => {
   setMobileNav(false);
   const actions = {
     dashboard: () => window.openDashboard(),
-    refresh: () => refresh(true),
     archive: () => window.openArchive(),
     mover: () => window.openMover(),
     shares: showShares,
