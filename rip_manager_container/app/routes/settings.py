@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Response
 
 import auth
 from config import DEFAULT_ACTIVE_POLL, DEFAULT_IDLE_POLL
 import db
+import mover
 from models import SettingsUpdate
 import poller
 
@@ -83,6 +85,19 @@ def update_settings(req: SettingsUpdate, response: Response):
         assigned = [item for item in req.dashboard_tiles if item]
         if len(assigned) != len(set(assigned)):
             raise HTTPException(status_code=422, detail="A drive can only be assigned to one dashboard cell")
+    mover_fields = (req.mover_destination_root, req.mover_node_mounts, req.mover_node_source_roots, req.mover_destination_folders)
+    if any(value is not None for value in mover_fields):
+        destination_root = req.mover_destination_root or db.get_setting("mover_destination_root", "/media")
+        node_mounts = req.mover_node_mounts if req.mover_node_mounts is not None else db.get_setting_json("mover_node_mounts", {})
+        source_roots = req.mover_node_source_roots if req.mover_node_source_roots is not None else db.get_setting_json("mover_node_source_roots", {})
+        folders = req.mover_destination_folders if req.mover_destination_folders is not None else db.get_setting_json("mover_destination_folders", {})
+        if any(not Path(value).is_absolute() for value in [destination_root, *node_mounts.values(), *source_roots.values()]):
+            raise HTTPException(status_code=422, detail="Mover paths must be absolute")
+        allowed_types = {"movie", "tv", "music", "audiobook"}
+        if set(folders) != allowed_types or any(not value.strip() for value in folders.values()):
+            raise HTTPException(status_code=422, detail="Set a folder for movies, TV, music and audiobooks")
+        if any(Path(value).is_absolute() or ".." in Path(value).parts for value in folders.values()):
+            raise HTTPException(status_code=422, detail="Destination folders must be safe relative paths")
 
     db.set_settings({
         "idle_poll_seconds": req.idle_poll_seconds,
@@ -147,4 +162,5 @@ def update_settings(req: SettingsUpdate, response: Response):
         auth.issue_session(response)
 
     poller.wakeup.set()
+    mover.wake()
     return current_settings()
