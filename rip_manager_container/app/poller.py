@@ -105,6 +105,8 @@ async def _start_pending(node: sqlite3.Row, drives: List[dict]) -> None:
             continue
         if drive.get("active_job"):
             continue
+        if not node_client.drive_preference(node["id"], drive_name, "enabled", True):
+            continue
         if not node_client.drive_preference(node["id"], drive_name, "detect", True):
             continue
         media_ready = intake.media_is_ready(drive)

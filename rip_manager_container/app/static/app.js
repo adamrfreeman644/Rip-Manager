@@ -286,6 +286,7 @@ function trayOf(drive) {
 function tileState(drive, job) {
   if (!drive.node_online) return ["error", "Offline"];
   if (isActive(job)) return ["ripping", STATE_LABELS[job.state] || "Ripping"];
+  if (!driveUseAllowed(drive)) return ["do-not-use", "Do not use"];
   if (drive.pending_intake) {
     if (discIsReady(drive)) return ["disc-detected", "Disc ready — start rip"];
     return drive.pending_intake.exhausted
@@ -312,6 +313,7 @@ function titleWithYear(item) {
 }
 
 function tileTitle(drive, job) {
+  if (!driveUseAllowed(drive) && !isActive(job)) return "Drive disabled";
   if (drive.pending_intake) return titleWithYear(drive.pending_intake);
   const storedTitle=titleWithYear(job);
   if (storedTitle) return storedTitle;
@@ -331,6 +333,9 @@ function describeMedia(item) {
 }
 
 function tileSubtitle(drive, job) {
+  if (!driveUseAllowed(drive) && !isActive(job)) {
+    return "Enable in Settings → Nodes & drives";
+  }
   if (drive.pending_intake) {
     return describeMedia(drive.pending_intake) || "Insert the disc to begin";
   }
@@ -443,6 +448,7 @@ function driveCapabilityAllowed(drive, capability) {
   return State.settings?.drive_preferences?.[id]?.[capability] !== false;
 }
 
+const driveUseAllowed = (drive) => driveCapabilityAllowed(drive, "enabled");
 const openTrayAllowed = (drive) => driveCapabilityAllowed(drive, "open_tray");
 const closeTrayAllowed = (drive) => driveCapabilityAllowed(drive, "close_tray");
 
@@ -774,7 +780,7 @@ function openDrive(drive) {
   const [className, label] = tileState(drive, job);
 
   // An idle drive goes straight to intake; that is the common case.
-  if (["empty", "disc-detected", "tray-open"].includes(className) && !drive.pending_intake) {
+  if (driveUseAllowed(drive) && ["empty", "disc-detected", "tray-open"].includes(className) && !drive.pending_intake) {
     openIntake(drive);
     return;
   }
@@ -813,7 +819,9 @@ function openDrive(drive) {
 
   let primary = "";
   let secondary = "";
-  if (isActive(job)) {
+  if (!driveUseAllowed(drive) && !isActive(job)) {
+    secondary = visibleTrayButton() + closeButton();
+  } else if (isActive(job)) {
     primary = button("cancel", "Cancel rip", "danger-action popup-primary");
     secondary = visibleTrayButton(true) + closeButton();
   } else if (drive.pending_intake) {
@@ -1151,12 +1159,14 @@ function toggleDraft(key, button) {
 function drivePreference(id) {
   if (!State.draft.drive_preferences[id]) {
     State.draft.drive_preferences[id] = {
+      enabled: true,
       detect: true,
       open_tray: true,
       close_tray: true,
     };
   }
   const preference = State.draft.drive_preferences[id];
+  if (preference.enabled === undefined) preference.enabled = true;
   if (preference.open_tray === undefined) preference.open_tray = true;
   if (preference.close_tray === undefined) preference.close_tray = true;
   return preference;
@@ -1507,6 +1517,7 @@ async function loadDriveMapping(nodeId=null) {
         <div class="drive-map-detail"><span>Current device</span><code>${esc(m.device || m.configured_device || "—")}</code></div>
         ${m.id_path ? `<div class="drive-map-detail"><span>USB / udev path</span><code>${esc(m.id_path)}</code></div>` : ""}
         <div class="drive-capability-settings">
+          ${toggleRow("Use this drive","Switch off to mark this drive Do not use. It remains visible and tray controls remain available.",capability.enabled,`data-drive-id="${esc(driveId)}" data-drive-key="enabled"`)}
           ${toggleRow("Supports Open / Eject","Show Open or Eject and allow Prepare Drive to open this tray",capability.open_tray,`data-drive-id="${esc(driveId)}" data-drive-key="open_tray"`)}
           ${toggleRow("Supports Close","Show the Close tray button for this drive",capability.close_tray,`data-drive-id="${esc(driveId)}" data-drive-key="close_tray"`)}
         </div>

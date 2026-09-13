@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Response
 import auth
 from config import DEFAULT_ACTIVE_POLL, DEFAULT_IDLE_POLL
 import db
+import intake
 import mover
 from models import SettingsUpdate
 import poller
@@ -147,6 +148,12 @@ def update_settings(req: SettingsUpdate, response: Response):
         "mover_node_source_roots": json.dumps(req.mover_node_source_roots, separators=(",", ":")) if req.mover_node_source_roots is not None else None,
         "mover_destination_folders": json.dumps(req.mover_destination_folders, separators=(",", ":")) if req.mover_destination_folders is not None else None,
     })
+
+    if req.drive_preferences is not None:
+        for drive_id, preference in req.drive_preferences.items():
+            if preference.get("enabled", True) is False and ":" in drive_id:
+                node_id, drive = drive_id.split(":", 1)
+                intake.clear(node_id, drive.upper())
 
     if req.new_pin:
         db.set_setting("pin_hash", auth.hash_pin(req.new_pin))

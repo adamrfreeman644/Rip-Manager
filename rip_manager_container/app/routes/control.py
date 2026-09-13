@@ -22,7 +22,16 @@ def _drive(node_id: str, drive_name: str) -> tuple[sqlite3.Row, str]:
     return node, drive_name.upper()
 
 
+def _ensure_drive_enabled(node_id: str, drive: str) -> None:
+    if not node_client.drive_preference(node_id, drive, "enabled", True):
+        raise HTTPException(
+            status_code=403,
+            detail=f"{drive} is marked Do not use in Settings",
+        )
+
+
 async def _start(node: sqlite3.Row, drive: str, req: RipRequest, auto_started: bool = False) -> dict:
+    _ensure_drive_enabled(node["id"], drive)
     auto_eject = db.get_setting_bool("auto_eject", True)
     result = await node_client.post(node, f"/drives/{drive}/rip", req.node_payload(auto_eject))
     job_history.record_started_job(node["id"], drive, req.model_dump(), result, auto_started)
@@ -55,6 +64,7 @@ async def wait_for_disc(node_id: str, drive_name: str, req: RipRequest):
     for, so the rip simply starts.
     """
     node, drive = _drive(node_id, drive_name)
+    _ensure_drive_enabled(node_id, drive)
     cached = node_client.find_cached_drive(node_id, drive)
     # The operator may insert a disc and immediately press Start before the
     # background poll refreshes its cache. Ask the node directly so a stale
@@ -114,6 +124,7 @@ def cancel_wait(node_id: str, drive_name: str):
 async def retry(node_id: str, drive_name: str):
     """Run the drive's most recent job again with the same disc details."""
     node, drive = _drive(node_id, drive_name)
+    _ensure_drive_enabled(node_id, drive)
 
     previous = job_history.latest_job_for_drive(node_id, drive)
     if not previous or not previous["title"]:
