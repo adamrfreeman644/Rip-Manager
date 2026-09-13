@@ -15,6 +15,8 @@ services:
       - ${HOST_PROJECT_DIR:-.}/data:/data
       - ${HOST_PROJECT_DIR:-.}/config:/config
       - /mnt/user/Updater:/updates
+      - ${HOST_MEDIA_DIR:-/mnt/user/Media}:/media
+      - ${HOST_RIP_NODE_1_DIR:-/mnt/remotes/rip-node-1_ripping}:/rip-nodes/rip-node-1
       - /boot/config/rip-github/token:/run/secrets/github-token:ro
     environment:
       RIP_MANAGER_IDLE_POLL: "5"

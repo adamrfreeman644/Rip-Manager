@@ -23,6 +23,7 @@ from config import CORS_ORIGINS, SESSION_COOKIE, STATIC_DIR, VERSION, ensure_dir
 import db
 import nodes as node_client
 import poller
+import mover
 import simulator_node
 from routes import ROUTERS
 
@@ -41,9 +42,11 @@ async def lifespan(_: FastAPI):
     db.prune_history()
     await node_client.start_client()
     poller.start()
+    mover.start()
     log.info("Rip Manager %s ready", VERSION)
     yield
     await poller.stop()
+    await mover.stop()
     await node_client.stop_client()
 
 

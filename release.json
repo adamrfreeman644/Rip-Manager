@@ -1,10 +1,11 @@
 {
-  "version": "0.20.13",
+  "version": "0.21.0",
   "notes": [
-    "Restore Manager-stored disc titles, year, season, disc number and other media metadata on active ripping tiles when the node live job ID changes or does not match the Manager history record.",
-    "Only use the fallback metadata match when both records are active and their start times are compatible, preventing an old completed disc title being carried onto a genuinely new rip.",
-    "Force the tile grid to repaint after the fix loads so already-running rips can regain their titles without waiting for a new job.",
-    "Keep the 0.20.12 black Android/PWA theme setup, barcode lookup improvements and permanent dedicated updater fix.",
+    "Add a responsive Physical Media library for current and completed movie, TV, music and audiobook discs, with front, rear and unlimited extra photos.",
+    "Add per-disc editable disc-info.txt records whose user-owned text is preserved whenever Rip Manager refreshes its automatic technical section.",
+    "Add a persistent one-folder-at-a-time mover queue that copies completed rips from mounted Rip Node shares to Byte-Me, verifies every file, finalises through a hidden partial folder and only then removes the source.",
+    "Store disc-info.json, disc-info.txt and physical-edition images beside verified final media without using Jellyfin artwork filenames or interfering with HandBrake inputs.",
+    "Add Mover settings, live transfer progress, safe retry/cancel handling and restricted /media plus /rip-nodes/rip-node-1 container mounts.",
     "Preserve existing data, config, PIN, node settings, storage and history, with Rip Node remaining at v0.2.9."
   ]
 }

@@ -47,6 +47,12 @@ def current_settings() -> dict:
         "dashboard_spacing_percent": db.get_setting_int("dashboard_spacing_percent", 100),
         "simulation": db.get_setting_bool("simulation"),
         "lock_enabled": db.get_setting_bool("lock_enabled"),
+        "mover_enabled": db.get_setting_bool("mover_enabled"),
+        "mover_delete_source": db.get_setting_bool("mover_delete_source", True),
+        "mover_destination_root": db.get_setting("mover_destination_root", "/media"),
+        "mover_node_mounts": db.get_setting_json("mover_node_mounts", {}),
+        "mover_node_source_roots": db.get_setting_json("mover_node_source_roots", {}),
+        "mover_destination_folders": db.get_setting_json("mover_destination_folders", {"movie":"Movies","tv":"TV","music":"Music","audiobook":"Audiobooks"}),
         "pin_set": auth.pin_is_set(),
         "nodes": configured,
     }
@@ -112,6 +118,12 @@ def update_settings(req: SettingsUpdate, response: Response):
             if req.dashboard_tiles is not None else None
         ),
         "dashboard_spacing_percent": req.dashboard_spacing_percent,
+        "mover_enabled": None if req.mover_enabled is None else int(req.mover_enabled),
+        "mover_delete_source": None if req.mover_delete_source is None else int(req.mover_delete_source),
+        "mover_destination_root": req.mover_destination_root,
+        "mover_node_mounts": json.dumps(req.mover_node_mounts, separators=(",", ":")) if req.mover_node_mounts is not None else None,
+        "mover_node_source_roots": json.dumps(req.mover_node_source_roots, separators=(",", ":")) if req.mover_node_source_roots is not None else None,
+        "mover_destination_folders": json.dumps(req.mover_destination_folders, separators=(",", ":")) if req.mover_destination_folders is not None else None,
     })
 
     if req.new_pin:
