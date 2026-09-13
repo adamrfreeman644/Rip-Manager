@@ -1,4 +1,4 @@
-# Rip Manager v0.21.1
+# Rip Manager v0.21.2
 
 Remote controller for Rip Manager and its Rip Nodes.
 

@@ -2390,7 +2390,6 @@ $("#intakeModal").addEventListener("click", (event) => {
 
 $("#sharesButton").onclick = showShares;
 $("#archiveButton").onclick = () => window.openArchive();
-$("#moverButton").onclick = () => window.openMover();
 $("#statsButton").onclick = showStats;
 $("#settingsButton").onclick = openSettings;
 $("#refreshButton").onclick = () => refresh(true);
