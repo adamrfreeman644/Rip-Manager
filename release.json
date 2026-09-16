@@ -1,11 +1,10 @@
 {
-  "version": "0.22.6",
+  "version": "0.22.7",
   "notes": [
-    "Bundle Rip Node API v0.2.10.",
-    "Accept small MKV logo, menu and bonus titles automatically when ffprobe confirms they contain readable video.",
-    "Continue to reject a rip if every produced MKV is below the safety threshold or any output is unreadable.",
-    "Show how many readable short titles were accepted in the completed job message.",
-    "Preserve rip titles at the node payload top level and recover nested media titles in the dashboard.",
-    "Refresh frontend assets so active-rip titles cannot remain stuck on stale cached JavaScript or CSS."
+    "Add one-click storage verification and Physical Media library building.",
+    "Detect each real Rip Node's output path through the authenticated Node API.",
+    "Check Byte-Me and mounted Node paths with clear read/write status messages.",
+    "Keep media records visible when storage is unavailable and show the expected path.",
+    "Save verified storage settings and scan existing Byte-Me folders in one action."
   ]
 }

@@ -1926,6 +1926,26 @@ function resumeAdoptionProgress() {
   watchAdoptionProgress(jobId);
 }
 
+let lastStorageSetup=null;
+function storageSetupSummary(result){
+  if(!result)return '<div class="note compact-note">Checks Byte-Me, detects each Node output path, verifies mounted shares and indexes existing media.</div>';
+  const rows=[`<div><strong>${result.destination.exists&&result.destination.readable&&result.destination.writable?"✓":"×"} Byte-Me</strong> · ${esc(result.destination.message)}</div>`,...result.nodes.map(node=>`<div><strong>${node.mount.exists&&node.mount.readable?"✓":"×"} ${esc(node.name)}</strong> · ${esc(node.mount.message)}${node.detected?` · Node path ${esc(node.source_root)}`:node.node_error?` · ${esc(node.node_error)}`:""}</div>`),`<div><strong>${result.scan.imported} added</strong> · ${result.scan.folders_seen} existing folders found</div>`];
+  return `<div class="note compact-note storage-setup-result">${rows.join("")}</div>`;
+}
+
+async function verifyStorageAndBuildLibrary(){
+  const button=document.querySelector('[data-settings-action="verify-storage"]');
+  if(button){button.disabled=true;button.textContent="Checking storage…";}
+  try{
+    const payload={enabled:Boolean(State.draft.mover_enabled),delete_source:Boolean(State.draft.mover_delete_source),destination_root:State.draft.mover_destination_root||"/media",node_mounts:State.draft.mover_node_mounts||{},node_source_roots:State.draft.mover_node_source_roots||{},destination_folders:State.draft.mover_destination_folders||{movie:"Movies",tv:"TV",music:"Music",audiobook:"Audiobooks"}};
+    lastStorageSetup=await api("/archive/storage/setup",{method:"POST",body:JSON.stringify(payload)});
+    State.draft.mover_node_source_roots={...lastStorageSetup.source_roots};
+    State.settings=structuredClone(State.draft);
+    moverSettingsPage();
+    toast(lastStorageSetup.ok?"Storage verified and library updated":"Storage check found a problem");
+  }catch(error){toast(error.message);if(button){button.disabled=false;button.textContent="Verify storage & build library";}}
+}
+
 function moverSettingsPage() {
   const folders=State.draft.mover_destination_folders||{};
   const mounts=State.draft.mover_node_mounts||{};
@@ -1935,12 +1955,16 @@ function moverSettingsPage() {
     const defaultMount=`/rip-nodes/${node.id}`;
     return `<div class="settings-group"><h3>${esc(node.name)} source</h3>
       <div class="field"><label>Mounted share inside Manager container</label><input value="${esc(mounts[node.id]||defaultMount)}" data-mover-mount="${esc(node.id)}"></div>
-      <div class="field"><label>Output path reported by Rip Node</label><input value="${esc(roots[node.id]||"/mnt/ripping")}" data-mover-source-root="${esc(node.id)}"></div>
+      <div class="field"><label>Node output path <span class="muted-inline">(detected automatically)</span></label><input value="${esc(roots[node.id]||"/mnt/ripping")}" data-mover-source-root="${esc(node.id)}"></div>
       <div class="note compact-note">Node ID: <code>${esc(node.id)}</code>. These settings describe existing Docker mounts; saving them does not mount a host folder by itself.</div>
     </div>`;
   }).join("")||`<div class="settings-group"><div class="note">Add a real Rip Node before configuring mover source folders.</div></div>`;
   drawer("Storage & mover",`${backBar()}
     <div class="settings-page-intro"><span class="settings-page-icon">⇄</span><div><strong>Mover & file access</strong><small>Configure the queue and the mounted folders used by Byte-Me and Rip Nodes.</small></div></div>
+    <div class="settings-group"><h3>Storage setup</h3>
+      <button class="primary full-button" type="button" data-settings-action="verify-storage">Verify storage & build library</button>
+      ${storageSetupSummary(lastStorageSetup)}
+    </div>
     <div class="settings-group">${groupHeading("Mover","mover-storage")}
       ${toggleRow("Automatically queue completed rips","Copy completed folders to Byte-Me, one folder at a time",Boolean(State.draft.mover_enabled),`data-toggle-key="mover_enabled"`)}
       ${toggleRow("Remove verified source folder","Delete the Rip Node copy only after every copied file is verified",Boolean(State.draft.mover_delete_source),`data-toggle-key="mover_delete_source"`)}
@@ -2535,6 +2559,7 @@ $("#settingsContent").addEventListener("click", (event) => {
     case "install-node-api-from-detail": pushNodeUpdates(); return;
     case "setup-node-smb": openNodeSmbSetup(button.dataset.nodeIndex); return;
     case "open-mover": openMoverFromSettings(); return;
+    case "verify-storage": verifyStorageAndBuildLibrary(); return;
     case "test-metadata": testMetadataProvider(button.dataset.provider); return;
     default: break;
   }

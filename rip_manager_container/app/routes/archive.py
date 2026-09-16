@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -12,6 +14,7 @@ from pydantic import BaseModel, Field
 import archive
 import db
 import mover
+from routes import node_settings
 
 router = APIRouter(prefix="/archive", tags=["physical media"])
 
@@ -33,6 +36,34 @@ class MoverConfig(BaseModel):
     destination_folders: Dict[str, str] = Field(default_factory=dict)
 
 
+def _check_path(value: str, write: bool = False) -> dict:
+    path = Path(value)
+    result = {"path": value, "exists": path.is_dir(), "readable": False, "writable": False}
+    if not result["exists"]:
+        result["message"] = "Folder is not mounted inside Rip Manager"
+        return result
+    result["readable"] = os.access(path, os.R_OK | os.X_OK)
+    result["writable"] = os.access(path, os.W_OK | os.X_OK)
+    if not result["readable"]:
+        result["message"] = "Folder exists but Rip Manager cannot read it"
+    elif write and not result["writable"]:
+        result["message"] = "Folder is readable but not writable"
+    else:
+        result["message"] = "Ready"
+    return result
+
+
+def _validate_mover_paths(req: MoverConfig) -> None:
+    paths = [req.destination_root, *req.node_mounts.values(), *req.node_source_roots.values()]
+    if any(not Path(value).is_absolute() for value in paths):
+        raise HTTPException(status_code=422, detail="Mover paths must be absolute")
+    allowed_types = {"movie", "tv", "music", "audiobook"}
+    if set(req.destination_folders) != allowed_types or any(not value.strip() for value in req.destination_folders.values()):
+        raise HTTPException(status_code=422, detail="Set a folder for movies, TV, music and audiobooks")
+    if any(Path(value).is_absolute() or ".." in Path(value).parts for value in req.destination_folders.values()):
+        raise HTTPException(status_code=422, detail="Destination folders must be safe relative paths")
+
+
 def _not_found(exc: Exception):
     raise HTTPException(status_code=404, detail="Unknown rip record") from exc
 
@@ -48,6 +79,51 @@ def scan_existing_media():
         return archive.scan_existing()
     except OSError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/storage/setup")
+async def verify_storage_and_build_library(req: MoverConfig):
+    """Save, detect and verify storage, then safely index the reachable library."""
+    _validate_mover_paths(req)
+    source_roots = dict(req.node_source_roots)
+    node_results = []
+    configured = db.query("SELECT id,name,url FROM nodes WHERE enabled=1 ORDER BY id")
+    for row in configured:
+        node = dict(row)
+        if node["id"] == "simulator" or "/simulator-node" in node["url"]:
+            continue
+        detected = None
+        error = None
+        try:
+            storage = await node_settings._storage_request(node["id"], "GET")
+            detected = storage.get("path")
+            if detected and Path(detected).is_absolute():
+                source_roots[node["id"]] = detected
+        except HTTPException as exc:
+            error = str(exc.detail)
+        mount = req.node_mounts.get(node["id"], f"/rip-nodes/{node['id']}")
+        check = _check_path(mount, write=True)
+        node_results.append({
+            "id": node["id"], "name": node["name"], "mount": check,
+            "source_root": source_roots.get(node["id"], "/mnt/ripping"),
+            "detected": bool(detected), "node_error": error,
+        })
+
+    db.set_settings({
+        "mover_enabled": int(req.enabled),
+        "mover_delete_source": int(req.delete_source),
+        "mover_destination_root": req.destination_root,
+        "mover_node_mounts": json.dumps(req.node_mounts, separators=(",", ":")),
+        "mover_node_source_roots": json.dumps(source_roots, separators=(",", ":")),
+        "mover_destination_folders": json.dumps(req.destination_folders, separators=(",", ":")),
+    })
+    destination = _check_path(req.destination_root, write=True)
+    scan = archive.scan_existing() if destination["readable"] else {"ok": False, "folders_seen": 0, "imported": 0}
+    ready = destination["exists"] and destination["readable"] and destination["writable"]
+    ready = ready and all(item["mount"]["exists"] and item["mount"]["readable"] for item in node_results)
+    mover.wake()
+    return {"ok": ready, "destination": destination, "nodes": node_results,
+            "source_roots": source_roots, "scan": scan}
 
 
 @router.get("/{manager_job_id}/text")
@@ -112,16 +188,7 @@ def mover_config():
 
 @router.put("/mover/config")
 def save_mover_config(req: MoverConfig):
-    paths = [req.destination_root, *req.node_mounts.values(), *req.node_source_roots.values()]
-    if any(not Path(value).is_absolute() for value in paths):
-        raise HTTPException(status_code=422, detail="Mover paths must be absolute")
-    allowed_types = {"movie", "tv", "music", "audiobook"}
-    if set(req.destination_folders) - allowed_types:
-        raise HTTPException(status_code=422, detail="Unknown destination media type")
-    if set(req.destination_folders) != allowed_types or any(not value.strip() for value in req.destination_folders.values()):
-        raise HTTPException(status_code=422, detail="Set a folder for movies, TV, music and audiobooks")
-    if any(Path(value).is_absolute() or ".." in Path(value).parts for value in req.destination_folders.values()):
-        raise HTTPException(status_code=422, detail="Destination folders must be safe relative paths")
+    _validate_mover_paths(req)
     db.set_settings({
         "mover_enabled": int(req.enabled),
         "mover_delete_source": int(req.delete_source),
