@@ -249,10 +249,10 @@ def list_media() -> list[dict]:
     for row in rows:
         item = dict(row)
         folder = existing_folder(item)
-        if folder is None:
-            continue
         extras = json.loads(item.pop("extras_json") or "[]")
-        item["existing_dir"] = str(folder)
+        item["storage_available"] = folder is not None
+        item["existing_dir"] = str(folder) if folder else None
+        item["expected_dir"] = expected_folder(item)
         item["front_url"] = _image_url(item["manager_job_id"], item.pop("front_image"))
         item["rear_url"] = _image_url(item["manager_job_id"], item.pop("rear_image"))
         item["extra_urls"] = [_image_url(item["manager_job_id"], name) for name in extras]
@@ -260,6 +260,27 @@ def list_media() -> list[dict]:
             item.pop(key, None)
         out.append(item)
     return out
+
+
+def expected_folder(item: dict) -> Optional[str]:
+    """Describe where a missing record should be reachable from Manager."""
+    if item.get("final_dir"):
+        return str(item["final_dir"])
+    output = Path(item.get("output_dir") or "")
+    if not output.is_absolute():
+        return str(output) if str(output) else None
+    if item.get("node_id") == "Byte-Me":
+        return str(output)
+    node_id = item.get("node_id")
+    mounts = db.get_setting_json("mover_node_mounts", {})
+    roots = db.get_setting_json("mover_node_source_roots", {})
+    mount = mounts.get(node_id)
+    if not mount:
+        return f"Configure a Manager mount for {node_id}"
+    try:
+        return str(Path(mount) / output.relative_to(Path(roots.get(node_id, "/mnt/ripping"))))
+    except ValueError:
+        return f"{output} is outside the configured Node output root"
 
 
 def scan_existing() -> dict:

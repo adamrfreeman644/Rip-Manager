@@ -1,4 +1,4 @@
-# Rip Manager v0.21.4
+# Rip Manager v0.22.7
 
 Remote controller for Rip Manager and its Rip Nodes.
 
@@ -9,10 +9,15 @@ Physical Media and Mover are full application pages at `/physical-media` and
 `/mover`. Both retain the normal Rip Manager header and support browser Back and
 Forward navigation. Selecting the Rip Manager logo performs a forced asset
 refresh equivalent to Ctrl+F5 on devices that do not expose that shortcut.
-The library includes only movie, TV, music and audiobook records whose real
-folder currently exists on Byte-Me or the mounted Rip Node share. Current rips
-appear as soon as their output folder is created. Each record supports a front image, rear image, unlimited horizontally
+The library shows movie, TV, music and audiobook records together with their
+storage availability. Missing mounts remain visible with the expected path
+instead of making records disappear. Current rips appear as soon as their output
+folder is created. Each record supports a front image, rear image, unlimited horizontally
 scrollable extras, and an editable `disc-info.txt` view.
+
+Use **Settings → Storage & mover → Verify storage & build library** to save the
+storage settings, detect each real Node's output path through its API, verify
+the Byte-Me and Node mounts, and scan existing media in one action.
 
 Rip Manager owns a delimited automatic section inside `disc-info.txt`. Anything
 the user writes outside that section is preserved when rip, transfer or future

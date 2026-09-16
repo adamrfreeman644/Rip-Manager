@@ -69,7 +69,7 @@ def test_mover_maps_only_beneath_configured_mount(tmp_path, monkeypatch):
     assert destination == (media / "Movies" / "Test Film").resolve()
 
 
-def test_media_list_excludes_history_without_an_existing_folder(tmp_path, monkeypatch):
+def test_media_list_marks_history_without_an_existing_folder(tmp_path, monkeypatch):
     db = fresh_database(tmp_path, monkeypatch)
     node_mount = tmp_path / "node"
     existing = node_mount / "Movies" / "Still Here"
@@ -84,8 +84,11 @@ def test_media_list_excludes_history_without_an_existing_folder(tmp_path, monkey
     })
     import archive
     rows = archive.list_media()
-    assert [row["manager_job_id"] for row in rows] == ["rip-node-1:job-1"]
+    assert [row["manager_job_id"] for row in rows] == ["rip-node-1:job-1", "rip-node-1:missing"]
     assert rows[0]["existing_dir"] == str(existing.resolve())
+    assert rows[0]["storage_available"] is True
+    assert rows[1]["storage_available"] is False
+    assert rows[1]["expected_dir"] == str(node_mount / "Movies" / "Missing")
 
 
 def test_failed_copy_keeps_source(tmp_path, monkeypatch):

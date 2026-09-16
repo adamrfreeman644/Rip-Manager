@@ -4,4 +4,6 @@
 
 /* v0.21.4: Physical Media and Mover are application pages beneath the shared header. */
 .archive-overlay{position:relative;inset:auto;z-index:auto;flex:1;min-height:0;border:0;background:var(--bg,#0d1117)}
-
+.archive-card-unavailable{border-color:#b86b32;background:color-mix(in srgb,var(--panel,#161b22) 88%,#b86b32)}
+.archive-storage-warning{display:block;margin-top:6px;color:#f1a564;font-size:.68rem;overflow-wrap:anywhere}
+.storage-setup-result>div+div{margin-top:6px}
