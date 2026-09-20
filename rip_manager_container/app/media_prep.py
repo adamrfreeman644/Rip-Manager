@@ -91,8 +91,8 @@ def prepare_completed_rip(source, job):
             target = target_dir / f"{stem}-{duplicate}{suffix}"
             duplicate += 1
         if path.resolve() != target.resolve():
-            changes.append({"path": path.relative_to(source).as_posix(), "action": "moved",
-                            "new_path": target.relative_to(source).as_posix()})
+            changes.append({"old_paths": [path.relative_to(source).as_posix()], "action": "moved",
+                            "current_path": target.relative_to(source).as_posix()})
             shutil.move(str(path), str(target))
         prepared += 1
 
