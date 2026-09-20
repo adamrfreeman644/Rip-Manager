@@ -1,8 +1,8 @@
 {
-  "version": "0.22.11",
+  "version": "0.22.12",
   "notes": [
-    "Record each program-initiated file change in the affected disc-info.json without logging normal access.",
-    "Include reliable file metadata where available: size, timestamps, format/container, duration, bit rate, streams, codecs, dimensions, audio details and embedded tags.",
-    "Log media preparation, verified transfers, source cleanup and archive sidecar/image writes with the affected file paths."
+    "Keep a complete current inventory and directory structure in every disc-info.json for existing-library scans and program-managed rip folders.",
+    "Capture all reachable media/content files with relative paths and available format, duration, stream, codec and tag metadata.",
+    "Retain a separate change-only history for writes, moves, preparation and source cleanup; normal reads remain unlogged."
   ]
 }
