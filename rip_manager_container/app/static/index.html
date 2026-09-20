@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#000000">
   <title>Rip Remote</title>
   <link rel="manifest" href="/static/site.webmanifest">
-  <link rel="stylesheet" href="/static/styles.css?v=0.22.7">
-  <link rel="stylesheet" href="/static/archive.css?v=0.22.7">
+  <link rel="stylesheet" href="/static/styles.css?v=0.22.17">
+  <link rel="stylesheet" href="/static/archive.css?v=0.22.17">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32x32.png?v=0.10.6">
   <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16x16.png?v=0.10.6">
   <link rel="apple-touch-icon" sizes="512x512" href="/static/icons/remote-ripper-512.png?v=0.10.6">
@@ -32,7 +32,7 @@
     <div class="v02-actions">
       <span id="connection" class="v02-pill">Connecting…</span>
       <button class="v02-action" id="archiveButton" data-app-route="physical-media">▧ Media</button>
-      <button class="v02-action" id="libraryButton" type="button" onclick="openLibraryLookup()">⌕ Library</button>
+      <button class="v02-action" id="libraryButton" type="button" data-app-route="library">⌕ Library</button>
       <button class="v02-action" id="statsButton" data-app-route="stats">ϟ Stats</button>
       <button class="v02-icon" id="settingsButton" title="Settings" aria-label="Settings">⚙</button>
       <div class="mobile-nav-wrap">
@@ -40,7 +40,7 @@
         <nav class="mobile-nav-menu hidden" id="mobileNavMenu" aria-label="Main menu">
           <button type="button" data-mobile-action="dashboard" data-app-route="dashboard"><span>Dashboard</span><span aria-hidden="true">⌂</span></button>
           <button type="button" data-mobile-action="archive" data-app-route="physical-media"><span>Physical media</span><span aria-hidden="true">▧</span></button>
-          <button type="button" data-mobile-action="library" onclick="openLibraryLookup()"><span>Library Lookup</span><span aria-hidden="true">⌕</span></button>
+          <button type="button" data-mobile-action="library" data-app-route="library"><span>Library Lookup</span><span aria-hidden="true">⌕</span></button>
           <button type="button" data-mobile-action="mover" data-app-route="mover"><span>Mover</span><span aria-hidden="true">⇄</span></button>
           <button type="button" data-mobile-action="stats" data-app-route="stats"><span>Stats</span><span aria-hidden="true">ϟ</span></button>
           <div class="mobile-nav-divider" aria-hidden="true"></div>
@@ -224,9 +224,9 @@
 </section>
 <input id="archiveFile" class="archive-file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" capture="environment">
 
-<script src="/static/app.js?v=0.22.7"></script>
+<script src="/static/app.js?v=0.22.17"></script>
 <script src="/static/lookup-enhancements.js?v=0.20.13"></script>
-<script src="/static/archive.js?v=0.22.7"></script>
-<script src="/static/library.js?v=0.23.0"></script>
+<script src="/static/archive.js?v=0.22.17"></script>
+<script src="/static/library.js?v=0.22.17"></script>
 </body>
 </html>
