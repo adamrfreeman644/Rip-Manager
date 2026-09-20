@@ -165,9 +165,13 @@ def _copy_transfer(transfer: dict, job: dict) -> None:
         except OSError as exc:
             warning = f"Media copied and verified; source cleanup failed: {exc}"
     if not warning:
-        archive.record_file_changes(destination, [
-            *[{"path": relative.as_posix(), "action": "moved_and_verified", "size_bytes": size}
-              for _, relative, size in files],
+        transferred = []
+        for _, relative, size in files:
+            item = archive.file_metadata(destination / relative, destination)
+            item["action"] = "moved_and_verified"
+            item["verified_size_bytes"] = size
+            transferred.append(item)
+        archive.record_file_changes(destination, transferred + [
             {"path": str(source), "action": "source_removed"} if source_removed else
             {"path": str(source), "action": "source_retained"},
         ])
