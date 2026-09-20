@@ -345,8 +345,9 @@ def _existing_files(folder: Path) -> list[dict]:
 
 def refresh_file_inventory(folder: Path, payload: Optional[dict] = None) -> dict:
     """Refresh the live inventory while retaining per-file process history by path."""
-    if payload is None:
-        target = Path(folder) / "disc-info.json"
+    persist = payload is None
+    target = Path(folder) / "disc-info.json"
+    if persist:
         try:
             payload = json.loads(target.read_text(encoding="utf-8"))
         except (OSError, ValueError, TypeError):
@@ -359,6 +360,10 @@ def refresh_file_inventory(folder: Path, payload: Optional[dict] = None) -> dict
             item["process_history"] = history
     payload["files"] = files
     payload["file_structure"] = folder_structure(Path(folder))
+    if persist:
+        temp = target.with_name(".disc-info.json.tmp")
+        temp.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        os.replace(temp, target)
     return payload
 
 def folder_structure(folder: Path) -> dict:
