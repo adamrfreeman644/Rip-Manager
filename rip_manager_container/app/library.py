@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import json, re, time
+from difflib import SequenceMatcher
 from pathlib import Path
 import db
 
@@ -33,18 +34,44 @@ def _index_manifest(path: Path,payload: dict):
             conn.execute("DELETE FROM owned_upcs WHERE barcode=?",(barcode,))
     return item_id
 
+def _title_key(value):
+    value=re.sub(r"\\b(?:the|a|an|dvd|blu ray|bluray|uhd|4k|special edition|collector s edition)\\b"," ",str(value or "").lower())
+    return " ".join(re.findall(r"[a-z0-9]+",value))
+
+def fuzzy_search(title: str, limit: int=12) -> list[dict]:
+    needle=_title_key(title)
+    if not needle: return []
+    nwords=set(needle.split()); ranked=[]
+    for row in db.query("SELECT id,title,barcode,manifest_path FROM library_items WHERE title IS NOT NULL"):
+        candidate=_title_key(row["title"]); cwords=set(candidate.split())
+        seq=SequenceMatcher(None,needle,candidate).ratio()
+        overlap=len(nwords & cwords)/max(1,len(nwords | cwords))
+        contains=1.0 if needle in candidate or candidate in needle else 0.0
+        score=max(seq,(seq+overlap)/2,0.92 if contains else 0)
+        if score>=0.38: ranked.append((score,dict(row)))
+    ranked.sort(key=lambda x:(-x[0],str(x[1].get("title") or "").lower()))
+    return [item|{"match_score":round(score,3)} for score,item in ranked[:limit]]
+
 def search(query: str="", **_ignored) -> list[dict]:
     q=(query or "").strip()
     if q.isdigit():
         rows=db.query("SELECT id,title,barcode,manifest_path FROM library_items WHERE barcode=? ORDER BY title COLLATE NOCASE",(q,))
-        if rows: return [dict(r) for r in rows]
-        owned=db.query("SELECT id,barcode FROM owned_upcs WHERE barcode=?",(q,))
-        return [{"id":f"upc:{r['id']}","title":"Owned — metadata pending","barcode":r["barcode"],"manifest_path":None} for r in owned]
-    if q:
-        rows=db.query("SELECT id,title,barcode,manifest_path FROM library_items WHERE title LIKE ? COLLATE NOCASE ORDER BY title COLLATE NOCASE LIMIT 1000",(f"%{q}%",))
-    else:
-        rows=db.query("SELECT id,title,barcode,manifest_path FROM library_items ORDER BY title COLLATE NOCASE LIMIT 1000")
+        if rows: return [dict(r)|{"ownership":"manifest"} for r in rows]
+        owned=db.query("SELECT id,barcode,title FROM owned_upcs WHERE barcode=?",(q,))
+        return [{"id":f"upc:{r['id']}","title":r["title"] or "Owned — metadata pending","barcode":r["barcode"],"manifest_path":None,"ownership":"owned_upc"} for r in owned]
+    if q: return fuzzy_search(q)
+    rows=db.query("SELECT id,title,barcode,manifest_path FROM library_items ORDER BY title COLLATE NOCASE LIMIT 1000")
     return [dict(r) for r in rows]
+
+def resolve_owned_upc(barcode: str, title: str) -> dict:
+    code=_clean_barcode(barcode); title=str(title or "").strip()
+    if not code or not title: raise ValueError("UPC and title are required")
+    now=time.time()
+    with db.write() as conn:
+        conn.execute("""INSERT INTO owned_upcs(barcode,title,created_at) VALUES (?,?,?)
+                        ON CONFLICT(barcode) DO UPDATE SET title=excluded.title""",(code,title,now))
+        row=conn.execute("SELECT id,barcode,title FROM owned_upcs WHERE barcode=?",(code,)).fetchone()
+    return {"id":f"upc:{row['id']}","barcode":row["barcode"],"title":row["title"],"ownership":"owned_upc"}
 
 def bulk_add(text: str) -> dict:
     submitted=[_clean_barcode(x) for x in re.split(r"[\s,;]+",text or "") if x.strip()]
@@ -82,9 +109,9 @@ def check_manifests() -> dict:
 
 def get_item(item_id):
     if isinstance(item_id,str) and item_id.startswith("upc:"):
-        try: row=db.query_one("SELECT barcode FROM owned_upcs WHERE id=?",(int(item_id.split(":",1)[1]),))
+        try: row=db.query_one("SELECT barcode,title FROM owned_upcs WHERE id=?",(int(item_id.split(":",1)[1]),))
         except ValueError: row=None
-        return {"title":"Owned — metadata pending","barcode":row["barcode"],"manifest":None} if row else None
+        return {"title":row["title"] or "Owned — metadata pending","barcode":row["barcode"],"manifest":None,"ownership":"owned_upc"} if row else None
     try: row=db.query_one("SELECT id,title,barcode,manifest_path FROM library_items WHERE id=?",(int(item_id),))
     except (TypeError,ValueError): return None
     if not row: return None
