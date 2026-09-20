@@ -8,8 +8,8 @@ class BulkImport(BaseModel):
     upcs: str
 
 @router.get("")
-def list_library(q: str=""):
-    return {"items":library.search(q)}
+def list_library(q: str="", media_type: str="", extras: str="", sort: str="title"):
+    return {"items":library.search(q, media_type, extras, sort)}
 
 @router.post("/bulk")
 def bulk(req: BulkImport):
