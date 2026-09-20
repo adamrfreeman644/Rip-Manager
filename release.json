@@ -1,8 +1,7 @@
 {
-  "version": "0.22.12",
+  "version": "0.22.13",
   "notes": [
-    "Keep a complete current inventory and directory structure in every disc-info.json for existing-library scans and program-managed rip folders.",
-    "Capture all reachable media/content files with relative paths and available format, duration, stream, codec and tag metadata.",
-    "Retain a separate change-only history for writes, moves, preparation and source cleanup; normal reads remain unlogged."
+    "Record the prior and new path for every verified transfer, alongside per-file metadata.",
+    "Keep explicit old/new relative paths for media-preparation renames and moves in each folder's change-only manifest history."
   ]
 }
