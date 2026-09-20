@@ -1,10 +1,10 @@
 {
-  "version": "0.22.7",
+  "version": "0.22.8",
   "notes": [
-    "Add one-click storage verification and Physical Media library building.",
-    "Detect each real Rip Node's output path through the authenticated Node API.",
-    "Check Byte-Me and mounted Node paths with clear read/write status messages.",
-    "Keep media records visible when storage is unavailable and show the expected path.",
-    "Save verified storage settings and scan existing Byte-Me folders in one action."
+    "Prepare verified video rips automatically before the mover copies them.",
+    "Gate preparation on the generated disc-info.txt completion marker so active/incomplete rips are never touched.",
+    "Keep TV provenance as Sxx DxxFxx without guessing episode numbers, and flatten files ready for later cleanup.",
+    "Sort clearly short movie/TV titles into extras and remove only high-confidence TV Play-All duplicates.",
+    "Leave ambiguous media untouched rather than guessing."
   ]
 }
