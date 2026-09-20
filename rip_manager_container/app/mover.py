@@ -119,6 +119,12 @@ def _copy_transfer(transfer: dict, job: dict) -> None:
     archive.sync_sidecars(job["manager_job_id"], source)
     if not (source / "disc-info.txt").is_file():
         raise ValueError("Completed-rip marker could not be written")
+    archive.record_process_event(source, "rip_finished", "complete", {
+        "verification": (job.get("verification") or {}).get("ok"),
+    })
+    archive.record_process_event(source, "transfer_started", "running", {
+        "destination": str(destination),
+    })
     prep = media_prep.prepare_completed_rip(source, job)
     log.info("Prepared %s before mover transfer: %s", job["manager_job_id"], prep)
     files = _inventory(source)
@@ -177,6 +183,13 @@ def _copy_transfer(transfer: dict, job: dict) -> None:
             {"path": str(source), "action": "source_removed"} if source_removed else
             {"path": str(source), "action": "source_retained"},
         ])
+        current_paths = [relative.as_posix() for _, relative, _ in files]
+        archive.record_file_process_events(destination, current_paths, "transfer_finished", "complete", {
+            "verified": True,
+        })
+        archive.record_process_event(destination, "transfer_finished", "complete", {
+            "files": len(files), "bytes": total, "source_removed": source_removed,
+        })
     _set(transfer_id, state="complete", bytes_copied=total, files_copied=len(files),
          error=warning, finished_at=time.time())
 
