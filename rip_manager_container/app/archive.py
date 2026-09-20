@@ -390,6 +390,7 @@ def refresh_file_inventory(folder: Path, payload: Optional[dict] = None) -> dict
         if isinstance(history, list):
             item["process_history"] = history
     payload["files"] = files
+    payload["summary"] = _inventory_summary(files)
     payload["file_structure"] = folder_structure(Path(folder))
     if persist:
         temp = target.with_name(".disc-info.json.tmp")
@@ -489,6 +490,49 @@ def record_file_process_events(folder: Path, paths: list[str], event: str,
     os.replace(temp, target)
     return True
 
+def _infer_folder_metadata(folder: Path, media_type: Optional[str] = None) -> dict:
+    """Infer only deterministic metadata from conventional media folder/file names."""
+    name = folder.name.strip()
+    out = {}
+    # Common library convention: Title (YYYY), optionally followed by edition text.
+    years = re.findall(r"(?<!\\d)((?:18|19|20|21)\\d{2})(?!\\d)", name)
+    if years:
+        out["year"] = int(years[-1])
+        title = re.sub(r"\\s*[\\(\\[\\{]?(?:18|19|20|21)\\d{2}[\\)\\]\\}]?\\s*.*$", "", name).strip(" .-_")
+        if title:
+            out["title"] = title
+    if media_type == "tv":
+        m = re.search(r"(?i)(?:^|[ ._-])S(?:eason[ ._-]*)?(\\d{1,2})(?:$|[ ._-])", name)
+        if m: out["season"] = int(m.group(1))
+    return out
+
+
+def _inventory_summary(files: list[dict]) -> dict:
+    """Aggregate facts that can be calculated from the probed files."""
+    audio_ext={".flac",".mp3",".m4a",".aac",".wav",".ogg",".opus"}
+    video_ext={".mkv",".mp4",".m4v",".avi",".mov",".wmv",".ts",".m2ts",".webm"}
+    audio=[]; video=[]; total=0.0
+    codecs=set(); resolutions=set()
+    for item in files:
+        duration=item.get("duration_seconds")
+        if isinstance(duration,(int,float)): total += duration
+        ext=item.get("extension")
+        if ext in audio_ext: audio.append(item)
+        if ext in video_ext: video.append(item)
+        for stream in item.get("streams") or []:
+            if stream.get("codec_name"): codecs.add(stream["codec_name"])
+            if stream.get("width") and stream.get("height"): resolutions.add(f'{stream["width"]}x{stream["height"]}')
+    return {
+        "file_count": len(files),
+        "audio_file_count": len(audio),
+        "video_file_count": len(video),
+        "total_duration_seconds": round(total,3) if total else None,
+        "total_duration_hms": str(__import__("datetime").timedelta(seconds=round(total))) if total else None,
+        "codecs": sorted(codecs),
+        "video_resolutions": sorted(resolutions),
+    }
+
+
 def write_existing_manifest(manager_job_id: str, folder: Path) -> str:
     """Create or refresh the JSON-only manifest for an imported media folder."""
     job = _job(manager_job_id)
@@ -505,16 +549,18 @@ def write_existing_manifest(manager_job_id: str, folder: Path) -> str:
         except (OSError, ValueError, TypeError):
             # Never discard a non-JSON or damaged prior file: leave it untouched.
             return "skipped"
+    inferred = _infer_folder_metadata(folder, job.get("media_type"))
+    files = _existing_files(folder)
     generated = {
-        "schema_version": 1,
+        "schema_version": 2,
         "manager_job_id": manager_job_id,
-        "title": job.get("title") or folder.name,
-        "year": job.get("year"),
+        "title": inferred.get("title") or job.get("title") or folder.name,
+        "year": job.get("year") or inferred.get("year"),
         "upc": job.get("barcode"),
         "media_type": job.get("media_type"),
         "creator": job.get("creator"),
         "narrator": job.get("narrator"),
-        "disc": {"season": job.get("season"), "number": job.get("disc")},
+        "disc": {"season": job.get("season") or inferred.get("season"), "number": job.get("disc")},
         "legacy_import": {
             "imported": True,
             "source": "existing_media_scan",
@@ -526,7 +572,8 @@ def write_existing_manifest(manager_job_id: str, folder: Path) -> str:
             "path": str(folder),
             "modified_at": _iso_timestamp(folder_stat.st_mtime),
         },
-        "files": _existing_files(folder),
+        "files": files,
+        "summary": _inventory_summary(files),
         "file_structure": folder_structure(folder),
         "rip": {
             "node": None,
