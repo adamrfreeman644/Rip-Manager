@@ -182,6 +182,15 @@
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+<section id="libraryOverlay" class="archive-overlay hidden" aria-label="Library Lookup">
+  <header class="archive-head"><div><h2>Library Lookup</h2><small>Do I own this?</small></div><div class="archive-spacer"></div><button id="libraryHome" class="archive-button">Home</button></header>
+  <main class="archive-body library-page">
+    <div class="library-tools"><input id="librarySearch" inputmode="search" placeholder="Search title or scan UPC / EAN"><button id="libraryManifestCheck" class="archive-button">Check manifests</button><button id="libraryBulkToggle" class="archive-button">Mass add UPCs</button></div>
+    <div id="libraryBulk" class="library-bulk hidden"><textarea id="libraryBulkText" placeholder="Paste UPC / EAN list — one per line"></textarea><button id="libraryBulkAdd" class="archive-button">Add to collection</button><span id="libraryBulkState"></span></div>
+    <div id="libraryStatus" class="archive-summary"></div><div id="libraryResults" class="archive-list"></div>
+  </main>
+</section>
+
 <section id="archiveOverlay" class="archive-overlay hidden" aria-label="Rip Manager secondary page">
   <header class="archive-head"><div><h2 id="archiveHeading">Physical media</h2><small id="archiveSubheading">Photos and disc details</small></div><div class="archive-spacer"></div></header>
   <main class="archive-body">
@@ -216,5 +225,6 @@
 <script src="/static/app.js?v=0.22.7"></script>
 <script src="/static/lookup-enhancements.js?v=0.20.13"></script>
 <script src="/static/archive.js?v=0.22.7"></script>
+<script src="/static/library.js?v=0.23.0"></script>
 </body>
 </html>
