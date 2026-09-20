@@ -1,9 +1,9 @@
 {
-  "version": "0.22.19",
+  "version": "0.22.20",
   "notes": [
-    "Turn Library Lookup into a browsable collection database as well as a quick ownership checker.",
-    "Show up to 1,000 collection records when no search is entered, with title, year, type, format, UPC and extras status.",
-    "Add filters for media type and extras plus sorting by title, year, recently added or UPC.",
-    "Tap/click a library record to reveal its database source, linked media folder and rip job."
+    "Enrich disc-info.json by inferring reliable metadata such as year and clean title from conventional folder names like Title (YYYY), while never inventing uncertain facts.",
+    "Bundle ffprobe in the Rip Manager image so existing audio and video files actually receive duration, container, bitrate, codec, stream, resolution, audio-channel and embedded-tag metadata.",
+    "Add manifest-level media summaries including total duration, human-readable duration, audio/video file counts, codecs and video resolutions.",
+    "Upgrade manifest schema to v2 and make rescans refresh existing manifests so the existing library can be backfilled."
   ]
 }
