@@ -170,3 +170,42 @@ def test_scan_existing_imports_movie_music_and_audiobook_folders(tmp_path, monke
     assert result == {"ok": True, "folders_seen": 3, "imported": 3}
     types = {row["media_type"] for row in db.query("SELECT media_type FROM jobs_history")}
     assert types == {"movie", "music", "audiobook"}
+
+
+def test_media_prep_tv_keeps_provenance_and_sorts_extras(tmp_path, monkeypatch):
+    import media_prep
+    source=tmp_path/"Show"/"Season 1"/"Disk 2";source.mkdir(parents=True)
+    files=[]
+    for name in ("title00.mkv","title01.mkv","title02.mkv"):
+        p=source/name;p.write_bytes(b"x");files.append(p)
+    (source/"disc-info.txt").write_text("complete",encoding="utf-8")
+    durations={files[0]:1800,files[1]:1780,files[2]:300}
+    monkeypatch.setattr(media_prep,"_duration",lambda p:durations[p])
+    result=media_prep.prepare_completed_rip(source,{"state":"complete","media_type":"tv","title":"Example","season":1,"disc":2})
+    assert result["extras"]==1
+    assert (source/"Example S01 D02F01.mkv").is_file()
+    assert (source/"Example S01 D02F02.mkv").is_file()
+    assert (source/"extras"/"Example S01 D02F03.mkv").is_file()
+
+def test_media_prep_requires_completion_marker(tmp_path):
+    import media_prep
+    source=tmp_path/"rip";source.mkdir()
+    (source/"title00.mkv").write_bytes(b"x")
+    try:
+        media_prep.prepare_completed_rip(source,{"state":"complete","media_type":"movie","title":"Film"})
+        assert False,"expected marker gate"
+    except ValueError as exc:
+        assert "marker" in str(exc).lower()
+
+def test_media_prep_removes_high_confidence_tv_play_all(tmp_path, monkeypatch):
+    import media_prep
+    source=tmp_path/"rip";source.mkdir()
+    files=[]
+    for name in ("playall.mkv","ep1.mkv","ep2.mkv"):
+        p=source/name;p.write_bytes(b"x");files.append(p)
+    (source/"disc-info.txt").write_text("complete",encoding="utf-8")
+    durations={files[0]:3600,files[1]:1800,files[2]:1800}
+    monkeypatch.setattr(media_prep,"_duration",lambda p:durations[p])
+    result=media_prep.prepare_completed_rip(source,{"state":"complete","media_type":"tv","title":"Show","season":1,"disc":1})
+    assert result["play_all_removed"]==1
+    assert not files[0].exists()

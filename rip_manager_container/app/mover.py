@@ -14,6 +14,7 @@ from typing import Optional
 
 import archive
 import db
+import media_prep
 
 log = logging.getLogger("rip-manager.mover")
 _task: Optional[asyncio.Task] = None
@@ -113,6 +114,13 @@ def _copy_transfer(transfer: dict, job: dict) -> None:
     partial = destination.with_name(f".{destination.name}.partial")
     if destination.exists():
         raise FileExistsError(f"Destination already exists: {destination}")
+    # The generated text sidecar is the completion marker for preparation.
+    # It is written only for the exact completed job being transferred.
+    archive.sync_sidecars(job["manager_job_id"], source)
+    if not (source / "disc-info.txt").is_file():
+        raise ValueError("Completed-rip marker could not be written")
+    prep = media_prep.prepare_completed_rip(source, job)
+    log.info("Prepared %s before mover transfer: %s", job["manager_job_id"], prep)
     files = _inventory(source)
     total = sum(item[2] for item in files)
     destination.parent.mkdir(parents=True, exist_ok=True)
