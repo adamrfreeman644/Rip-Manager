@@ -158,6 +158,9 @@ def test_verified_copy_writes_sidecars_then_removes_source(tmp_path, monkeypatch
     assert moved["extension"] == ".mkv"
     assert moved["old_paths"] == [str(source / "movie.mkv")]
     assert moved["current_path"] == "movie.mkv"
+    assert any(event["event"] == "transfer_finished" for event in manifest["process_history"])
+    file_entry = next(item for item in manifest["files"] if item["path"] == "movie.mkv")
+    assert any(event["event"] == "transfer_finished" for event in file_entry["process_history"])
     transfer = db.query_one("SELECT state,error FROM transfer_queue WHERE id=?", (transfer_id,))
     assert transfer["state"] == "complete"
     assert transfer["error"] is None
