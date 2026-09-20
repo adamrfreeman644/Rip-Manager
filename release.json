@@ -1,9 +1,9 @@
 {
-  "version": "0.22.18",
+  "version": "0.22.19",
   "notes": [
-    "Use the same popup burger menu as the only Rip Manager navigation at every screen width.",
-    "Remove the separate Media, Library, Stats and Settings header buttons from wide layouts.",
-    "Keep Library Lookup inside the unified navigation menu and make its menu action route correctly.",
-    "Preserve the online status indicator while simplifying the header navigation."
+    "Turn Library Lookup into a browsable collection database as well as a quick ownership checker.",
+    "Show up to 1,000 collection records when no search is entered, with title, year, type, format, UPC and extras status.",
+    "Add filters for media type and extras plus sorting by title, year, recently added or UPC.",
+    "Tap/click a library record to reveal its database source, linked media folder and rip job."
   ]
 }
