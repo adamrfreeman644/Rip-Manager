@@ -341,11 +341,23 @@ def _existing_files(folder: Path) -> list[dict]:
     return files
 
 
+
+def folder_structure(folder: Path) -> dict:
+    """Describe the complete reachable folder tree; file metadata lives in files."""
+    try:
+        directories = sorted(
+            path.relative_to(folder).as_posix()
+            for path in folder.rglob("*") if path.is_dir()
+        )
+    except OSError:
+        directories = []
+    return {"root": folder.name, "directories": directories}
+
 def _merge_manifest(existing: dict, generated: dict, refresh: bool = False) -> dict:
     """Keep curated facts while refreshing the scanner's observed file facts."""
     merged = dict(existing) if isinstance(existing, dict) else {}
     for key, value in generated.items():
-        observed = refresh or key in {"schema_version", "legacy_import", "folder", "files"}
+        observed = refresh or key in {"schema_version", "legacy_import", "folder", "files", "file_structure"}
         if isinstance(value, dict) and isinstance(merged.get(key), dict):
             merged[key] = _merge_manifest(merged[key], value, refresh=observed)
         elif observed or key not in merged or merged[key] is None:
@@ -412,6 +424,7 @@ def write_existing_manifest(manager_job_id: str, folder: Path) -> str:
             "modified_at": _iso_timestamp(folder_stat.st_mtime),
         },
         "files": _existing_files(folder),
+        "file_structure": folder_structure(folder),
         "rip": {
             "node": None,
             "drive": None,
@@ -548,6 +561,11 @@ def sync_sidecars(manager_job_id: str, destination: Optional[Path] = None) -> No
     except (OSError, ValueError, TypeError):
         existing = {}
     payload = _merge_manifest(existing, payload)
+    # Every program-managed folder carries a complete current inventory and tree.
+    # disc-info.json itself is intentionally excluded from its own metadata to avoid
+    # a self-referential size/timestamp update loop.
+    payload["files"] = _existing_files(target)
+    payload["file_structure"] = folder_structure(target)
     json_temp = target / ".disc-info.json.tmp"
     json_temp.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     os.replace(json_temp, manifest)
