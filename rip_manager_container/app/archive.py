@@ -342,6 +342,25 @@ def _existing_files(folder: Path) -> list[dict]:
 
 
 
+
+def refresh_file_inventory(folder: Path, payload: Optional[dict] = None) -> dict:
+    """Refresh the live inventory while retaining per-file process history by path."""
+    if payload is None:
+        target = Path(folder) / "disc-info.json"
+        try:
+            payload = json.loads(target.read_text(encoding="utf-8"))
+        except (OSError, ValueError, TypeError):
+            return {}
+    previous = {item.get("path"): item for item in payload.get("files") or []}
+    files = _existing_files(Path(folder))
+    for item in files:
+        history = previous.get(item["path"], {}).get("process_history")
+        if isinstance(history, list):
+            item["process_history"] = history
+    payload["files"] = files
+    payload["file_structure"] = folder_structure(Path(folder))
+    return payload
+
 def folder_structure(folder: Path) -> dict:
     """Describe the complete reachable folder tree; file metadata lives in files."""
     try:
@@ -482,6 +501,7 @@ def write_existing_manifest(manager_job_id: str, folder: Path) -> str:
         },
     }
     payload = _merge_manifest(previous, generated)
+    payload = refresh_file_inventory(folder, payload)
     rendered = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
     if target.is_file():
         try:
@@ -612,8 +632,7 @@ def sync_sidecars(manager_job_id: str, destination: Optional[Path] = None) -> No
     # Every program-managed folder carries a complete current inventory and tree.
     # disc-info.json itself is intentionally excluded from its own metadata to avoid
     # a self-referential size/timestamp update loop.
-    payload["files"] = _existing_files(target)
-    payload["file_structure"] = folder_structure(target)
+    payload = refresh_file_inventory(target, payload)
     json_temp = target / ".disc-info.json.tmp"
     json_temp.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     os.replace(json_temp, manifest)
