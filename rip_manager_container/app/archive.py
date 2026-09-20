@@ -310,13 +310,14 @@ def _existing_files(folder: Path) -> list[dict]:
     return files
 
 
-def _merge_manifest(existing: dict, generated: dict) -> dict:
-    """Keep fields an earlier/richer manifest knows while refreshing observations."""
+def _merge_manifest(existing: dict, generated: dict, refresh: bool = False) -> dict:
+    """Keep curated facts while refreshing the scanner's observed file facts."""
     merged = dict(existing) if isinstance(existing, dict) else {}
     for key, value in generated.items():
+        observed = refresh or key in {"schema_version", "legacy_import", "folder", "files"}
         if isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = _merge_manifest(merged[key], value)
-        elif value is not None or key not in merged:
+            merged[key] = _merge_manifest(merged[key], value, refresh=observed)
+        elif observed or key not in merged or merged[key] is None:
             merged[key] = value
     return merged
 
