@@ -1322,3 +1322,6 @@ html[data-theme="light"] .drive.do-not-use{background:#e5e7eb !important;border-
 @media(prefers-color-scheme:light){
   html[data-theme="system"] .drive.do-not-use{background:#e5e7eb !important;border-color:#9ca3af !important;color:#374151 !important;filter:none}
 }
+
+/* Library Lookup */
+.library-page{display:grid;gap:12px}.library-tools{display:grid;grid-template-columns:minmax(220px,1fr) auto auto;gap:8px}.library-tools input,.library-bulk textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--text)}.library-bulk{display:grid;gap:8px}.library-bulk textarea{min-height:150px;resize:vertical}.library-page .archive-card small{display:block;color:var(--muted);margin-top:4px}.hidden{display:none!important}@media(max-width:650px){.library-tools{grid-template-columns:1fr 1fr}.library-tools input{grid-column:1/-1}}

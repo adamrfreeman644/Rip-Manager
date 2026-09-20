@@ -137,6 +137,26 @@ CREATE TABLE IF NOT EXISTS physical_media (
     FOREIGN KEY(manager_job_id) REFERENCES jobs_history(manager_job_id)
 );
 
+CREATE TABLE IF NOT EXISTS library_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    manager_job_id TEXT,
+    barcode TEXT,
+    title TEXT,
+    year INTEGER,
+    media_type TEXT,
+    format TEXT,
+    final_dir TEXT,
+    has_extras INTEGER NOT NULL DEFAULT 0,
+    source TEXT NOT NULL DEFAULT 'manual',
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    FOREIGN KEY(manager_job_id) REFERENCES jobs_history(manager_job_id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_library_manager_job ON library_items(manager_job_id) WHERE manager_job_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_library_barcode ON library_items(barcode);
+CREATE INDEX IF NOT EXISTS idx_library_title ON library_items(title);
+
 CREATE TABLE IF NOT EXISTS transfer_queue (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     manager_job_id TEXT NOT NULL UNIQUE,

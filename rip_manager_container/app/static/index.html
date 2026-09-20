@@ -32,6 +32,7 @@
     <div class="v02-actions">
       <span id="connection" class="v02-pill">Connecting…</span>
       <button class="v02-action" id="archiveButton" data-app-route="physical-media">▧ Media</button>
+      <button class="v02-action" id="libraryButton" type="button" onclick="openLibraryLookup()">⌕ Library</button>
       <button class="v02-action" id="statsButton" data-app-route="stats">ϟ Stats</button>
       <button class="v02-icon" id="settingsButton" title="Settings" aria-label="Settings">⚙</button>
       <div class="mobile-nav-wrap">
@@ -39,6 +40,7 @@
         <nav class="mobile-nav-menu hidden" id="mobileNavMenu" aria-label="Main menu">
           <button type="button" data-mobile-action="dashboard" data-app-route="dashboard"><span>Dashboard</span><span aria-hidden="true">⌂</span></button>
           <button type="button" data-mobile-action="archive" data-app-route="physical-media"><span>Physical media</span><span aria-hidden="true">▧</span></button>
+          <button type="button" data-mobile-action="library" onclick="openLibraryLookup()"><span>Library Lookup</span><span aria-hidden="true">⌕</span></button>
           <button type="button" data-mobile-action="mover" data-app-route="mover"><span>Mover</span><span aria-hidden="true">⇄</span></button>
           <button type="button" data-mobile-action="stats" data-app-route="stats"><span>Stats</span><span aria-hidden="true">ϟ</span></button>
           <div class="mobile-nav-divider" aria-hidden="true"></div>
@@ -182,6 +184,15 @@
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+<section id="libraryOverlay" class="archive-overlay hidden" aria-label="Library Lookup">
+  <header class="archive-head"><div><h2>Library Lookup</h2><small>Do I own this?</small></div><div class="archive-spacer"></div><button id="libraryHome" class="archive-button">Home</button></header>
+  <main class="archive-body library-page">
+    <div class="library-tools"><input id="librarySearch" inputmode="search" placeholder="Search title or scan UPC / EAN"><button id="libraryManifestCheck" class="archive-button">Check manifests</button><button id="libraryBulkToggle" class="archive-button">Mass add UPCs</button></div>
+    <div id="libraryBulk" class="library-bulk hidden"><textarea id="libraryBulkText" placeholder="Paste UPC / EAN list — one per line"></textarea><button id="libraryBulkAdd" class="archive-button">Add to collection</button><span id="libraryBulkState"></span></div>
+    <div id="libraryStatus" class="archive-summary"></div><div id="libraryResults" class="archive-list"></div>
+  </main>
+</section>
+
 <section id="archiveOverlay" class="archive-overlay hidden" aria-label="Rip Manager secondary page">
   <header class="archive-head"><div><h2 id="archiveHeading">Physical media</h2><small id="archiveSubheading">Photos and disc details</small></div><div class="archive-spacer"></div></header>
   <main class="archive-body">
@@ -216,5 +227,6 @@
 <script src="/static/app.js?v=0.22.7"></script>
 <script src="/static/lookup-enhancements.js?v=0.20.13"></script>
 <script src="/static/archive.js?v=0.22.7"></script>
+<script src="/static/library.js?v=0.23.0"></script>
 </body>
 </html>
