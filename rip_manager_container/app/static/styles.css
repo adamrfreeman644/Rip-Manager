@@ -652,21 +652,19 @@ html[data-theme="dark"] .drive.error{background:#FF626C !important;border-color:
 .v02-pill.good{color:var(--ok)}.v02-pill.bad{color:var(--bad)}
 .v02-icon,.v02-action{height:40px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--text);font-weight:800}
 .v02-icon{width:40px;font-size:20px}.v02-action{padding:0 13px}
-.mobile-nav-wrap{display:none;position:relative;z-index:122}
-.mobile-nav-backdrop{display:none}
+.mobile-nav-wrap{display:block;position:relative;z-index:122}
+.mobile-nav-backdrop{display:block;position:fixed;z-index:110;inset:0;background:rgba(0,0,0,.28)}
+.mobile-nav-backdrop.hidden{display:none}
 .mobile-nav-menu{position:absolute;z-index:120;top:44px;right:0;width:min(220px,calc(100vw - 24px));padding:8px;border:1px solid var(--line);border-radius:14px;background:var(--panel);box-shadow:0 14px 34px rgba(0,0,0,.3)}
 .mobile-nav-menu button{display:flex;width:100%;min-height:44px;align-items:center;justify-content:flex-end;gap:12px;padding:9px 11px;border:0;border-radius:9px;background:transparent;color:var(--text);font:inherit;font-weight:800;text-align:right}
 .mobile-nav-menu button:hover,.mobile-nav-menu button:focus-visible{background:var(--notice)}
 .mobile-nav-divider{height:1px;margin:5px 3px;background:var(--line)}
 .share-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.share-actions a{text-align:center;text-decoration:none}.share-note{margin-top:10px}
+.mobile-nav-toggle{display:block;width:40px;height:40px}
 @media(max-width:600px){
   .v02-header{align-items:flex-start;position:relative}
-  .v02-pill,.v02-actions>#refreshButton,.v02-actions>#archiveButton,.v02-actions>#sharesButton,.v02-actions>#statsButton,.v02-actions>#settingsButton{display:none}
+  .v02-pill{display:none}
   .v02-actions{gap:0;flex-wrap:nowrap}
-  .mobile-nav-wrap{display:block}
-  .mobile-nav-toggle{display:block;width:40px;height:40px}
-  .mobile-nav-backdrop{display:block;position:fixed;z-index:110;inset:0;background:rgba(0,0,0,.28)}
-  .mobile-nav-backdrop.hidden{display:none}
 }
 .manager-refresh{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:10px;padding:11px;border:1px solid var(--line);border-radius:12px;background:var(--notice)}
 .manager-refresh div{display:grid;gap:3px}.manager-refresh span,.node-refresh span{font-size:.64rem;color:var(--muted);font-weight:750;letter-spacing:.04em;text-transform:uppercase}.manager-refresh strong{font-size:.84rem}.manager-refresh b{font-size:.72rem;color:var(--accent)}

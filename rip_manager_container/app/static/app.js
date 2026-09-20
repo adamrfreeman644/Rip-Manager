@@ -2461,9 +2461,6 @@ $("#intakeModal").addEventListener("click", (event) => {
   if (button.dataset.action === "close-intake") closeModal("intakeModal");
 });
 
-$("#archiveButton").onclick = () => window.openArchive();
-$("#statsButton").onclick = () => window.openStats();
-$("#settingsButton").onclick = openSettings;
 $("#brandRefresh").onclick = async () => {
   const brand=$("#brandRefresh");brand.disabled=true;brand.setAttribute("aria-label","Refreshing Rip Manager");
   try{
@@ -2498,6 +2495,7 @@ mobileNavMenu.onclick = (event) => {
   const actions = {
     dashboard: () => window.openDashboard(),
     archive: () => window.openArchive(),
+    library: () => window.openLibraryLookup(),
     mover: () => window.openMover(),
     stats: () => window.openStats(),
     settings: openSettings,
