@@ -153,23 +153,65 @@ def test_verified_copy_writes_sidecars_then_removes_source(tmp_path, monkeypatch
     assert transfer["error"] is None
 
 
-def test_scan_existing_imports_movie_music_and_audiobook_folders(tmp_path, monkeypatch):
+def test_scan_existing_writes_json_only_and_is_idempotent(tmp_path, monkeypatch):
     db = fresh_database(tmp_path, monkeypatch)
     media = tmp_path / "media"
     for relative, filename in (
-        ("Movies/Film", "film.mkv"),
-        ("Music/Artist/Album", "track.flac"),
-        ("Audiobooks/Book/Disc 1", "chapter.mp3"),
+        ("1 ~ Movies/Film", "film.mkv"),
+        ("2 ~ TV/Show/Season 1", "episode.mkv"),
+        ("3 ~ Music/Artist/Album", "track.flac"),
+        ("4 ~ Audiobooks/Book/Disc 1", "chapter.mp3"),
     ):
         folder = media / relative
         folder.mkdir(parents=True)
         (folder / filename).write_bytes(b"media")
-    db.set_setting("mover_destination_root", str(media))
+    db.set_settings({
+        "mover_destination_root": str(media),
+        "mover_destination_folders": json.dumps({
+            "movie": "1 ~ Movies", "tv": "2 ~ TV",
+            "music": "3 ~ Music", "audiobook": "4 ~ Audiobooks",
+        }),
+    })
+    import archive
+    first = archive.scan_existing()
+    assert first["folders_seen"] == first["records_processed"] == first["imported"] == 4
+    assert first["manifests_created"] == 4
+    manifests = list(media.rglob("disc-info.json"))
+    assert len(manifests) == 4
+    assert not list(media.rglob("disc-info.txt"))
+    payload = json.loads(manifests[0].read_text(encoding="utf-8"))
+    assert payload["legacy_import"]["imported"] is True
+    assert payload["rip"]["started_at"] is None
+    assert payload["files"][0]["size_bytes"] == len(b"media")
+
+    # The scan also reaches the already-imported database rows without duplicates.
+    second = archive.scan_existing()
+    assert second["imported"] == 0
+    assert second["records_processed"] == 4
+    assert second["manifests_unchanged"] == 4
+    assert db.query_one("SELECT COUNT(*) AS count FROM jobs_history")["count"] == 4
+
+
+def test_existing_manifest_keeps_richer_values(tmp_path, monkeypatch):
+    db = fresh_database(tmp_path, monkeypatch)
+    folder = tmp_path / "media" / "Movies" / "Film"
+    folder.mkdir(parents=True)
+    (folder / "film.mkv").write_bytes(b"media")
+    existing = {"title": "Curated title", "rip": {"drive": "DVD9"}, "custom": {"keep": True}}
+    (folder / "disc-info.json").write_text(json.dumps(existing), encoding="utf-8")
+    db.set_settings({
+        "mover_destination_root": str(tmp_path / "media"),
+        "mover_destination_folders": json.dumps({
+            "movie": "Movies", "tv": "TV", "music": "Music", "audiobook": "Audiobooks",
+        }),
+    })
     import archive
     result = archive.scan_existing()
-    assert result == {"ok": True, "folders_seen": 3, "imported": 3}
-    types = {row["media_type"] for row in db.query("SELECT media_type FROM jobs_history")}
-    assert types == {"movie", "music", "audiobook"}
+    assert result["manifests_updated"] == 1
+    payload = json.loads((folder / "disc-info.json").read_text(encoding="utf-8"))
+    assert payload["title"] == "Curated title"
+    assert payload["rip"]["drive"] == "DVD9"
+    assert payload["custom"] == {"keep": True}
 
 
 def test_media_prep_tv_keeps_provenance_and_sorts_extras(tmp_path, monkeypatch):
