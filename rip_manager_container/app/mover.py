@@ -157,11 +157,20 @@ def _copy_transfer(transfer: dict, job: dict) -> None:
         archive.set_final_dir(job["manager_job_id"], destination)
     except OSError as exc:
         warning = f"Media copied and verified, but archive sidecars need attention: {exc}"
+    source_removed = False
     if not warning and db.get_setting_bool("mover_delete_source", True):
         try:
             shutil.rmtree(source)
+            source_removed = True
         except OSError as exc:
             warning = f"Media copied and verified; source cleanup failed: {exc}"
+    if not warning:
+        archive.record_file_changes(destination, [
+            *[{"path": relative.as_posix(), "action": "moved_and_verified", "size_bytes": size}
+              for _, relative, size in files],
+            {"path": str(source), "action": "source_removed"} if source_removed else
+            {"path": str(source), "action": "source_retained"},
+        ])
     _set(transfer_id, state="complete", bytes_copied=total, files_copied=len(files),
          error=warning, finished_at=time.time())
 
