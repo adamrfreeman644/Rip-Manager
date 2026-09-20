@@ -81,3 +81,18 @@ def check_manifests() -> dict:
                     payload.get("media_type"),fmt,str(folder),_has_extras(payload,folder),"manifest")
             updated+=1
     return {"manifests_found":found,"database_updated":updated,"skipped":skipped}
+
+def get_item(item_id: int):
+    row=db.query_one("SELECT * FROM library_items WHERE id=?",(item_id,))
+    if not row: return None
+    item=dict(row); item["has_extras"]=bool(item["has_extras"])
+    manifest=None
+    if item.get("final_dir"):
+        target=Path(item["final_dir"])/"disc-info.json"
+        try:
+            decoded=json.loads(target.read_text(encoding="utf-8"))
+            if isinstance(decoded,dict): manifest=decoded
+        except (OSError,ValueError,TypeError):
+            pass
+    item["manifest"]=manifest
+    return item

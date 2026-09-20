@@ -1,9 +1,9 @@
 {
-  "version": "0.22.20",
+  "version": "0.22.21",
   "notes": [
-    "Enrich disc-info.json by inferring reliable metadata such as year and clean title from conventional folder names like Title (YYYY), while never inventing uncertain facts.",
-    "Bundle ffprobe in the Rip Manager image so existing audio and video files actually receive duration, container, bitrate, codec, stream, resolution, audio-channel and embedded-tag metadata.",
-    "Add manifest-level media summaries including total duration, human-readable duration, audio/video file counts, codecs and video resolutions.",
-    "Upgrade manifest schema to v2 and make rescans refresh existing manifests so the existing library can be backfilled."
+    "Simplify Library Lookup to one search bar and a clean alphabetical list of titles.",
+    "Search accepts either title text or an exact UPC/EAN, while UPC numbers are deliberately hidden from the collection list.",
+    "Open a title to see a compact popup of reliable relevant manifest information, with the full JSON available behind an optional View JSON expander.",
+    "Move Mass add UPCs and Check manifests into a single More tools popup, removing the cluttered tabs, filters and always-visible bulk import box."
   ]
 }
