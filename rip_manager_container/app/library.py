@@ -34,14 +34,17 @@ def _upsert(manager_job_id=None, barcode=None, title=None, year=None, media_type
                          (manager_job_id,barcode,title,year,media_type,fmt,final_dir,int(has_extras),source,now,now))
         return cur.lastrowid, True
 
-def search(query: str="") -> list[dict]:
+def search(query: str="", media_type: str="", extras: str="", sort: str="title") -> list[dict]:
     q=(query or "").strip()
-    if not q:
-        rows=db.query("SELECT * FROM library_items ORDER BY COALESCE(title,barcode) COLLATE NOCASE LIMIT 250")
-    elif q.isdigit():
-        rows=db.query("SELECT * FROM library_items WHERE barcode=? ORDER BY title COLLATE NOCASE",(q,))
-    else:
-        rows=db.query("SELECT * FROM library_items WHERE title LIKE ? COLLATE NOCASE ORDER BY title COLLATE NOCASE LIMIT 100",(f"%{q}%",))
+    where=[]; params=[]
+    if q:
+        if q.isdigit(): where.append("barcode=?"); params.append(q)
+        else: where.append("title LIKE ? COLLATE NOCASE"); params.append(f"%{q}%")
+    if media_type: where.append("media_type=?"); params.append(media_type)
+    if extras in ("0","1"): where.append("has_extras=?"); params.append(int(extras))
+    order={"title":"COALESCE(title,barcode) COLLATE NOCASE ASC","year_desc":"year IS NULL, year DESC, title COLLATE NOCASE","year_asc":"year IS NULL, year ASC, title COLLATE NOCASE","added_desc":"created_at DESC","upc":"barcode IS NULL, barcode ASC"}.get(sort,"COALESCE(title,barcode) COLLATE NOCASE ASC")
+    clause=(" WHERE "+" AND ".join(where)) if where else ""
+    rows=db.query(f"SELECT * FROM library_items{clause} ORDER BY {order} LIMIT 1000",tuple(params))
     return [dict(r)|{"has_extras":bool(r["has_extras"])} for r in rows]
 
 def bulk_add(text: str) -> dict:
