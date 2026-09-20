@@ -45,8 +45,8 @@ async function renderRoute(route){
   if(route==="stats"){q("#archiveHeading").textContent="Stats";q("#archiveSubheading").textContent="Live system health and drive performance";document.title="Stats · Rip Remote";showPanel("archiveStats");renderStatsPage();return}
   q("#archiveHeading").textContent="Physical media";q("#archiveSubheading").textContent="Photos and disc details";document.title="Physical Media · Rip Remote";showPanel("archiveLibrary");await loadMedia()
 }
-function routeFromPath(){return location.pathname==="/mover"?"mover":location.pathname==="/physical-media"?"physical-media":location.pathname==="/stats"?"stats":"dashboard"}
-async function navigate(route,push=true){const path=route==="mover"?"/mover":route==="physical-media"?"/physical-media":route==="stats"?"/stats":"/";if(push&&location.pathname!==path)history.pushState({route},"",path);await renderRoute(route)}
+function routeFromPath(){return location.pathname==="/mover"?"mover":location.pathname==="/physical-media"?"physical-media":location.pathname==="/stats"?"stats":location.pathname==="/library"?"library":"dashboard"}
+async function navigate(route,push=true){if(route==="library"){window.openLibraryLookup?.(push);return}const path=route==="mover"?"/mover":route==="physical-media"?"/physical-media":route==="stats"?"/stats":"/";if(push&&location.pathname!==path)history.pushState({route},"",path);await renderRoute(route)}
 window.openDashboard=()=>navigate("dashboard");
 window.openArchive=()=>navigate("physical-media");
 window.openMover=()=>navigate("mover");
