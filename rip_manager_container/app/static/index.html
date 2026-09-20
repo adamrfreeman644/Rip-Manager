@@ -32,6 +32,7 @@
     <div class="v02-actions">
       <span id="connection" class="v02-pill">Connecting…</span>
       <button class="v02-action" id="archiveButton" data-app-route="physical-media">▧ Media</button>
+      <button class="v02-action" id="libraryButton" type="button" onclick="openLibraryLookup()">⌕ Library</button>
       <button class="v02-action" id="statsButton" data-app-route="stats">ϟ Stats</button>
       <button class="v02-icon" id="settingsButton" title="Settings" aria-label="Settings">⚙</button>
       <div class="mobile-nav-wrap">
@@ -39,6 +40,7 @@
         <nav class="mobile-nav-menu hidden" id="mobileNavMenu" aria-label="Main menu">
           <button type="button" data-mobile-action="dashboard" data-app-route="dashboard"><span>Dashboard</span><span aria-hidden="true">⌂</span></button>
           <button type="button" data-mobile-action="archive" data-app-route="physical-media"><span>Physical media</span><span aria-hidden="true">▧</span></button>
+          <button type="button" data-mobile-action="library" onclick="openLibraryLookup()"><span>Library Lookup</span><span aria-hidden="true">⌕</span></button>
           <button type="button" data-mobile-action="mover" data-app-route="mover"><span>Mover</span><span aria-hidden="true">⇄</span></button>
           <button type="button" data-mobile-action="stats" data-app-route="stats"><span>Stats</span><span aria-hidden="true">ϟ</span></button>
           <div class="mobile-nav-divider" aria-hidden="true"></div>
