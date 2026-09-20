@@ -1,8 +1,9 @@
 {
-  "version": "0.22.15",
+  "version": "0.22.16",
   "notes": [
-    "Add a folder-level process_history and per-file process_history registry to disc-info.json.",
-    "Record rip completion, media preparation and verified transfer milestones; preserve per-file history across inventory refreshes.",
-    "Provide process-event helpers for future transcoding, failure and cancellation workflows."
+    "Add Library Lookup as a top-level module for fast title and UPC/EAN ownership checks.",
+    "Add mass UPC/EAN import with duplicate, existing and invalid-code reporting.",
+    "Add Check manifests to rebuild/update the searchable database from disc-info.json files, including the has_extras true/false flag.",
+    "Add shared UPC/EAN editing in Physical Media so ripping and photo/catalogue workflows use the same barcode value."
   ]
 }
