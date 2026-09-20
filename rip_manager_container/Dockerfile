@@ -1,5 +1,8 @@
 FROM python:3.12-slim
 
+# ffprobe is required for manifest duration/codec/stream metadata.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     RIP_MANAGER_DATA=/data \
