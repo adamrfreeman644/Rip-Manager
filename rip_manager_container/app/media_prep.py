@@ -108,4 +108,10 @@ def prepare_completed_rip(source, job):
     if changes:
         import archive
         archive.record_file_changes(source, changes + [{"path": "rip-manager-prep.json", "action": "written"}])
+        current_paths = [
+            change.get("current_path") or change.get("path")
+            for change in changes if change.get("current_path") or change.get("path")
+        ]
+        archive.record_file_process_events(source, current_paths, "media_preparation_finished", "complete", report)
+        archive.record_process_event(source, "media_preparation_finished", "complete", report)
     return report
