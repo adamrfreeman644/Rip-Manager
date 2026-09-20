@@ -1929,7 +1929,7 @@ function resumeAdoptionProgress() {
 let lastStorageSetup=null;
 function storageSetupSummary(result){
   if(!result)return '<div class="note compact-note">Checks Byte-Me, detects each Node output path, verifies mounted shares and indexes existing media.</div>';
-  const rows=[`<div><strong>${result.destination.exists&&result.destination.readable&&result.destination.writable?"✓":"×"} Byte-Me</strong> · ${esc(result.destination.message)}</div>`,...result.nodes.map(node=>`<div><strong>${node.mount.exists&&node.mount.readable?"✓":"×"} ${esc(node.name)}</strong> · ${esc(node.mount.message)}${node.detected?` · Node path ${esc(node.source_root)}`:node.node_error?` · ${esc(node.node_error)}`:""}</div>`),`<div><strong>${result.scan.imported} added</strong> · ${result.scan.folders_seen} existing folders found</div>`];
+  const rows=[`<div><strong>${result.destination.exists&&result.destination.readable&&result.destination.writable?"✓":"×"} Byte-Me</strong> · ${esc(result.destination.message)}</div>`,...result.nodes.map(node=>`<div><strong>${node.mount.exists&&node.mount.readable?"✓":"×"} ${esc(node.name)}</strong> · ${esc(node.mount.message)}${node.detected?` · Node path ${esc(node.source_root)}`:node.node_error?` · ${esc(node.node_error)}`:""}</div>`),`<div><strong>${result.scan.folders_seen} discovered</strong> · ${result.scan.imported} imported · ${result.scan.manifests_created||0} manifests created · ${result.scan.manifests_updated||0} updated · ${result.scan.manifests_unchanged||0} unchanged</div>`];
   return `<div class="note compact-note storage-setup-result">${rows.join("")}</div>`;
 }
 
