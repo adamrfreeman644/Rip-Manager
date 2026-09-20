@@ -169,8 +169,8 @@ def _copy_transfer(transfer: dict, job: dict) -> None:
         for _, relative, size in files:
             item = archive.file_metadata(destination / relative, destination)
             item["action"] = "moved_and_verified"
-            item["previous_path"] = str(source / relative)
-            item["new_path"] = relative.as_posix()
+            item["old_paths"] = [str(source / relative)]
+            item["current_path"] = relative.as_posix()
             item["verified_size_bytes"] = size
             transferred.append(item)
         archive.record_file_changes(destination, transferred + [
