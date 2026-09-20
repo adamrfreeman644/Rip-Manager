@@ -1,9 +1,9 @@
 {
-  "version": "0.22.17",
+  "version": "0.22.18",
   "notes": [
-    "Fix desktop navigation after adding Library Lookup.",
-    "Make Library Lookup a proper application page under the shared Rip Manager header instead of rendering below the dashboard.",
-    "Restore reliable Home, browser Back/Forward, desktop header and mobile menu navigation between Dashboard, Physical Media, Library Lookup, Mover and Stats.",
-    "Scope archive page layout styles so standalone modules cannot be pushed to the bottom of the screen."
+    "Use the same popup burger menu as the only Rip Manager navigation at every screen width.",
+    "Remove the separate Media, Library, Stats and Settings header buttons from wide layouts.",
+    "Keep Library Lookup inside the unified navigation menu and make its menu action route correctly.",
+    "Preserve the online status indicator while simplifying the header navigation."
   ]
 }
