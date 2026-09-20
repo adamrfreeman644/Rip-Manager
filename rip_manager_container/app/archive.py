@@ -13,6 +13,7 @@ import json
 import os
 import re
 import time
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -288,8 +289,43 @@ def _iso_timestamp(value: float) -> str:
     return datetime.fromtimestamp(value, tz=timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def file_metadata(path: Path, relative_to: Optional[Path] = None) -> dict:
+    """Return reliable on-disk and ffprobe metadata, tolerating unsupported files."""
+    stat = path.stat()
+    item = {
+        "path": path.relative_to(relative_to).as_posix() if relative_to else path.name,
+        "size_bytes": stat.st_size,
+        "modified_at": _iso_timestamp(stat.st_mtime),
+        "extension": path.suffix.lower() or None,
+    }
+    try:
+        probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_format", "-show_streams", "-of", "json", str(path)],
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30, check=False,
+        )
+        decoded = json.loads(probe.stdout) if probe.returncode == 0 else {}
+        fmt = decoded.get("format") or {}
+        if fmt:
+            item["container"] = fmt.get("format_name")
+            item["duration_seconds"] = float(fmt["duration"]) if fmt.get("duration") else None
+            item["bit_rate"] = int(fmt["bit_rate"]) if str(fmt.get("bit_rate", "")).isdigit() else None
+            item["metadata"] = fmt.get("tags") or {}
+        streams = []
+        for stream in decoded.get("streams") or []:
+            streams.append({key: stream.get(key) for key in (
+                "index", "codec_type", "codec_name", "codec_long_name", "profile",
+                "bit_rate", "width", "height", "pix_fmt", "r_frame_rate",
+                "sample_rate", "channels", "channel_layout", "language",
+            ) if stream.get(key) is not None} | ({"metadata": stream["tags"]} if stream.get("tags") else {}))
+        if streams:
+            item["streams"] = streams
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        pass
+    return item
+
+
 def _existing_files(folder: Path) -> list[dict]:
-    """Inventory a legacy folder without reading, moving or changing its media."""
+    """Inventory a legacy folder without changing its media."""
     files = []
     try:
         candidates = sorted(path for path in folder.rglob("*") if path.is_file())
@@ -299,12 +335,7 @@ def _existing_files(folder: Path) -> list[dict]:
         if path.name in {"disc-info.json", "disc-info.txt"}:
             continue
         try:
-            stat = path.stat()
-            files.append({
-                "path": path.relative_to(folder).as_posix(),
-                "size_bytes": stat.st_size,
-                "modified_at": _iso_timestamp(stat.st_mtime),
-            })
+            files.append(file_metadata(path, folder))
         except OSError:
             continue
     return files
