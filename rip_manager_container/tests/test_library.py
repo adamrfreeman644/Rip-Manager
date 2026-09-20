@@ -32,3 +32,16 @@ def test_manifest_index_only_stores_lookup_fields_and_reads_json_live(tmp_path,m
     assert item["manifest"]["year"]==1999
     payload["year"]=2000; manifest.write_text(json.dumps(payload))
     assert library.get_item(row["id"])["manifest"]["year"]==2000
+
+
+def test_fuzzy_title_and_resolved_owned_upc(tmp_path,monkeypatch):
+    db=fresh(tmp_path,monkeypatch); import library
+    root=tmp_path/"media"; folder=root/"Movies"/"The Fellowship of the Ring (2001)"; folder.mkdir(parents=True)
+    manifest=folder/"disc-info.json"; manifest.write_text(json.dumps({"title":"The Lord of the Rings - The Fellowship of the Ring","year":2001}))
+    db.set_settings({"mover_destination_root":str(root),"mover_destination_folders":json.dumps({"movie":"Movies"})})
+    library.check_manifests()
+    matches=library.fuzzy_search("Lord Rings Fellowship Ring 2 Disc DVD")
+    assert matches and "Fellowship" in matches[0]["title"]
+    owned=library.resolve_owned_upc("5039036040631",matches[0]["title"])
+    assert owned["title"]==matches[0]["title"]
+    assert library.search("5039036040631")[0]["ownership"]=="owned_upc"
