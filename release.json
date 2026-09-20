@@ -4,6 +4,7 @@
     "Add Library Lookup as a top-level module for fast title and UPC/EAN ownership checks.",
     "Add mass UPC/EAN import with duplicate, existing and invalid-code reporting.",
     "Add Check manifests to rebuild/update the searchable database from disc-info.json files, including the has_extras true/false flag.",
-    "Add shared UPC/EAN editing in Physical Media so ripping and photo/catalogue workflows use the same barcode value."
+    "Add shared UPC/EAN editing in Physical Media so ripping and photo/catalogue workflows use the same barcode value.",
+    "Fix the application version metadata used by the release publisher and updater."
   ]
 }
