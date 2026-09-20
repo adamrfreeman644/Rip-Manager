@@ -693,10 +693,11 @@ def sync_sidecars(manager_job_id: str, destination: Optional[Path] = None) -> No
     temp.write_text(text, encoding="utf-8")
     os.replace(temp, target / "disc-info.txt")
     job = _job(manager_job_id)
+    inferred = _infer_folder_metadata(target, job.get("media_type"))
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "manager_job_id": manager_job_id,
-        "title": job.get("title"), "year": job.get("year"),
+        "title": job.get("title") or inferred.get("title"), "year": job.get("year") or inferred.get("year"),
         "upc": job.get("barcode"), "media_type": job.get("media_type"),
         "creator": job.get("creator"), "narrator": job.get("narrator"),
         "disc": {"season": job.get("season"), "number": job.get("disc")},
