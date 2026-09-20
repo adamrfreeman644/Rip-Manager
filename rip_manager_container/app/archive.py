@@ -322,6 +322,27 @@ def _merge_manifest(existing: dict, generated: dict, refresh: bool = False) -> d
     return merged
 
 
+
+def record_file_changes(folder: Path, changes: list[dict]) -> bool:
+    """Append actual program file changes; reads and access are deliberately omitted."""
+    if not changes:
+        return False
+    target = Path(folder) / "disc-info.json"
+    try:
+        payload = json.loads(target.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            return False
+    except (OSError, ValueError, TypeError):
+        return False
+    log = payload.setdefault("change_log", [])
+    if not isinstance(log, list):
+        log = payload["change_log"] = []
+    log.append({"at": _iso_timestamp(time.time()), "changes": changes})
+    temp = target.with_name(".disc-info.json.tmp")
+    temp.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.replace(temp, target)
+    return True
+
 def write_existing_manifest(manager_job_id: str, folder: Path) -> str:
     """Create or refresh the JSON-only manifest for an imported media folder."""
     job = _job(manager_job_id)
@@ -490,15 +511,28 @@ def sync_sidecars(manager_job_id: str, destination: Optional[Path] = None) -> No
         "images": {"front": row["front_image"], "rear": row["rear_image"],
                    "extras": json.loads(row["extras_json"] or "[]")},
     }
+    manifest = target / "disc-info.json"
+    try:
+        existing = json.loads(manifest.read_text(encoding="utf-8")) if manifest.is_file() else {}
+    except (OSError, ValueError, TypeError):
+        existing = {}
+    payload = _merge_manifest(existing, payload)
     json_temp = target / ".disc-info.json.tmp"
-    json_temp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    os.replace(json_temp, target / "disc-info.json")
+    json_temp.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.replace(json_temp, manifest)
     source_dir = _record_dir(manager_job_id)
     names = [row["front_image"], row["rear_image"], *json.loads(row["extras_json"] or "[]")]
+    copied = []
     for name in filter(None, names):
         source = source_dir / name
         if source.is_file():
             (target / name).write_bytes(source.read_bytes())
+            copied.append({"path": name, "action": "written"})
+    record_file_changes(target, [
+        {"path": "disc-info.txt", "action": "written"},
+        {"path": "disc-info.json", "action": "updated"},
+        *copied,
+    ])
 
 
 def set_final_dir(manager_job_id: str, final_dir: Path) -> None:
