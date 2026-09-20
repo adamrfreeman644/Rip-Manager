@@ -386,6 +386,54 @@ def record_file_changes(folder: Path, changes: list[dict]) -> bool:
     os.replace(temp, target)
     return True
 
+
+def record_process_event(folder: Path, event: str, status: str = "complete",
+                         details: Optional[dict] = None) -> bool:
+    """Append a folder lifecycle milestone; ordinary reads never call this."""
+    target = Path(folder) / "disc-info.json"
+    try:
+        payload = json.loads(target.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            return False
+    except (OSError, ValueError, TypeError):
+        return False
+    entry = {"event": event, "status": status, "at": _iso_timestamp(time.time())}
+    if details:
+        entry["details"] = details
+    payload.setdefault("process_history", []).append(entry)
+    temp = target.with_name(".disc-info.json.tmp")
+    temp.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.replace(temp, target)
+    return True
+
+
+def record_file_process_events(folder: Path, paths: list[str], event: str,
+                               status: str = "complete", details: Optional[dict] = None) -> bool:
+    """Record a lifecycle outcome only against the named files that experienced it."""
+    target = Path(folder) / "disc-info.json"
+    try:
+        payload = json.loads(target.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            return False
+    except (OSError, ValueError, TypeError):
+        return False
+    wanted = set(paths)
+    changed = False
+    for item in payload.get("files") or []:
+        if item.get("path") not in wanted:
+            continue
+        entry = {"event": event, "status": status, "at": _iso_timestamp(time.time())}
+        if details:
+            entry["details"] = details
+        item.setdefault("process_history", []).append(entry)
+        changed = True
+    if not changed:
+        return False
+    temp = target.with_name(".disc-info.json.tmp")
+    temp.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.replace(temp, target)
+    return True
+
 def write_existing_manifest(manager_job_id: str, folder: Path) -> str:
     """Create or refresh the JSON-only manifest for an imported media folder."""
     job = _job(manager_job_id)
