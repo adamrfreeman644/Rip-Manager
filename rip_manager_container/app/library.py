@@ -1,98 +1,92 @@
-"""Fast ownership catalogue backed by SQLite and recoverable disc-info.json manifests."""
+"""Tiny searchable index over authoritative disc-info.json manifests."""
 
 from __future__ import annotations
-import hashlib, json, re, time
+import json, re, time
 from pathlib import Path
 import db
 
 def _clean_barcode(value):
-    value = re.sub(r"\D", "", str(value or ""))
+    value=re.sub(r"\D","",str(value or ""))
     return value or None
 
-def _has_extras(payload: dict, folder: Path) -> bool:
-    images = payload.get("images") or {}
-    if images.get("extras"): return True
-    for item in payload.get("files") or []:
-        p = str(item.get("path") or "").lower()
-        if p.startswith("extras/") or "/extras/" in p: return True
-    return (folder / "extras").is_dir() and any((folder / "extras").iterdir())
+def _manifest_upc(payload):
+    return _clean_barcode(payload.get("upc") or (payload.get("physical_media") or {}).get("upc"))
 
-def _upsert(manager_job_id=None, barcode=None, title=None, year=None, media_type=None,
-            fmt=None, final_dir=None, has_extras=False, source="manual"):
-    now=time.time(); barcode=_clean_barcode(barcode)
+def _read_manifest(path: Path):
+    try:
+        payload=json.loads(path.read_text(encoding="utf-8"))
+        return payload if isinstance(payload,dict) else None
+    except (OSError,ValueError,TypeError):
+        return None
+
+def _index_manifest(path: Path,payload: dict):
+    now=time.time(); title=payload.get("title") or path.parent.name; barcode=_manifest_upc(payload)
     with db.write() as conn:
-        row = conn.execute("SELECT id FROM library_items WHERE manager_job_id=?",
-                           (manager_job_id,)).fetchone() if manager_job_id else None
+        row=conn.execute("SELECT id FROM library_items WHERE manifest_path=?",(str(path),)).fetchone()
         if row:
-            conn.execute("""UPDATE library_items SET barcode=?,title=?,year=?,media_type=?,format=?,
-                         final_dir=?,has_extras=?,source=?,updated_at=? WHERE id=?""",
-                         (barcode,title,year,media_type,fmt,final_dir,int(has_extras),source,now,row["id"]))
-            return row["id"], False
-        cur=conn.execute("""INSERT INTO library_items(manager_job_id,barcode,title,year,media_type,
-                         format,final_dir,has_extras,source,created_at,updated_at)
-                         VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
-                         (manager_job_id,barcode,title,year,media_type,fmt,final_dir,int(has_extras),source,now,now))
-        return cur.lastrowid, True
+            conn.execute("UPDATE library_items SET title=?,barcode=?,updated_at=? WHERE id=?",(title,barcode,now,row["id"]))
+            item_id=row["id"]
+        else:
+            cur=conn.execute("INSERT INTO library_items(title,barcode,manifest_path,created_at,updated_at) VALUES (?,?,?,?,?)",(title,barcode,str(path),now,now))
+            item_id=cur.lastrowid
+        if barcode:
+            conn.execute("DELETE FROM owned_upcs WHERE barcode=?",(barcode,))
+    return item_id
 
-def search(query: str="", media_type: str="", extras: str="", sort: str="title") -> list[dict]:
+def search(query: str="", **_ignored) -> list[dict]:
     q=(query or "").strip()
-    where=[]; params=[]
+    if q.isdigit():
+        rows=db.query("SELECT id,title,barcode,manifest_path FROM library_items WHERE barcode=? ORDER BY title COLLATE NOCASE",(q,))
+        if rows: return [dict(r) for r in rows]
+        owned=db.query("SELECT id,barcode FROM owned_upcs WHERE barcode=?",(q,))
+        return [{"id":f"upc:{r['id']}","title":"Owned — metadata pending","barcode":r["barcode"],"manifest_path":None} for r in owned]
     if q:
-        if q.isdigit(): where.append("barcode=?"); params.append(q)
-        else: where.append("title LIKE ? COLLATE NOCASE"); params.append(f"%{q}%")
-    if media_type: where.append("media_type=?"); params.append(media_type)
-    if extras in ("0","1"): where.append("has_extras=?"); params.append(int(extras))
-    order={"title":"COALESCE(title,barcode) COLLATE NOCASE ASC","year_desc":"year IS NULL, year DESC, title COLLATE NOCASE","year_asc":"year IS NULL, year ASC, title COLLATE NOCASE","added_desc":"created_at DESC","upc":"barcode IS NULL, barcode ASC"}.get(sort,"COALESCE(title,barcode) COLLATE NOCASE ASC")
-    clause=(" WHERE "+" AND ".join(where)) if where else ""
-    rows=db.query(f"SELECT * FROM library_items{clause} ORDER BY {order} LIMIT 1000",tuple(params))
-    return [dict(r)|{"has_extras":bool(r["has_extras"])} for r in rows]
+        rows=db.query("SELECT id,title,barcode,manifest_path FROM library_items WHERE title LIKE ? COLLATE NOCASE ORDER BY title COLLATE NOCASE LIMIT 1000",(f"%{q}%",))
+    else:
+        rows=db.query("SELECT id,title,barcode,manifest_path FROM library_items ORDER BY title COLLATE NOCASE LIMIT 1000")
+    return [dict(r) for r in rows]
 
 def bulk_add(text: str) -> dict:
     submitted=[_clean_barcode(x) for x in re.split(r"[\s,;]+",text or "") if x.strip()]
-    valid=[x for x in submitted if x and 6 <= len(x) <= 18]
+    valid=[x for x in submitted if x and 6<=len(x)<=18]
     invalid=len(submitted)-len(valid); added=existing=duplicates=0; seen=set()
     for code in valid:
         if code in seen: duplicates+=1; continue
         seen.add(code)
-        if db.query_one("SELECT 1 FROM library_items WHERE barcode=?",(code,)): existing+=1; continue
-        _upsert(barcode=code,source="bulk_upc"); added+=1
+        if db.query_one("SELECT 1 FROM library_items WHERE barcode=?",(code,)) or db.query_one("SELECT 1 FROM owned_upcs WHERE barcode=?",(code,)):
+            existing+=1; continue
+        with db.write() as conn: conn.execute("INSERT INTO owned_upcs(barcode,created_at) VALUES (?,?)",(code,time.time()))
+        added+=1
     return {"submitted":len(submitted),"added":added,"already_owned":existing,"duplicates":duplicates,"invalid":invalid}
 
 def check_manifests() -> dict:
     root=Path(db.get_setting("mover_destination_root","/media")).resolve()
     folders=db.get_setting_json("mover_destination_folders",{})
-    found=updated=skipped=0
+    found=updated=skipped=0; seen=set()
     for relative in folders.values():
         base=(root/relative).resolve()
         try: base.relative_to(root)
         except ValueError: continue
         if not base.is_dir(): continue
         for manifest in base.rglob("disc-info.json"):
-            found+=1; folder=manifest.parent
-            try:
-                payload=json.loads(manifest.read_text(encoding="utf-8"))
-                if not isinstance(payload,dict): raise ValueError()
-            except (OSError,ValueError,TypeError):
-                skipped+=1; continue
-            mid=payload.get("manager_job_id")
-            barcode=payload.get("upc") or (payload.get("physical_media") or {}).get("upc")
-            fmt=(payload.get("physical_media") or {}).get("format") or payload.get("format")
-            _upsert(mid,barcode,payload.get("title") or folder.name,payload.get("year"),
-                    payload.get("media_type"),fmt,str(folder),_has_extras(payload,folder),"manifest")
-            updated+=1
+            found+=1; payload=_read_manifest(manifest)
+            if payload is None: skipped+=1; continue
+            _index_manifest(manifest,payload); seen.add(str(manifest)); updated+=1
+    # The index is disposable: remove entries whose manifests no longer exist in configured media.
+    with db.write() as conn:
+        rows=conn.execute("SELECT id,manifest_path FROM library_items").fetchall()
+        for row in rows:
+            if row["manifest_path"] not in seen:
+                conn.execute("DELETE FROM library_items WHERE id=?",(row["id"],))
     return {"manifests_found":found,"database_updated":updated,"skipped":skipped}
 
-def get_item(item_id: int):
-    row=db.query_one("SELECT * FROM library_items WHERE id=?",(item_id,))
+def get_item(item_id):
+    if isinstance(item_id,str) and item_id.startswith("upc:"):
+        try: row=db.query_one("SELECT barcode FROM owned_upcs WHERE id=?",(int(item_id.split(":",1)[1]),))
+        except ValueError: row=None
+        return {"title":"Owned — metadata pending","barcode":row["barcode"],"manifest":None} if row else None
+    try: row=db.query_one("SELECT id,title,barcode,manifest_path FROM library_items WHERE id=?",(int(item_id),))
+    except (TypeError,ValueError): return None
     if not row: return None
-    item=dict(row); item["has_extras"]=bool(item["has_extras"])
-    manifest=None
-    if item.get("final_dir"):
-        target=Path(item["final_dir"])/"disc-info.json"
-        try:
-            decoded=json.loads(target.read_text(encoding="utf-8"))
-            if isinstance(decoded,dict): manifest=decoded
-        except (OSError,ValueError,TypeError):
-            pass
-    item["manifest"]=manifest
+    item=dict(row); item["manifest"]=_read_manifest(Path(item["manifest_path"])) if item.get("manifest_path") else None
     return item

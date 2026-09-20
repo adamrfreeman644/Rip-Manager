@@ -139,23 +139,22 @@ CREATE TABLE IF NOT EXISTS physical_media (
 
 CREATE TABLE IF NOT EXISTS library_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    manager_job_id TEXT,
-    barcode TEXT,
     title TEXT,
-    year INTEGER,
-    media_type TEXT,
-    format TEXT,
-    final_dir TEXT,
-    has_extras INTEGER NOT NULL DEFAULT 0,
-    source TEXT NOT NULL DEFAULT 'manual',
+    barcode TEXT,
+    manifest_path TEXT UNIQUE,
     created_at REAL NOT NULL,
-    updated_at REAL NOT NULL,
-    FOREIGN KEY(manager_job_id) REFERENCES jobs_history(manager_job_id)
+    updated_at REAL NOT NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_library_manager_job ON library_items(manager_job_id) WHERE manager_job_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_library_barcode ON library_items(barcode);
 CREATE INDEX IF NOT EXISTS idx_library_title ON library_items(title);
+
+CREATE TABLE IF NOT EXISTS owned_upcs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    barcode TEXT NOT NULL UNIQUE,
+    created_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_owned_upcs_barcode ON owned_upcs(barcode);
 
 CREATE TABLE IF NOT EXISTS transfer_queue (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -272,6 +271,25 @@ def init_db() -> None:
         ):
             if column not in job_columns:
                 conn.execute(f"ALTER TABLE jobs_history ADD COLUMN {column} {definition}")
+
+        # v0.22.22: Library SQLite is only a disposable manifest search index.
+        # Preserve unmatched bulk-owned UPCs separately before rebuilding the old table.
+        library_columns = _columns(conn, "library_items")
+        if library_columns and "manifest_path" not in library_columns:
+            conn.execute("""INSERT OR IGNORE INTO owned_upcs(barcode,created_at)
+                            SELECT barcode,COALESCE(created_at,?) FROM library_items
+                            WHERE barcode IS NOT NULL AND (final_dir IS NULL OR final_dir='')""", (time.time(),))
+            conn.execute("DROP TABLE library_items")
+            conn.execute("""CREATE TABLE library_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT,
+                barcode TEXT,
+                manifest_path TEXT UNIQUE,
+                created_at REAL NOT NULL,
+                updated_at REAL NOT NULL
+            )""")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_library_barcode ON library_items(barcode)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_library_title ON library_items(title)")
 
         pending_columns = _columns(conn, "pending_intake")
         for column, definition in (

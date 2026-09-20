@@ -1,9 +1,9 @@
 {
-  "version": "0.22.21",
+  "version": "0.22.22",
   "notes": [
-    "Simplify Library Lookup to one search bar and a clean alphabetical list of titles.",
-    "Search accepts either title text or an exact UPC/EAN, while UPC numbers are deliberately hidden from the collection list.",
-    "Open a title to see a compact popup of reliable relevant manifest information, with the full JSON available behind an optional View JSON expander.",
-    "Move Mass add UPCs and Check manifests into a single More tools popup, removing the cluttered tabs, filters and always-visible bulk import box."
+    "Make disc-info.json the authoritative Library metadata source and shrink SQLite to a disposable search index containing only title, UPC/EAN and exact manifest path plus internal timestamps.",
+    "Read the selected item's current JSON directly from disk every time its Library popup opens, so year, duration, codecs, extras and other details cannot become stale database copies.",
+    "Keep bulk-imported owned UPCs that do not yet have manifests in a separate minimal owned_upcs table; automatically remove one when a matching manifest is indexed.",
+    "Make Check manifests rebuild/repair the tiny index and remove stale index entries whose manifests are no longer present."
   ]
 }
