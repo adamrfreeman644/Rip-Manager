@@ -13,6 +13,7 @@ import json
 import os
 import re
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -283,13 +284,110 @@ def expected_folder(item: dict) -> Optional[str]:
         return f"{output} is outside the configured Node output root"
 
 
+def _iso_timestamp(value: float) -> str:
+    return datetime.fromtimestamp(value, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _existing_files(folder: Path) -> list[dict]:
+    """Inventory a legacy folder without reading, moving or changing its media."""
+    files = []
+    try:
+        candidates = sorted(path for path in folder.rglob("*") if path.is_file())
+    except OSError:
+        candidates = []
+    for path in candidates:
+        if path.name in {"disc-info.json", "disc-info.txt"}:
+            continue
+        try:
+            stat = path.stat()
+            files.append({
+                "path": path.relative_to(folder).as_posix(),
+                "size_bytes": stat.st_size,
+                "modified_at": _iso_timestamp(stat.st_mtime),
+            })
+        except OSError:
+            continue
+    return files
+
+
+def _merge_manifest(existing: dict, generated: dict) -> dict:
+    """Keep fields an earlier/richer manifest knows while refreshing observations."""
+    merged = dict(existing) if isinstance(existing, dict) else {}
+    for key, value in generated.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _merge_manifest(merged[key], value)
+        elif value is not None or key not in merged:
+            merged[key] = value
+    return merged
+
+
+def write_existing_manifest(manager_job_id: str, folder: Path) -> str:
+    """Create or refresh the JSON-only manifest for an imported media folder."""
+    job = _job(manager_job_id)
+    try:
+        folder_stat = folder.stat()
+    except OSError:
+        raise
+    target = folder / "disc-info.json"
+    previous = {}
+    if target.is_file():
+        try:
+            decoded = json.loads(target.read_text(encoding="utf-8"))
+            previous = decoded if isinstance(decoded, dict) else {}
+        except (OSError, ValueError, TypeError):
+            # Never discard a non-JSON or damaged prior file: leave it untouched.
+            return "skipped"
+    generated = {
+        "schema_version": 1,
+        "manager_job_id": manager_job_id,
+        "title": job.get("title") or folder.name,
+        "year": job.get("year"),
+        "upc": job.get("barcode"),
+        "media_type": job.get("media_type"),
+        "creator": job.get("creator"),
+        "narrator": job.get("narrator"),
+        "disc": {"season": job.get("season"), "number": job.get("disc")},
+        "legacy_import": {
+            "imported": True,
+            "source": "existing_media_scan",
+            "historical_rip_details_available": False,
+            "note": "Fields unavailable from the existing folder are null; no rip history was invented.",
+        },
+        "folder": {
+            "name": folder.name,
+            "path": str(folder),
+            "modified_at": _iso_timestamp(folder_stat.st_mtime),
+        },
+        "files": _existing_files(folder),
+        "rip": {
+            "node": None,
+            "drive": None,
+            "started_at": None,
+            "finished_at": None,
+            "verification": None,
+        },
+    }
+    payload = _merge_manifest(previous, generated)
+    rendered = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+    if target.is_file():
+        try:
+            if target.read_text(encoding="utf-8") == rendered:
+                return "unchanged"
+        except OSError:
+            pass
+    temp = folder / ".disc-info.json.tmp"
+    temp.write_text(rendered, encoding="utf-8")
+    os.replace(temp, target)
+    return "updated" if previous else "created"
+
+
 def scan_existing() -> dict:
-    """Import existing Byte-Me media folders without changing their contents."""
+    """Index every configured existing-media folder and maintain JSON manifests."""
     root = Path(db.get_setting("mover_destination_root", "/media")).resolve()
     folders = db.get_setting_json("mover_destination_folders", {})
     extensions = {".mkv", ".mp4", ".m4v", ".avi", ".flac", ".mp3", ".m4a", ".aac"}
     imported = 0
-    seen = 0
+    seen_folders: dict[Path, str] = {}
     now = time.time()
     for media_type, relative in folders.items():
         base = (root / relative).resolve()
@@ -299,33 +397,72 @@ def scan_existing() -> dict:
             continue
         if not base.is_dir():
             continue
-        candidates = {path.parent for path in base.rglob("*") if path.is_file() and path.suffix.lower() in extensions}
-        for folder in sorted(candidates):
-            seen += 1
-            identity = hashlib.sha256(str(folder).encode("utf-8")).hexdigest()[:24]
-            manager_job_id = f"existing:{identity}"
-            try:
-                modified = folder.stat().st_mtime
-            except OSError:
-                modified = now
-            with db.write() as conn:
-                created = conn.execute(
-                    """INSERT OR IGNORE INTO jobs_history(
-                       manager_job_id,node_id,node_job_id,drive,state,title,media_type,
-                       started_at,finished_at,progress,last_message,output_dir,
-                       verification_json,raw_json,auto_started,cleared,updated_at
-                       ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                    (manager_job_id, "Byte-Me", identity, "ARCHIVE", "complete", folder.name,
-                     media_type, modified, modified, 100, "Existing Byte-Me media", str(folder),
-                     json.dumps({"ok": True, "source": "existing_media_scan"}), "{}", 0, 1, now),
-                ).rowcount
-                conn.execute(
-                    "INSERT OR IGNORE INTO physical_media(manager_job_id,final_dir,created_at,updated_at) VALUES (?,?,?,?)",
-                    (manager_job_id, str(folder), now, now),
-                )
-            imported += int(bool(created))
-    return {"ok": True, "folders_seen": seen, "imported": imported}
+        for path in base.rglob("*"):
+            if path.is_file() and path.suffix.lower() in extensions:
+                seen_folders.setdefault(path.parent, media_type)
 
+    records = {}
+    for folder, media_type in sorted(seen_folders.items()):
+        identity = hashlib.sha256(str(folder).encode("utf-8")).hexdigest()[:24]
+        manager_job_id = f"existing:{identity}"
+        try:
+            modified = folder.stat().st_mtime
+        except OSError:
+            modified = now
+        with db.write() as conn:
+            created = conn.execute(
+                """INSERT OR IGNORE INTO jobs_history(
+                   manager_job_id,node_id,node_job_id,drive,state,title,media_type,
+                   started_at,finished_at,progress,last_message,output_dir,
+                   verification_json,raw_json,auto_started,cleared,updated_at
+                   ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (manager_job_id, "Byte-Me", identity, "ARCHIVE", "complete", folder.name,
+                 media_type, modified, modified, 100, "Existing Byte-Me media", str(folder),
+                 json.dumps({"ok": True, "source": "existing_media_scan"}), "{}", 0, 1, now),
+            ).rowcount
+            conn.execute(
+                "INSERT OR IGNORE INTO physical_media(manager_job_id,final_dir,created_at,updated_at) VALUES (?,?,?,?)",
+                (manager_job_id, str(folder), now, now),
+            )
+        imported += int(bool(created))
+        records[folder] = manager_job_id
+
+    # Include already imported/stored rows, so reruns repair the earlier 745 records too.
+    for row in db.query(
+        """SELECT j.manager_job_id,j.media_type,p.final_dir
+           FROM jobs_history j JOIN physical_media p USING(manager_job_id)
+           WHERE p.final_dir IS NOT NULL"""
+    ):
+        folder = Path(row["final_dir"])
+        try:
+            resolved = folder.resolve()
+            resolved.relative_to(root)
+        except (OSError, ValueError):
+            continue
+        if resolved.is_dir():
+            records.setdefault(resolved, row["manager_job_id"])
+
+    created = updated = unchanged = skipped = 0
+    for folder, manager_job_id in sorted(records.items()):
+        result = write_existing_manifest(manager_job_id, folder)
+        if result == "created":
+            created += 1
+        elif result == "updated":
+            updated += 1
+        elif result == "unchanged":
+            unchanged += 1
+        else:
+            skipped += 1
+    return {
+        "ok": True,
+        "folders_seen": len(seen_folders),
+        "records_processed": len(records),
+        "imported": imported,
+        "manifests_created": created,
+        "manifests_updated": updated,
+        "manifests_unchanged": unchanged,
+        "manifests_skipped": skipped,
+    }
 
 def sync_sidecars(manager_job_id: str, destination: Optional[Path] = None) -> None:
     """Copy archive assets to a reachable final folder using atomic text writes."""
