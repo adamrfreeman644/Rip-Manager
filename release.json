@@ -1,5 +1,5 @@
 {
-  "version": "0.22.9",
+  "version": "0.22.10",
   "notes": [
     "Create or safely refresh JSON-only disc-info.json manifests when Verify storage & build library scans existing media.",
     "Process existing imported records as well as newly discovered folders, with clear manifest result counts on every rerun.",
