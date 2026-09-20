@@ -18,3 +18,11 @@ def bulk(req: BulkImport):
 @router.post("/check-manifests")
 def manifests():
     return library.check_manifests()
+
+@router.get("/{item_id}")
+def library_item(item_id: int):
+    item=library.get_item(item_id)
+    if not item:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404,detail="Library item not found")
+    return item
