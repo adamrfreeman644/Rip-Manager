@@ -147,7 +147,15 @@ def test_verified_copy_writes_sidecars_then_removes_source(tmp_path, monkeypatch
     assert not source.exists()
     assert (destination / "movie.mkv").read_bytes() == b"verified media"
     assert (destination / "disc-info.txt").is_file()
-    assert (destination / "disc-info.json").is_file()
+    manifest = json.loads((destination / "disc-info.json").read_text(encoding="utf-8"))
+    transfer_log = [entry for entry in manifest["change_log"] if any(
+        change.get("action") == "moved_and_verified" for change in entry["changes"]
+    )]
+    assert transfer_log
+    moved = next(change for change in transfer_log[-1]["changes"] if change.get("action") == "moved_and_verified")
+    assert moved["path"] == "movie.mkv"
+    assert moved["size_bytes"] == len(b"verified media")
+    assert moved["extension"] == ".mkv"
     transfer = db.query_one("SELECT state,error FROM transfer_queue WHERE id=?", (transfer_id,))
     assert transfer["state"] == "complete"
     assert transfer["error"] is None
