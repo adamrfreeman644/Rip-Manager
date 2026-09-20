@@ -1,10 +1,9 @@
 {
-  "version": "0.22.8",
+  "version": "0.22.9",
   "notes": [
-    "Prepare verified video rips automatically before the mover copies them.",
-    "Gate preparation on the generated disc-info.txt completion marker so active/incomplete rips are never touched.",
-    "Keep TV provenance as Sxx DxxFxx without guessing episode numbers, and flatten files ready for later cleanup.",
-    "Sort clearly short movie/TV titles into extras and remove only high-confidence TV Play-All duplicates.",
-    "Leave ambiguous media untouched rather than guessing."
+    "Create or safely refresh JSON-only disc-info.json manifests when Verify storage & build library scans existing media.",
+    "Process existing imported records as well as newly discovered folders, with clear manifest result counts on every rerun.",
+    "Preserve richer valid JSON manifest values, record reliable folder/file metadata, and leave unavailable historical rip fields null.",
+    "Support configured media destinations such as 1 ~ Movies, 2 ~ TV, 3 ~ Music, and 4 ~ Audiobooks."
   ]
 }
