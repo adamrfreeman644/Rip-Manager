@@ -1,11 +1,16 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 import library
+import upc
 
 router=APIRouter(prefix="/library",tags=["library"])
 
 class BulkImport(BaseModel):
     upcs: str
+
+class ResolveUPC(BaseModel):
+    barcode: str
+    title: str
 
 @router.get("")
 def list_library(q: str="", media_type: str="", extras: str="", sort: str="title"):
@@ -14,6 +19,24 @@ def list_library(q: str="", media_type: str="", extras: str="", sort: str="title
 @router.post("/bulk")
 def bulk(req: BulkImport):
     return library.bulk_add(req.upcs)
+
+@router.get("/smart/{code}")
+async def smart_lookup(code: str):
+    # Owned always wins: never call an external provider for a UPC we already know.
+    owned=library.search(code)
+    if owned:
+        return {"state":"owned","items":owned}
+    result=await upc.lookup(code)
+    if not result.get("found"):
+        return {"state":"new_unresolved","lookup":result,"matches":[]}
+    lookup_matches=result.get("matches") or []
+    title=lookup_matches[0].get("title") if lookup_matches else None
+    return {"state":"new","lookup":result,"detected_title":title,
+            "matches":library.fuzzy_search(title) if title else []}
+
+@router.post("/resolve-upc")
+def resolve_upc(req: ResolveUPC):
+    return library.resolve_owned_upc(req.barcode,req.title)
 
 @router.post("/check-manifests")
 def manifests():
