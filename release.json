@@ -1,9 +1,8 @@
 {
-  "version": "0.22.10",
+  "version": "0.22.11",
   "notes": [
-    "Create or safely refresh JSON-only disc-info.json manifests when Verify storage & build library scans existing media.",
-    "Process existing imported records as well as newly discovered folders, with clear manifest result counts on every rerun.",
-    "Preserve richer valid JSON manifest values, record reliable folder/file metadata, and leave unavailable historical rip fields null.",
-    "Support configured media destinations such as 1 ~ Movies, 2 ~ TV, 3 ~ Music, and 4 ~ Audiobooks."
+    "Record each program-initiated file change in the affected disc-info.json without logging normal access.",
+    "Include reliable file metadata where available: size, timestamps, format/container, duration, bit rate, streams, codecs, dimensions, audio details and embedded tags.",
+    "Log media preparation, verified transfers, source cleanup and archive sidecar/image writes with the affected file paths."
   ]
 }
