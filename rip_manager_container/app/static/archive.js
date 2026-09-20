@@ -38,15 +38,15 @@ function renderMoverShares(){
 async function loadTransfers(){const rows=await request("/archive/mover/transfers");q("#transferList").innerHTML=rows.length?rows.map(x=>{const p=x.bytes_total?Math.min(100,x.bytes_copied/x.bytes_total*100):0;return `<article class="transfer-card"><div class="transfer-top"><div><strong>${E(title(x))}</strong><small>${E(x.node_id)} → Byte-Me</small></div><b>${E(x.state)}</b></div><div class="transfer-track"><div class="transfer-fill" style="width:${p}%"></div></div><small>${formatBytes(x.bytes_copied)} / ${formatBytes(x.bytes_total)} · ${x.files_copied}/${x.files_total} files${x.error?` · ${E(x.error)}`:""}</small>${x.state==="failed"?`<button class="archive-button" data-retry="${x.id}">Retry</button>`:""}${x.state==="queued"?`<button class="archive-button" data-cancel="${x.id}">Remove</button>`:""}</article>`}).join(""):`<div class="note">No transfers queued. Completed rips will appear here when the mover is enabled.</div>`}
 function markRoute(route){document.querySelectorAll("[data-app-route]").forEach(x=>x.classList.toggle("current-page",x.dataset.appRoute===route));q("#archiveButton")?.classList.toggle("current-page",route==="physical-media")}
 async function renderRoute(route){
-  clearInterval(refreshTimer);refreshTimer=null;markRoute(route);
+  clearInterval(refreshTimer);refreshTimer=null;if(route==="library"){window.openLibraryLookup?.(false);return}window.hideLibraryLookup?.();markRoute(route);
   if(route==="dashboard"){overlay.classList.add("hidden");q("#driveGrid").classList.remove("hidden");document.title="Rip Remote";return}
   q("#driveGrid").classList.add("hidden");overlay.classList.remove("hidden");
   if(route==="mover"){q("#archiveHeading").textContent="Mover";q("#archiveSubheading").textContent="One folder at a time to Byte-Me";document.title="Mover · Rip Remote";showPanel("archiveTransfers");renderMoverShares();await loadTransfers();refreshTimer=setInterval(loadTransfers,2000);return}
   if(route==="stats"){q("#archiveHeading").textContent="Stats";q("#archiveSubheading").textContent="Live system health and drive performance";document.title="Stats · Rip Remote";showPanel("archiveStats");renderStatsPage();return}
   q("#archiveHeading").textContent="Physical media";q("#archiveSubheading").textContent="Photos and disc details";document.title="Physical Media · Rip Remote";showPanel("archiveLibrary");await loadMedia()
 }
-function routeFromPath(){return location.pathname==="/mover"?"mover":location.pathname==="/physical-media"?"physical-media":location.pathname==="/stats"?"stats":"dashboard"}
-async function navigate(route,push=true){const path=route==="mover"?"/mover":route==="physical-media"?"/physical-media":route==="stats"?"/stats":"/";if(push&&location.pathname!==path)history.pushState({route},"",path);await renderRoute(route)}
+function routeFromPath(){return location.pathname==="/mover"?"mover":location.pathname==="/physical-media"?"physical-media":location.pathname==="/stats"?"stats":location.pathname==="/library"?"library":"dashboard"}
+async function navigate(route,push=true){if(route==="library"){window.openLibraryLookup?.(push);return}const path=route==="mover"?"/mover":route==="physical-media"?"/physical-media":route==="stats"?"/stats":"/";if(push&&location.pathname!==path)history.pushState({route},"",path);await renderRoute(route)}
 window.openDashboard=()=>navigate("dashboard");
 window.openArchive=()=>navigate("physical-media");
 window.openMover=()=>navigate("mover");
