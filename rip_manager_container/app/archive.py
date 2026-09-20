@@ -172,6 +172,37 @@ def save_image(manager_job_id: str, slot: str, data_url: str) -> str:
     return relative
 
 
+def save_barcode(manager_job_id: str, barcode: Optional[str]) -> Optional[str]:
+    """Update the single UPC/EAN value used by ripping, Physical Media and manifests."""
+    _ensure_record(manager_job_id)
+    value = (barcode or "").strip()
+    if value and (not value.isdigit() or len(value) > 32):
+        raise ValueError("UPC / EAN must contain digits only")
+    value = value or None
+    with db.write() as conn:
+        conn.execute(
+            "UPDATE jobs_history SET barcode=?,updated_at=? WHERE manager_job_id=?",
+            (value, time.time(), manager_job_id),
+        )
+    # Use the same sidecar writer as the rip workflow so a later photo edit and a
+    # barcode captured during ripping always converge on one value.
+    row = db.query_one("SELECT final_dir FROM physical_media WHERE manager_job_id=?", (manager_job_id,))
+    folder = Path(row["final_dir"]) if row and row["final_dir"] else existing_folder(_job(manager_job_id))
+    if folder and folder.is_dir():
+        manifest = folder / "disc-info.json"
+        if manifest.is_file():
+            try:
+                payload = json.loads(manifest.read_text(encoding="utf-8"))
+            except (OSError, ValueError, TypeError):
+                payload = None
+            if isinstance(payload, dict):
+                payload["upc"] = value
+                temp = folder / ".disc-info.json.tmp"
+                temp.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+                os.replace(temp, manifest)
+    return value
+
+
 def delete_image(manager_job_id: str, slot: str, index: Optional[int] = None) -> None:
     _ensure_record(manager_job_id)
     row = db.query_one("SELECT * FROM physical_media WHERE manager_job_id=?", (manager_job_id,))

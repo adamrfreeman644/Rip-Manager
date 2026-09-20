@@ -227,6 +227,29 @@ def test_existing_manifest_keeps_richer_values(tmp_path, monkeypatch):
     assert payload["custom"] == {"keep": True}
 
 
+
+def test_physical_media_upc_updates_database_and_manifest(tmp_path, monkeypatch):
+    db = fresh_database(tmp_path, monkeypatch)
+    folder = tmp_path / "media" / "Movies" / "Test Film"
+    folder.mkdir(parents=True)
+    (folder / "movie.mkv").write_bytes(b"media")
+    add_complete_job(db, str(folder))
+    with db.write() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO physical_media(manager_job_id,final_dir,created_at,updated_at) VALUES (?,?,?,?)",
+            ("rip-node-1:job-1", str(folder), time.time(), time.time()),
+        )
+    import archive
+    archive.sync_sidecars("rip-node-1:job-1", folder)
+    assert archive.save_barcode("rip-node-1:job-1", "5051892234567") == "5051892234567"
+    assert db.query_one("SELECT barcode FROM jobs_history WHERE manager_job_id='rip-node-1:job-1'")["barcode"] == "5051892234567"
+    payload = json.loads((folder / "disc-info.json").read_text(encoding="utf-8"))
+    assert payload["upc"] == "5051892234567"
+    archive.save_barcode("rip-node-1:job-1", None)
+    payload = json.loads((folder / "disc-info.json").read_text(encoding="utf-8"))
+    assert payload["upc"] is None
+
+
 def test_media_prep_tv_keeps_provenance_and_sorts_extras(tmp_path, monkeypatch):
     import media_prep
     source=tmp_path/"Show"/"Season 1"/"Disk 2";source.mkdir(parents=True)
