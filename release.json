@@ -1,7 +1,6 @@
 {
-  "version": "0.22.13",
+  "version": "0.22.14",
   "notes": [
-    "Record the prior and new path for every verified transfer, alongside per-file metadata.",
-    "Keep explicit old/new relative paths for media-preparation renames and moves in each folder's change-only manifest history."
+    "Standardize manifest rename history with old_paths and current_path fields for moves and renames."
   ]
 }
