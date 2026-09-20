@@ -9,6 +9,7 @@ from routes import node_settings as node_settings_routes
 from routes import settings as settings_routes
 from routes import updates as update_routes
 from routes import archive as archive_routes
+from routes import library as library_routes
 
 ROUTERS = (
     auth_routes.router,
@@ -20,4 +21,5 @@ ROUTERS = (
     drive_mapping_routes.router,
     node_settings_routes.router,
     archive_routes.router,
+    library_routes.router,
 )
