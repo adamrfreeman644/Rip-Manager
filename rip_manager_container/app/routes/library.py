@@ -20,7 +20,7 @@ def manifests():
     return library.check_manifests()
 
 @router.get("/{item_id}")
-def library_item(item_id: int):
+def library_item(item_id: str):
     item=library.get_item(item_id)
     if not item:
         from fastapi import HTTPException
