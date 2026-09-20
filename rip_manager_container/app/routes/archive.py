@@ -27,6 +27,10 @@ class ImageUpdate(BaseModel):
     data_url: str
 
 
+class BarcodeUpdate(BaseModel):
+    barcode: Optional[str] = Field(default=None, max_length=32)
+
+
 class MoverConfig(BaseModel):
     enabled: bool
     delete_source: bool = True
@@ -138,6 +142,16 @@ def get_text(manager_job_id: str):
 def put_text(manager_job_id: str, req: TextUpdate):
     try:
         return {"ok": True, "text": archive.save_text(manager_job_id, req.text)}
+    except KeyError as exc:
+        _not_found(exc)
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.put("/{manager_job_id}/barcode")
+def put_barcode(manager_job_id: str, req: BarcodeUpdate):
+    try:
+        return {"ok": True, "barcode": archive.save_barcode(manager_job_id, req.barcode)}
     except KeyError as exc:
         _not_found(exc)
     except (OSError, ValueError) as exc:
