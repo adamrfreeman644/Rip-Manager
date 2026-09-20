@@ -152,6 +152,7 @@ CREATE INDEX IF NOT EXISTS idx_library_title ON library_items(title);
 CREATE TABLE IF NOT EXISTS owned_upcs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     barcode TEXT NOT NULL UNIQUE,
+    title TEXT,
     created_at REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_owned_upcs_barcode ON owned_upcs(barcode);
@@ -290,6 +291,10 @@ def init_db() -> None:
             )""")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_library_barcode ON library_items(barcode)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_library_title ON library_items(title)")
+
+        owned_columns = _columns(conn, "owned_upcs")
+        if "title" not in owned_columns:
+            conn.execute("ALTER TABLE owned_upcs ADD COLUMN title TEXT")
 
         pending_columns = _columns(conn, "pending_intake")
         for column, definition in (
