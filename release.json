@@ -1,6 +1,8 @@
 {
-  "version": "0.22.14",
+  "version": "0.22.15",
   "notes": [
-    "Standardize manifest rename history with old_paths and current_path fields for moves and renames."
+    "Add a folder-level process_history and per-file process_history registry to disc-info.json.",
+    "Record rip completion, media preparation and verified transfer milestones; preserve per-file history across inventory refreshes.",
+    "Provide process-event helpers for future transcoding, failure and cancellation workflows."
   ]
 }
