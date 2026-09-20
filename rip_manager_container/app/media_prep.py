@@ -108,6 +108,7 @@ def prepare_completed_rip(source, job):
     if changes:
         import archive
         archive.record_file_changes(source, changes + [{"path": "rip-manager-prep.json", "action": "written"}])
+        archive.refresh_file_inventory(source)
         current_paths = [
             change.get("current_path") or change.get("path")
             for change in changes if change.get("current_path") or change.get("path")
