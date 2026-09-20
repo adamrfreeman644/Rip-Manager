@@ -1,10 +1,9 @@
 {
-  "version": "0.22.16",
+  "version": "0.22.17",
   "notes": [
-    "Add Library Lookup as a top-level module for fast title and UPC/EAN ownership checks.",
-    "Add mass UPC/EAN import with duplicate, existing and invalid-code reporting.",
-    "Add Check manifests to rebuild/update the searchable database from disc-info.json files, including the has_extras true/false flag.",
-    "Add shared UPC/EAN editing in Physical Media so ripping and photo/catalogue workflows use the same barcode value.",
-    "Fix the application version metadata used by the release publisher and updater."
+    "Fix desktop navigation after adding Library Lookup.",
+    "Make Library Lookup a proper application page under the shared Rip Manager header instead of rendering below the dashboard.",
+    "Restore reliable Home, browser Back/Forward, desktop header and mobile menu navigation between Dashboard, Physical Media, Library Lookup, Mover and Stats.",
+    "Scope archive page layout styles so standalone modules cannot be pushed to the bottom of the screen."
   ]
 }
