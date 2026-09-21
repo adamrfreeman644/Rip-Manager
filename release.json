@@ -3,6 +3,7 @@
   "notes": [
     "A new UPC whose metadata lookup returns no title now remains available as a pending UPC instead of clearing the Library results.",
     "Existing media is shown immediately when the UPC title is unknown, including manifest entries whose UPC value is null.",
+    "Library Lookup now opens with every known title in one A–Z list below the search bar, with a properly constrained touch-scrollable results area.",
     "Typing in the same search box filters the existing collection by title while retaining the pending UPC.",
     "Selecting a result attaches the pending UPC to that title in one click."
   ]
