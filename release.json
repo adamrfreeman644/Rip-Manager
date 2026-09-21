@@ -1,9 +1,9 @@
 {
-  "version": "0.22.22",
+  "version": "0.22.23",
   "notes": [
-    "Make disc-info.json the authoritative Library metadata source and shrink SQLite to a disposable search index containing only title, UPC/EAN and exact manifest path plus internal timestamps.",
-    "Read the selected item's current JSON directly from disk every time its Library popup opens, so year, duration, codecs, extras and other details cannot become stale database copies.",
-    "Keep bulk-imported owned UPCs that do not yet have manifests in a separate minimal owned_upcs table; automatically remove one when a matching manifest is indexed.",
-    "Make Check manifests rebuild/repair the tiny index and remove stale index entries whose manifests are no longer present."
+    "Library title typing now performs live fuzzy matching against manifest-index titles, tolerating punctuation, articles and common edition/media wording.",
+    "UPC scans first check both manifest-indexed media and owned_upcs; existing ownership opens immediately without external metadata lookup.",
+    "Only completely new UPCs automatically reuse Rip Manager's existing multi-provider disc-input UPC lookup, then feed the detected title into the same fuzzy title matcher.",
+    "Choosing a suggested title is the single association click for a new UPC; owned_upcs now retains that resolved title so later scans open it immediately."
   ]
 }
