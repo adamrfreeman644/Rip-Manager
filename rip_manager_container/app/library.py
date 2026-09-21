@@ -49,6 +49,16 @@ def fuzzy_search(title: str, limit: int=12) -> list[dict]:
         contains=1.0 if needle in candidate or candidate in needle else 0.0
         score=max(seq,(seq+overlap)/2,0.92 if contains else 0)
         if score>=0.38: ranked.append((score,dict(row)))
+    for row in db.query("SELECT id,title,barcode FROM owned_upcs WHERE title IS NOT NULL"):
+        candidate=_title_key(row["title"]); cwords=set(candidate.split())
+        seq=SequenceMatcher(None,needle,candidate).ratio()
+        overlap=len(nwords & cwords)/max(1,len(nwords | cwords))
+        contains=1.0 if needle in candidate or candidate in needle else 0.0
+        score=max(seq,(seq+overlap)/2,0.92 if contains else 0)
+        if score>=0.38:
+            ranked.append((score,{"id":f"upc:{row['id']}","title":row["title"],
+                                  "barcode":row["barcode"],"manifest_path":None,
+                                  "ownership":"owned_upc"}))
     ranked.sort(key=lambda x:(-x[0],str(x[1].get("title") or "").lower()))
     return [item|{"match_score":round(score,3)} for score,item in ranked[:limit]]
 
@@ -60,8 +70,12 @@ def search(query: str="", **_ignored) -> list[dict]:
         owned=db.query("SELECT id,barcode,title FROM owned_upcs WHERE barcode=?",(q,))
         return [{"id":f"upc:{r['id']}","title":r["title"] or "Owned — metadata pending","barcode":r["barcode"],"manifest_path":None,"ownership":"owned_upc"} for r in owned]
     if q: return fuzzy_search(q)
-    rows=db.query("SELECT id,title,barcode,manifest_path FROM library_items ORDER BY title COLLATE NOCASE LIMIT 1000")
-    return [dict(r) for r in rows]
+    manifests=[dict(r)|{"ownership":"manifest"} for r in db.query(
+        "SELECT id,title,barcode,manifest_path FROM library_items WHERE title IS NOT NULL")]
+    owned=[{"id":f"upc:{r['id']}","title":r["title"],"barcode":r["barcode"],
+            "manifest_path":None,"ownership":"owned_upc"} for r in db.query(
+        "SELECT id,title,barcode FROM owned_upcs WHERE title IS NOT NULL")]
+    return sorted(manifests+owned,key=lambda item:str(item.get("title") or "").casefold())
 
 def resolve_owned_upc(barcode: str, title: str) -> dict:
     code=_clean_barcode(barcode); title=str(title or "").strip()
