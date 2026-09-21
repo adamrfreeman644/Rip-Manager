@@ -1,10 +1,8 @@
 {
-  "version": "0.22.24",
+  "version": "0.22.25",
   "notes": [
-    "A new UPC whose metadata lookup returns no title now remains available as a pending UPC instead of clearing the Library results.",
-    "Existing media is shown immediately when the UPC title is unknown, including manifest entries whose UPC value is null.",
-    "Library Lookup now opens with every known title in one A–Z list below the search bar, with a properly constrained touch-scrollable results area.",
-    "Typing in the same search box filters the existing collection by title while retaining the pending UPC.",
-    "Selecting a result attaches the pending UPC to that title in one click."
+    "Fixes the Library page/API route collision that caused the title list and search results to remain blank even when SQLite contained indexed manifests.",
+    "Library data endpoints now use /api/library while /library remains the browser page.",
+    "Corrects UPC recognition so 6–14 digit scans use the smart UPC lookup path."
   ]
 }
