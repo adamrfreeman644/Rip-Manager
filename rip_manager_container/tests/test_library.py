@@ -1,4 +1,5 @@
 import json
+import asyncio
 
 def fresh(tmp_path, monkeypatch):
     import db
@@ -45,3 +46,20 @@ def test_fuzzy_title_and_resolved_owned_upc(tmp_path,monkeypatch):
     owned=library.resolve_owned_upc("5039036040631",matches[0]["title"])
     assert owned["title"]==matches[0]["title"]
     assert library.search("5039036040631")[0]["ownership"]=="owned_upc"
+
+
+def test_unresolved_upc_returns_collection_for_manual_title_search(tmp_path,monkeypatch):
+    db=fresh(tmp_path,monkeypatch); import library
+    from routes import library as routes
+    root=tmp_path/"media"; folder=root/"Movies"/"Film (1999)"; folder.mkdir(parents=True)
+    (folder/"disc-info.json").write_text(json.dumps({"title":"Film","year":1999}))
+    db.set_settings({"mover_destination_root":str(root),"mover_destination_folders":json.dumps({"movie":"Movies"})})
+    library.check_manifests()
+
+    async def missing(_code): return {"found":False,"matches":[]}
+    monkeypatch.setattr(routes.upc,"lookup",missing)
+    result=asyncio.run(routes.smart_lookup("5039036040631"))
+
+    assert result["state"]=="new_unresolved"
+    assert result["detected_title"] is None
+    assert [item["title"] for item in result["matches"]]==["Film"]
