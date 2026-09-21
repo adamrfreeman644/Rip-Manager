@@ -28,7 +28,11 @@ async def smart_lookup(code: str):
         return {"state":"owned","items":owned}
     result=await upc.lookup(code)
     if not result.get("found"):
-        return {"state":"new_unresolved","lookup":result,"matches":[]}
+        # A failed metadata lookup must not block manual matching.  Return the
+        # collection with a null detected title so the UI can keep the scanned
+        # UPC pending while the user searches by title.
+        return {"state":"new_unresolved","lookup":result,"detected_title":None,
+                "matches":library.search()}
     lookup_matches=result.get("matches") or []
     title=lookup_matches[0].get("title") if lookup_matches else None
     return {"state":"new","lookup":result,"detected_title":title,
