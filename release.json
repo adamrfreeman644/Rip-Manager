@@ -1,9 +1,10 @@
 {
-  "version": "0.22.23",
+  "version": "0.22.24",
   "notes": [
-    "Library title typing now performs live fuzzy matching against manifest-index titles, tolerating punctuation, articles and common edition/media wording.",
-    "UPC scans first check both manifest-indexed media and owned_upcs; existing ownership opens immediately without external metadata lookup.",
-    "Only completely new UPCs automatically reuse Rip Manager's existing multi-provider disc-input UPC lookup, then feed the detected title into the same fuzzy title matcher.",
-    "Choosing a suggested title is the single association click for a new UPC; owned_upcs now retains that resolved title so later scans open it immediately."
+    "A new UPC whose metadata lookup returns no title now remains available as a pending UPC instead of clearing the Library results.",
+    "Existing media is shown immediately when the UPC title is unknown, including manifest entries whose UPC value is null.",
+    "Library Lookup now opens with every known title in one A–Z list below the search bar, with a properly constrained touch-scrollable results area.",
+    "Typing in the same search box filters the existing collection by title while retaining the pending UPC.",
+    "Selecting a result attaches the pending UPC to that title in one click."
   ]
 }
