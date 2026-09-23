@@ -63,6 +63,12 @@ def fuzzy_search(title: str, limit: int=12) -> list[dict]:
     return [item|{"match_score":round(score,3)} for score,item in ranked[:limit]]
 
 def search(query: str="", **_ignored) -> list[dict]:
+    # The SQLite catalogue is only a cache of disc-info.json manifests.  Older
+    # installs can therefore have media on disk but an empty cache until the
+    # user manually runs the maintenance tool.  Rebuild on demand so browsing
+    # and title search work immediately after an upgrade.
+    if not db.query_one("SELECT 1 FROM library_items LIMIT 1"):
+        check_manifests()
     q=(query or "").strip()
     if q.isdigit():
         rows=db.query("SELECT id,title,barcode,manifest_path FROM library_items WHERE barcode=? ORDER BY title COLLATE NOCASE",(q,))
