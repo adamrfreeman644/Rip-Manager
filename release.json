@@ -1,8 +1,7 @@
 {
-  "version": "0.22.25",
+  "version": "0.22.26",
   "notes": [
-    "Fixes the Library page/API route collision that caused the title list and search results to remain blank even when SQLite contained indexed manifests.",
-    "Library data endpoints now use /api/library while /library remains the browser page.",
-    "Corrects UPC recognition so 6–14 digit scans use the smart UPC lookup path."
+    "Fixes Library Lookup after opening /library while the controller is locked.",
+    "The Library page now loads after PIN authentication has completed, preventing its initial data request from failing and leaving the title list blank."
   ]
 }
