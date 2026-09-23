@@ -1,7 +1,7 @@
 {
-  "version": "0.22.28",
+  "version": "0.22.29",
   "notes": [
-    "Library Lookup now automatically rebuilds its manifest index when it is empty.",
-    "Existing media is discoverable immediately after an upgrade without first using the Check manifests tool."
+    "Fixes Library Lookup in browsers that block requests to /api/library.",
+    "The collection endpoint now uses /api/collection, allowing the Library title list and search results to load normally."
   ]
 }
