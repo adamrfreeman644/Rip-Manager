@@ -1,7 +1,7 @@
 {
-  "version": "0.22.26",
+  "version": "0.22.27",
   "notes": [
-    "Fixes Library Lookup after opening /library while the controller is locked.",
-    "The Library page now loads after PIN authentication has completed, preventing its initial data request from failing and leaving the title list blank."
+    "Includes the complete Library Lookup loading fix.",
+    "Library now waits until PIN authentication completes before it requests collection data, preventing a blank page after direct navigation to /library."
   ]
 }
