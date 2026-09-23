@@ -3,7 +3,7 @@ from pydantic import BaseModel
 import library
 import upc
 
-router=APIRouter(prefix="/api/library",tags=["library"])
+router=APIRouter(prefix="/api/collection",tags=["library"])
 
 class BulkImport(BaseModel):
     upcs: str
