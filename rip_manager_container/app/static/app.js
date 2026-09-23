@@ -2384,6 +2384,7 @@ async function afterUnlock() {
     applyTheme();
     $("#loginModal").classList.add("hidden");
     await refresh();
+    window.dispatchEvent(new Event("rip-manager-ready"));
   } catch {
     showLogin();
   }
