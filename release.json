@@ -1,7 +1,7 @@
 {
-  "version": "0.22.27",
+  "version": "0.22.28",
   "notes": [
-    "Includes the complete Library Lookup loading fix.",
-    "Library now waits until PIN authentication completes before it requests collection data, preventing a blank page after direct navigation to /library."
+    "Library Lookup now automatically rebuilds its manifest index when it is empty.",
+    "Existing media is discoverable immediately after an upgrade without first using the Check manifests tool."
   ]
 }
