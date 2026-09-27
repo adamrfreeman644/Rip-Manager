@@ -1,7 +1,7 @@
 {
-  "version": "0.22.29",
+  "version": "0.22.30",
   "notes": [
-    "Fixes Library Lookup in browsers that block requests to /api/library.",
-    "The collection endpoint now uses /api/collection, allowing the Library title list and search results to load normally."
+    "Adds a Downloads page for server-side yt-dlp video and audio downloads.",
+    "Includes URL preview, destination presets, progress, retry and a persistent queue."
   ]
 }
