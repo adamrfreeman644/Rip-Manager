@@ -2,7 +2,7 @@
 const form=document.querySelector('#downloadForm'), list=document.querySelector('#downloadList'), preview=document.querySelector('#downloadPreview');
 const escapeHTML=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const data=()=>{const values=Object.fromEntries(new FormData(form));return {url:values.url.trim(),media_type:values.media_type,quality:values.quality,destination:values.destination,subtitles:!!values.subtitles,playlist:!!values.playlist}};
-async function call(path, options={}) {return api('/downloads'+path,options)}
+async function call(path, options={}) {return api('/api/downloads'+path,options)}
 function showError(error){toast(error.message||String(error))}
 form.querySelector('#previewDownload').onclick=async()=>{try{preview.textContent='Loading preview…';const item=await call('/preview',{method:'POST',body:JSON.stringify(data())});preview.innerHTML=`${item.thumbnail?`<img class="download-thumb" src="${escapeHTML(item.thumbnail)}" alt="">`:''}<strong>${escapeHTML(item.title||'Untitled')}</strong> ${item.duration?`· ${Math.round(item.duration/60)} min`:''}${item.playlist?' · playlist':''}`}catch(e){preview.textContent=e.message;showError(e)}};
 form.onsubmit=async event=>{event.preventDefault();try{await call('',{method:'POST',body:JSON.stringify(data())});form.elements.url.value='';preview.textContent='Added to queue';await refresh()}catch(e){showError(e)}};

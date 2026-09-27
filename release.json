@@ -1,7 +1,7 @@
 {
-  "version": "0.22.30",
+  "version": "0.22.31",
   "notes": [
-    "Adds a Downloads page for server-side yt-dlp video and audio downloads.",
-    "Includes URL preview, destination presets, progress, retry and a persistent queue."
+    "Fixes the Downloads queue API route so the page can show queued jobs and progress.",
+    "Shows useful API errors when a server response is not JSON."
   ]
 }

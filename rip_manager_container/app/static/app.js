@@ -199,8 +199,9 @@ async function api(path, options = {}) {
     ...options,
   });
 
+  const raw = await response.text();
   let body;
-  try { body = await response.json(); } catch { body = await response.text(); }
+  try { body = raw ? JSON.parse(raw) : null; } catch { body = raw; }
 
   if (response.status === 401 && path !== "/auth/login") showLogin();
   if (!response.ok) {

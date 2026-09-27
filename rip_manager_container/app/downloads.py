@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 import db
 from config import DB_PATH
 
-router = APIRouter(prefix="/downloads", tags=["downloads"])
+router = APIRouter(prefix="/api/downloads", tags=["downloads"])
 _lock = threading.RLock()
 _wakeup = threading.Event()
 _stop = threading.Event()
