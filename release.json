@@ -1,7 +1,7 @@
 {
-  "version": "0.22.31",
+  "version": "0.22.32",
   "notes": [
-    "Fixes the Downloads queue API route so the page can show queued jobs and progress.",
-    "Shows useful API errors when a server response is not JSON."
+    "Lets you choose a filename for a single video or audio download.",
+    "Names playlist files with a short track number and title, without video ID digits."
   ]
 }

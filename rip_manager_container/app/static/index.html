@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#000000">
   <title>Rip Remote</title>
   <link rel="manifest" href="/static/site.webmanifest">
-  <link rel="stylesheet" href="/static/styles.css?v=0.22.31">
-  <link rel="stylesheet" href="/static/archive.css?v=0.22.31">
+  <link rel="stylesheet" href="/static/styles.css?v=0.22.32">
+  <link rel="stylesheet" href="/static/archive.css?v=0.22.32">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32x32.png?v=0.10.6">
   <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16x16.png?v=0.10.6">
   <link rel="apple-touch-icon" sizes="512x512" href="/static/icons/remote-ripper-512.png?v=0.10.6">
@@ -221,6 +221,7 @@
         <label>Video URL <input name="url" type="url" required placeholder="https://..."></label>
         <div class="download-options"><label>Type <select name="media_type"><option value="video">Video</option><option value="audio">Audio only</option></select></label><label>Quality <select name="quality"><option value="best">Best</option><option value="1080">Up to 1080p</option><option value="720">Up to 720p</option><option value="480">Up to 480p</option></select></label><label>Save to <select name="destination"><option value="downloads">Downloads</option><option value="movie">Movies</option><option value="tv">TV</option><option value="music">Music</option><option value="audiobook">Audiobooks</option></select></label></div>
         <div class="download-options"><label><input type="checkbox" name="subtitles"> English subtitles</label><label><input type="checkbox" name="playlist"> Download entire playlist</label></div>
+        <label id="downloadNameRow">Filename for single download <input name="custom_name" type="text" maxlength="180" placeholder="Leave blank to use video title"></label>
         <div id="downloadPreview" class="note">Paste a URL to preview its title and thumbnail.</div>
         <div class="download-options"><button type="button" id="previewDownload" class="archive-button">Preview</button><button type="submit" class="archive-button">Add to queue</button></div>
       </form>
@@ -233,10 +234,10 @@
 </section>
 <input id="archiveFile" class="archive-file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" capture="environment">
 
-<script src="/static/app.js?v=0.22.31"></script>
+<script src="/static/app.js?v=0.22.32"></script>
 <script src="/static/lookup-enhancements.js?v=0.20.13"></script>
-<script src="/static/downloads.js?v=0.22.31"></script>
-<script src="/static/archive.js?v=0.22.31"></script>
-<script src="/static/library.js?v=0.22.31"></script>
+<script src="/static/downloads.js?v=0.22.32"></script>
+<script src="/static/archive.js?v=0.22.32"></script>
+<script src="/static/library.js?v=0.22.32"></script>
 </body>
 </html>

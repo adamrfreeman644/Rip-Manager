@@ -1335,3 +1335,4 @@ html[data-theme="light"] .drive.do-not-use{background:#e5e7eb !important;border-
 .download-form input[type=url],.download-form select{width:100%;min-height:42px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);font:inherit}
 .download-options{display:flex;flex-wrap:wrap;gap:12px;align-items:end}.download-options>label{flex:1 1 140px}.download-options>label:has(input[type=checkbox]){display:flex;align-items:center;gap:7px}
 .download-thumb{width:72px;height:48px;object-fit:cover;vertical-align:middle;margin-right:10px;border-radius:6px}
+.download-form [hidden]{display:none!important}

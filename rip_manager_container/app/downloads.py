@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ipaddress
+import re
 import sqlite3
 import threading
 from pathlib import Path
@@ -36,6 +37,8 @@ def initialize():
           status TEXT NOT NULL DEFAULT 'queued', percent REAL NOT NULL DEFAULT 0,
           speed REAL, eta REAL, error TEXT, output TEXT,
           created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
+        if "custom_name" not in {row[1] for row in con.execute("PRAGMA table_info(download_jobs)")}:
+            con.execute("ALTER TABLE download_jobs ADD COLUMN custom_name TEXT")
         con.execute("UPDATE download_jobs SET status='queued', error='Resuming after restart' WHERE status='running'")
 
 
@@ -62,7 +65,19 @@ class AddJob(BaseModel):
     subtitles: bool = False
     playlist: bool = False
     destination: str = Field(pattern="^(downloads|movie|tv|music|audiobook)$")
+    custom_name: str = Field(default="", max_length=180)
 
+
+def clean_name(value):
+    name = re.sub(r'[\x00-\x1f/\\:*?"<>|%]', "", value).strip(" .")
+    if name in ("", ".", "..") or not name.strip():
+        raise ValueError("Enter a valid filename")
+    return name[:180]
+
+def output_template(target, playlist, custom_name):
+    if playlist:
+        return str(target / "%(playlist_index)02d - %(title).180B.%(ext)s")
+    return str(target / f"{clean_name(custom_name)}.%(ext)s") if custom_name else str(target / "%(title).180B [%(id)s].%(ext)s")
 
 def destination_path(preset):
     root = Path(db.get_setting("mover_destination_root", "/media")).resolve()
@@ -90,13 +105,14 @@ def add(request: AddJob):
     validate_url(request.url)
     try:
         path = destination_path(request.destination)
+        name = clean_name(request.custom_name) if request.custom_name and not request.playlist else ""
         if not path.parent.exists():
             raise ValueError("Media root is not mounted")
     except (ValueError, OSError) as exc:
         raise HTTPException(422, str(exc)) from exc
     with _lock, connection() as con:
-        cur = con.execute("INSERT INTO download_jobs(url,media_type,quality,subtitles,playlist,destination) VALUES(?,?,?,?,?,?)",
-                          (request.url, request.media_type, request.quality, int(request.subtitles), int(request.playlist), request.destination))
+        cur = con.execute("INSERT INTO download_jobs(url,media_type,quality,subtitles,playlist,destination,custom_name) VALUES(?,?,?,?,?,?,?)",
+                          (request.url, request.media_type, request.quality, int(request.subtitles), int(request.playlist), request.destination, name))
         job_id = cur.lastrowid
     _wakeup.set()
     return {"id": job_id, "status": "queued"}
@@ -141,12 +157,15 @@ def run_job(row):
     job_id = row["id"]
     target = destination_path(row["destination"])
     target.mkdir(parents=True, exist_ok=True)
-    # yt-dlp sanitizes filenames; restrict all output to a configured directory.
+    # yt-dlp sanitizes metadata filenames; user names are confined to one basename.
     fmt = "bestaudio/best" if row["media_type"] == "audio" else ("bv*+ba/b" if row["quality"] == "best" else f"bv*[height<={row['quality']}]+ba/b[height<={row['quality']}]")
     def progress(data):
         if data.get("status") == "downloading":
             update(job_id, percent=round(100 * data.get("downloaded_bytes", 0) / max(data.get("total_bytes") or data.get("total_bytes_estimate") or 1, 1), 1), speed=data.get("speed"), eta=data.get("eta"))
-    options = {"format": fmt, "outtmpl": str(target / "%(title).180B [%(id)s].%(ext)s"),
+    template = output_template(target, bool(row["playlist"]), row.get("custom_name") or "")
+    if row.get("custom_name") and not row["playlist"] and list(target.glob(f"{clean_name(row['custom_name'])}.*")):
+        raise ValueError("That filename already exists in the destination")
+    options = {"format": fmt, "outtmpl": template,
                "noplaylist": not bool(row["playlist"]), "paths": {"home": str(target), "temp": str(target / ".incomplete")},
                "progress_hooks": [progress], "socket_timeout": 20, "retries": 3,
                "continuedl": True, "restrictfilenames": True, "quiet": True, "no_warnings": True,
