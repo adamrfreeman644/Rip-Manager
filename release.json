@@ -1,7 +1,7 @@
 {
-  "version": "0.22.32",
+  "version": "0.22.33",
   "notes": [
-    "Lets you choose a filename for a single video or audio download.",
-    "Names playlist files with a short track number and title, without video ID digits."
+    "Shows the chosen or detected filename while a download is running instead of the URL.",
+    "Tidies the Downloads form and queue cards on mobile."
   ]
 }

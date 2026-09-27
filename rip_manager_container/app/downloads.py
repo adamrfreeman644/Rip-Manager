@@ -111,8 +111,8 @@ def add(request: AddJob):
     except (ValueError, OSError) as exc:
         raise HTTPException(422, str(exc)) from exc
     with _lock, connection() as con:
-        cur = con.execute("INSERT INTO download_jobs(url,media_type,quality,subtitles,playlist,destination,custom_name) VALUES(?,?,?,?,?,?,?)",
-                          (request.url, request.media_type, request.quality, int(request.subtitles), int(request.playlist), request.destination, name))
+        cur = con.execute("INSERT INTO download_jobs(url,media_type,quality,subtitles,playlist,destination,custom_name,title) VALUES(?,?,?,?,?,?,?,?)",
+                          (request.url, request.media_type, request.quality, int(request.subtitles), int(request.playlist), request.destination, name, name or None))
         job_id = cur.lastrowid
     _wakeup.set()
     return {"id": job_id, "status": "queued"}
@@ -159,7 +159,14 @@ def run_job(row):
     target.mkdir(parents=True, exist_ok=True)
     # yt-dlp sanitizes metadata filenames; user names are confined to one basename.
     fmt = "bestaudio/best" if row["media_type"] == "audio" else ("bv*+ba/b" if row["quality"] == "best" else f"bv*[height<={row['quality']}]+ba/b[height<={row['quality']}]")
+    displayed_title = row.get("title")
     def progress(data):
+        nonlocal displayed_title
+        info = data.get("info_dict") or {}
+        discovered = row.get("custom_name") or (info.get("playlist_title") or info.get("title"))
+        if discovered and discovered != displayed_title:
+            displayed_title = discovered
+            update(job_id, title=str(discovered)[:240])
         if data.get("status") == "downloading":
             update(job_id, percent=round(100 * data.get("downloaded_bytes", 0) / max(data.get("total_bytes") or data.get("total_bytes_estimate") or 1, 1), 1), speed=data.get("speed"), eta=data.get("eta"))
     template = output_template(target, bool(row["playlist"]), row.get("custom_name") or "")
@@ -174,7 +181,7 @@ def run_job(row):
     with yt_dlp.YoutubeDL(options) as ydl:
         info = ydl.extract_info(row["url"], download=True)
     info = info or {}
-    update(job_id, title=info.get("title"), thumbnail=info.get("thumbnail"), percent=100, speed=None, eta=None, output=str(target), status="completed")
+    update(job_id, title=row.get("custom_name") or info.get("title") or displayed_title, thumbnail=info.get("thumbnail"), percent=100, speed=None, eta=None, output=str(target), status="completed")
 
 
 def loop():

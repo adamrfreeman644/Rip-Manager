@@ -1336,3 +1336,33 @@ html[data-theme="light"] .drive.do-not-use{background:#e5e7eb !important;border-
 .download-options{display:flex;flex-wrap:wrap;gap:12px;align-items:end}.download-options>label{flex:1 1 140px}.download-options>label:has(input[type=checkbox]){display:flex;align-items:center;gap:7px}
 .download-thumb{width:72px;height:48px;object-fit:cover;vertical-align:middle;margin-right:10px;border-radius:6px}
 .download-form [hidden]{display:none!important}
+/* Downloads: compact controls and readable job cards on phones. */
+#archiveDownloads{display:none;align-content:start;grid-template-rows:auto auto;gap:16px;overflow-y:auto}
+#archiveDownloads.active{display:grid}
+#archiveDownloads .download-form{margin:0;padding:18px;gap:16px}
+#archiveDownloads .download-form label{min-width:0;font-size:.9rem;line-height:1.25}
+#archiveDownloads .download-form input[type=url],#archiveDownloads .download-form input[type=text],#archiveDownloads .download-form select{box-sizing:border-box;width:100%;min-height:44px;padding:9px 12px;border:1px solid var(--line);border-radius:11px;background:var(--panel);color:var(--text);font:inherit;font-size:1rem}
+#archiveDownloads .download-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#archiveDownloads .download-options>label{flex:auto}
+#archiveDownloads .download-options>label:has(input[type=checkbox]){font-size:.84rem;line-height:1.25;font-weight:600}
+#archiveDownloads .download-options input[type=checkbox]{width:19px;height:19px;flex:none;margin:0}
+#archiveDownloads #downloadNameRow input{font-weight:500}
+#archiveDownloads .download-preview{display:flex;align-items:center;min-height:52px;padding:8px 10px;border:1px solid var(--line);border-radius:11px;color:var(--text);font-size:.85rem}
+#archiveDownloads .download-preview[hidden]{display:none}
+#archiveDownloads .download-form .archive-button{flex:1;min-height:44px}
+#archiveDownloads .transfer-list{overflow:visible;gap:12px}
+.download-job{min-width:0;padding:16px;border:1px solid var(--line);border-radius:15px;background:var(--panel)}
+.download-job-head{display:flex;align-items:start;justify-content:space-between;gap:12px;min-width:0}
+.download-job-copy{min-width:0;flex:1}
+.download-job-copy strong{display:block;overflow-wrap:anywhere;font-size:1rem;line-height:1.3}
+.download-job-copy small{display:block;margin-top:5px;color:var(--muted);font-size:.77rem;line-height:1.35}
+.download-state{flex:none;padding:5px 9px;border-radius:99px;background:var(--notice);color:var(--text);font-size:.7rem;font-weight:800;text-transform:capitalize}
+.download-state-running{background:color-mix(in srgb,var(--accent) 16%,var(--panel));color:var(--accent)}
+.download-state-completed{background:color-mix(in srgb,#36a269 18%,var(--panel));color:#26875b}
+.download-state-failed{background:color-mix(in srgb,#dc5353 16%,var(--panel));color:#c34646}
+.download-job .transfer-track{height:8px;margin:14px 0 10px}
+.download-job-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:33px}
+.download-job-foot small{min-width:0;overflow-wrap:anywhere;color:var(--muted);font-size:.76rem}
+.download-job-actions{display:flex;gap:7px;flex:none}
+.download-job-actions button{min-height:32px;padding:4px 10px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);font:inherit;font-size:.75rem;font-weight:700}
+@media(max-width:420px){#archiveDownloads .download-form{padding:15px}#archiveDownloads .download-options{gap:10px}.download-job-head{display:grid;gap:8px}.download-state{justify-self:start}}
