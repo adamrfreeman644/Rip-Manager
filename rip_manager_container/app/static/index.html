@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#000000">
   <title>Rip Remote</title>
   <link rel="manifest" href="/static/site.webmanifest">
-  <link rel="stylesheet" href="/static/styles.css?v=0.22.34">
-  <link rel="stylesheet" href="/static/archive.css?v=0.22.34">
+  <link rel="stylesheet" href="/static/styles.css?v=0.22.35">
+  <link rel="stylesheet" href="/static/archive.css?v=0.22.35">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32x32.png?v=0.10.6">
   <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16x16.png?v=0.10.6">
   <link rel="apple-touch-icon" sizes="512x512" href="/static/icons/remote-ripper-512.png?v=0.10.6">
@@ -200,9 +200,9 @@
       <div class="archive-detail-title"><button id="archiveBack" class="archive-button">←</button><div><strong id="archiveDetailName"></strong><small id="archiveDetailMeta"></small></div></div>
       <nav class="archive-tabs"><button class="archive-detail-tab active" data-detail-panel="archivePhotos">Photos</button><button class="archive-detail-tab" data-detail-panel="archiveText">Disc info.txt</button></nav>
       <div id="archivePhotos" class="archive-detail-panel archive-photos active">
-        <section class="archive-photo-section"><h3>UPC / EAN</h3><div class="archive-save-row"><input id="archiveBarcode" type="text" inputmode="numeric" autocomplete="off" placeholder="Scan or enter barcode"><button id="archiveSaveBarcode" class="archive-button" type="button">Save UPC</button><span id="archiveBarcodeState" class="archive-save-state"></span></div></section>
-        <section class="archive-photo-section"><h3>FRONT</h3><div id="archiveFront" class="archive-slot" data-add="front"></div></section>
-        <section class="archive-photo-section"><h3>REAR</h3><div id="archiveRear" class="archive-slot" data-add="rear"></div></section>
+        <section class="archive-photo-section archive-barcode-section"><h3>UPC / EAN</h3><div class="archive-save-row"><input id="archiveBarcode" type="text" inputmode="numeric" autocomplete="off" placeholder="Scan or enter barcode"><button id="archiveSaveBarcode" class="archive-button" type="button">Save UPC</button><span id="archiveBarcodeState" class="archive-save-state"></span></div></section>
+        <section class="archive-photo-section archive-front-section"><h3>FRONT</h3><div id="archiveFront" class="archive-slot" data-add="front"></div></section>
+        <section class="archive-photo-section archive-rear-section"><h3>REAR</h3><div id="archiveRear" class="archive-slot" data-add="rear"></div></section>
         <section class="archive-photo-section archive-extras"><h3>EXTRAS</h3><div id="archiveExtras" class="archive-extra-strip"></div></section>
       </div>
       <div id="archiveText" class="archive-detail-panel archive-text"><div class="archive-info-note">Your notes are preserved when Rip Manager refreshes automatic rip and transfer details.</div><textarea id="archiveTextArea" class="archive-textarea" spellcheck="false"></textarea><div class="archive-save-row"><button id="archiveSaveText" class="archive-button">Save changes</button><span id="archiveTextState" class="archive-save-state"></span></div></div>
@@ -234,10 +234,10 @@
 </section>
 <input id="archiveFile" class="archive-file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" capture="environment">
 
-<script src="/static/app.js?v=0.22.34"></script>
+<script src="/static/app.js?v=0.22.35"></script>
 <script src="/static/lookup-enhancements.js?v=0.20.13"></script>
-<script src="/static/downloads.js?v=0.22.34"></script>
-<script src="/static/archive.js?v=0.22.34"></script>
-<script src="/static/library.js?v=0.22.34"></script>
+<script src="/static/downloads.js?v=0.22.35"></script>
+<script src="/static/archive.js?v=0.22.35"></script>
+<script src="/static/library.js?v=0.22.35"></script>
 </body>
 </html>

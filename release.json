@@ -1,7 +1,7 @@
 {
-  "version": "0.22.34",
+  "version": "0.22.35",
   "notes": [
-    "Expands playlists into individual queued videos, each with its own progress, speed and status.",
-    "Playlist Preview lets you untick outliers; queued videos can also be removed before they start."
+    "Fixes the Physical Media photo detail layout on phones.",
+    "Keeps UPC controls compact and shows Front, Rear and Extras in dedicated areas without large blank gaps."
   ]
 }

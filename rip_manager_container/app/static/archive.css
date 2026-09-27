@@ -7,3 +7,29 @@
 .archive-card-unavailable{border-color:#b86b32;background:color-mix(in srgb,var(--panel,#161b22) 88%,#b86b32)}
 .archive-storage-warning{display:block;margin-top:6px;color:#f1a564;font-size:.68rem;overflow-wrap:anywhere}
 .storage-setup-result>div+div{margin-top:6px}
+
+/* Keep barcode controls compact and give both cover photos visible space. */
+#archiveDetail{min-height:0;overflow:hidden;grid-template-rows:auto auto minmax(0,1fr)}
+#archivePhotos.active{min-height:0;overflow:hidden;display:grid;grid-template-areas:"barcode barcode" "front rear" "extras extras";grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) minmax(100px,.42fr);gap:10px}
+#archivePhotos .archive-barcode-section{grid-area:barcode;display:grid;grid-template-rows:auto auto;align-content:start;min-height:auto}
+#archivePhotos .archive-front-section{grid-area:front}
+#archivePhotos .archive-rear-section{grid-area:rear}
+#archivePhotos .archive-extras{grid-area:extras;grid-column:auto}
+#archivePhotos .archive-photo-section{min-width:0}
+#archivePhotos .archive-save-row{display:flex;align-items:center;gap:8px;min-width:0}
+#archiveBarcode{box-sizing:border-box;flex:1;min-width:0;width:auto;height:42px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--text);font:inherit;font-size:.9rem}
+#archiveSaveBarcode{flex:none;min-height:42px;white-space:nowrap}
+#archiveBarcodeState{flex:none;font-size:.72rem}
+#archivePhotos .archive-slot{width:100%;height:100%;box-sizing:border-box}
+#archivePhotos .archive-extra-strip{min-height:0;align-items:stretch}
+#archivePhotos .archive-extra-strip .archive-slot{width:auto;height:100%;min-width:110px}
+@media(max-width:620px){
+  #archivePhotos.active{grid-template-rows:auto minmax(0,1fr) minmax(95px,.38fr);gap:9px}
+  #archivePhotos .archive-save-row{flex-wrap:wrap}
+  #archiveBarcode{flex-basis:55%}
+  #archiveBarcodeState{flex-basis:100%;min-height:0;line-height:1.2}
+  #archivePhotos .archive-extra-strip .archive-slot{flex-basis:34vw}
+}
+@media(orientation:landscape) and (max-height:540px){
+  #archivePhotos.active{grid-template-areas:"barcode barcode barcode" "front rear extras";grid-template-columns:1fr 1fr 1.2fr;grid-template-rows:auto minmax(0,1fr)}
+}
