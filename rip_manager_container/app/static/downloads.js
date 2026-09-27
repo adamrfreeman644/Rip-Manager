@@ -2,6 +2,7 @@
   const form=document.querySelector('#downloadForm');
   const list=document.querySelector('#downloadList');
   const preview=document.querySelector('#downloadPreview');
+  let previewedUrl='',previewedEntries=null;
   const escapeHTML=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const data=()=>{const values=Object.fromEntries(new FormData(form));return {
     url:values.url.trim(),media_type:values.media_type,quality:values.quality,
@@ -10,21 +11,33 @@
   }};
   const call=(path,options={})=>api('/api/downloads'+path,options);
   const showError=error=>toast(error.message||String(error));
-  form.elements.playlist.onchange=()=>{document.querySelector('#downloadNameRow').hidden=form.elements.playlist.checked};
+  const clearPreview=()=>{previewedUrl='';previewedEntries=null;preview.hidden=true;preview.innerHTML=''};
+  form.elements.url.addEventListener('input',clearPreview);
+  form.elements.playlist.onchange=()=>{document.querySelector('#downloadNameRow').hidden=form.elements.playlist.checked;clearPreview()};
   form.querySelector('#previewDownload').onclick=async()=>{
     try{
       preview.hidden=false;preview.textContent='Loading preview…';
       const item=await call('/preview',{method:'POST',body:JSON.stringify(data())});
-      if(!form.elements.playlist.checked&&!form.elements.custom_name.value)form.elements.custom_name.value=item.title||'';
+      if(item.playlist){
+        previewedUrl=data().url;previewedEntries=item.entries;
+        preview.innerHTML=`<div class="download-preview-head"><strong>${escapeHTML(item.title||'Playlist')}</strong><small>${item.entries.length} videos · untick any to leave out</small></div><div class="download-preview-entries">${item.entries.map(entry=>`<label><input type="checkbox" data-playlist-index="${entry.index}" checked><span>${escapeHTML(entry.index+'. '+entry.title)}</span></label>`).join('')}</div>`;
+        return;
+      }
+      if(!form.elements.custom_name.value)form.elements.custom_name.value=item.title||'';
       preview.innerHTML=`${item.thumbnail?`<img class="download-thumb" src="${escapeHTML(item.thumbnail)}" alt="">`:''}<strong>${escapeHTML(item.title||'Untitled')}</strong>${item.duration?` · ${Math.round(item.duration/60)} min`:''}${item.playlist?' · playlist':''}`;
     }catch(error){preview.textContent=error.message;showError(error)}
   };
   form.onsubmit=async event=>{
     event.preventDefault();
     try{
-      await call('',{method:'POST',body:JSON.stringify(data())});
-      form.elements.url.value='';form.elements.custom_name.value='';
-      preview.hidden=true;toast('Added to queue');await refresh();
+      const request=data();
+      if(request.playlist && previewedUrl===request.url && previewedEntries){
+        request.selected_indices=[...preview.querySelectorAll('[data-playlist-index]:checked')].map(input=>Number(input.dataset.playlistIndex));
+        if(!request.selected_indices.length){toast('Select at least one video');return}
+      }
+      const result=await call('',{method:'POST',body:JSON.stringify(request)});
+      form.elements.url.value='';form.elements.custom_name.value='';clearPreview();
+      toast(`${result.count||1} video${result.count===1?'':'s'} added to queue`);await refresh();
     }catch(error){showError(error)}
   };
   async function refresh(){

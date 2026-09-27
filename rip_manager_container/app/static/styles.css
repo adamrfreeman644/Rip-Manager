@@ -1366,3 +1366,8 @@ html[data-theme="light"] .drive.do-not-use{background:#e5e7eb !important;border-
 .download-job-actions{display:flex;gap:7px;flex:none}
 .download-job-actions button{min-height:32px;padding:4px 10px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);font:inherit;font-size:.75rem;font-weight:700}
 @media(max-width:420px){#archiveDownloads .download-form{padding:15px}#archiveDownloads .download-options{gap:10px}.download-job-head{display:grid;gap:8px}.download-state{justify-self:start}}
+#archiveDownloads .download-preview:has(.download-preview-entries){display:grid;gap:10px;max-height:300px;overflow:hidden}
+.download-preview-head{display:grid;gap:3px}.download-preview-head small{color:var(--muted);font-size:.75rem}
+.download-preview-entries{display:grid;gap:0;min-height:0;overflow-y:auto;border-top:1px solid var(--line)}
+#archiveDownloads .download-preview-entries label{display:flex;align-items:center;gap:9px;padding:9px 2px;border-bottom:1px solid var(--line);font-size:.8rem;font-weight:500;line-height:1.3}
+.download-preview-entries label span{overflow-wrap:anywhere}.download-preview-entries input{flex:none;width:19px;height:19px;margin:0}

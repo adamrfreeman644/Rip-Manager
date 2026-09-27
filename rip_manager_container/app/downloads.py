@@ -66,6 +66,7 @@ class AddJob(BaseModel):
     playlist: bool = False
     destination: str = Field(pattern="^(downloads|movie|tv|music|audiobook)$")
     custom_name: str = Field(default="", max_length=180)
+    selected_indices: list[int] | None = Field(default=None, max_length=250)
 
 
 def clean_name(value):
@@ -89,13 +90,50 @@ def destination_path(preset):
     return candidate
 
 
+def playlist_entries(info):
+    entries = info.get("entries") or []
+    if len(entries) > 250:
+        raise HTTPException(422, "Playlist is too large; maximum 250 videos")
+    result = []
+    for index, entry in enumerate(entries, 1):
+        if not entry:
+            continue
+        url = entry.get("webpage_url") or entry.get("url") or ""
+        if not str(url).startswith("https://") and entry.get("ie_key", "").lower().startswith("youtube") and entry.get("id"):
+            url = f"https://www.youtube.com/watch?v={entry['id']}"
+        try:
+            validate_url(url)
+        except HTTPException:
+            continue
+        result.append({"index": index, "url": url, "title": entry.get("title") or f"Video {index}", "duration": entry.get("duration")})
+    return result
+
+
+def extract_playlist(url):
+    with yt_dlp.YoutubeDL({"quiet": True, "skip_download": True, "noplaylist": False,
+                          "extract_flat": "in_playlist", "socket_timeout": 15, "retries": 1}) as ydl:
+        return ydl.extract_info(url, download=False)
+
+
 @router.post("/preview")
 def preview(request: AddJob):
     validate_url(request.url)
     try:
-        with yt_dlp.YoutubeDL({"quiet": True, "skip_download": True, "noplaylist": True, "extract_flat": True, "socket_timeout": 10, "retries": 1}) as ydl:
+        if request.playlist:
+            info = extract_playlist(request.url)
+            if info.get("_type") != "playlist":
+                raise HTTPException(422, "This link is not a playlist")
+            entries = playlist_entries(info)
+            if not entries:
+                raise HTTPException(422, "No downloadable videos found in playlist")
+            return {"title": info.get("title"), "playlist": True, "entries": entries}
+        with yt_dlp.YoutubeDL({"quiet": True, "skip_download": True, "noplaylist": True,
+                              "extract_flat": True, "socket_timeout": 10, "retries": 1}) as ydl:
             info = ydl.extract_info(request.url, download=False)
-        return {"title": info.get("title"), "thumbnail": info.get("thumbnail"), "duration": info.get("duration"), "playlist": info.get("_type") == "playlist"}
+        return {"title": info.get("title"), "thumbnail": info.get("thumbnail"),
+                "duration": info.get("duration"), "playlist": False}
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(422, f"Cannot preview URL: {exc}") from exc
 
@@ -110,18 +148,42 @@ def add(request: AddJob):
             raise ValueError("Media root is not mounted")
     except (ValueError, OSError) as exc:
         raise HTTPException(422, str(exc)) from exc
+    if request.playlist:
+        try:
+            info = extract_playlist(request.url)
+            if info.get("_type") != "playlist":
+                raise HTTPException(422, "This link is not a playlist")
+            entries = playlist_entries(info)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(422, f"Cannot load playlist: {exc}") from exc
+        selected = set(request.selected_indices) if request.selected_indices is not None else {item["index"] for item in entries}
+        if not selected or not selected.issubset({item["index"] for item in entries}):
+            raise HTTPException(422, "Select at least one available playlist video")
+        jobs = []
+        with _lock, connection() as con:
+            for item in entries:
+                if item["index"] not in selected:
+                    continue
+                filename = clean_name(f"{item['index']:02d} - {item['title']}")
+                cur = con.execute("INSERT INTO download_jobs(url,media_type,quality,subtitles,playlist,destination,custom_name,title) VALUES(?,?,?,?,?,?,?,?)",
+                    (item["url"], request.media_type, request.quality, int(request.subtitles), 0, request.destination, filename, filename))
+                jobs.append(cur.lastrowid)
+        _wakeup.set()
+        return {"ids": jobs, "count": len(jobs), "status": "queued"}
     with _lock, connection() as con:
         cur = con.execute("INSERT INTO download_jobs(url,media_type,quality,subtitles,playlist,destination,custom_name,title) VALUES(?,?,?,?,?,?,?,?)",
-                          (request.url, request.media_type, request.quality, int(request.subtitles), int(request.playlist), request.destination, name, name or None))
+                          (request.url, request.media_type, request.quality, int(request.subtitles), 0, request.destination, name, name or None))
         job_id = cur.lastrowid
     _wakeup.set()
-    return {"id": job_id, "status": "queued"}
+    return {"id": job_id, "count": 1, "status": "queued"}
 
 
 @router.get("")
 def list_jobs():
     with connection() as con:
-        return [dict(row) for row in con.execute("SELECT * FROM download_jobs ORDER BY id DESC LIMIT 100")]
+        return [dict(row) for row in con.execute("SELECT * FROM download_jobs ORDER BY id DESC LIMIT 500")]
 
 
 @router.delete("/{job_id}")
