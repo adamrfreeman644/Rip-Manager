@@ -2498,6 +2498,7 @@ mobileNavMenu.onclick = (event) => {
     archive: () => window.openArchive(),
     library: () => window.openLibraryLookup(),
     mover: () => window.openMover(),
+    downloads: () => window.openDownloads(),
     stats: () => window.openStats(),
     settings: openSettings,
   };

@@ -24,6 +24,7 @@ import db
 import nodes as node_client
 import poller
 import mover
+import downloads
 import simulator_node
 from routes import ROUTERS
 
@@ -43,9 +44,11 @@ async def lifespan(_: FastAPI):
     await node_client.start_client()
     poller.start()
     mover.start()
+    downloads.start()
     log.info("Rip Manager %s ready", VERSION)
     yield
     await poller.stop()
+    downloads.stop()
     await mover.stop()
     await node_client.stop_client()
 
@@ -82,6 +85,7 @@ PUBLIC_PATHS = {
     "/",
     "/physical-media",
     "/mover",
+    "/downloads",
     "/stats",
     "/library",
     "/health",
@@ -117,6 +121,7 @@ def index():
 
 @app.get("/physical-media", include_in_schema=False)
 @app.get("/mover", include_in_schema=False)
+@app.get("/downloads", include_in_schema=False)
 @app.get("/stats", include_in_schema=False)
 @app.get("/library", include_in_schema=False)
 def application_page():
@@ -135,3 +140,4 @@ def health():
 
 for router in ROUTERS:
     app.include_router(router)
+app.include_router(downloads.router)

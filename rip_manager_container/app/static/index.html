@@ -37,6 +37,7 @@
           <button type="button" data-mobile-action="dashboard" data-app-route="dashboard"><span>Dashboard</span><span aria-hidden="true">⌂</span></button>
           <button type="button" data-mobile-action="archive" data-app-route="physical-media"><span>Physical media</span><span aria-hidden="true">▧</span></button>
           <button type="button" data-mobile-action="library" data-app-route="library"><span>Library Lookup</span><span aria-hidden="true">⌕</span></button>
+          <button type="button" data-mobile-action="downloads" data-app-route="downloads"><span>Downloads</span><span aria-hidden="true">↓</span></button>
           <button type="button" data-mobile-action="mover" data-app-route="mover"><span>Mover</span><span aria-hidden="true">⇄</span></button>
           <button type="button" data-mobile-action="stats" data-app-route="stats"><span>Stats</span><span aria-hidden="true">ϟ</span></button>
           <div class="mobile-nav-divider" aria-hidden="true"></div>
@@ -215,6 +216,16 @@
         <div class="note share-note">If the browser cannot open an SMB link, copy the path and paste it into File Explorer or your device’s Files app.</div>
       </section>
     </section>
+    <section id="archiveDownloads" class="archive-panel archive-transfers">
+      <form id="downloadForm" class="download-form">
+        <label>Video URL <input name="url" type="url" required placeholder="https://..."></label>
+        <div class="download-options"><label>Type <select name="media_type"><option value="video">Video</option><option value="audio">Audio only</option></select></label><label>Quality <select name="quality"><option value="best">Best</option><option value="1080">Up to 1080p</option><option value="720">Up to 720p</option><option value="480">Up to 480p</option></select></label><label>Save to <select name="destination"><option value="downloads">Downloads</option><option value="movie">Movies</option><option value="tv">TV</option><option value="music">Music</option><option value="audiobook">Audiobooks</option></select></label></div>
+        <div class="download-options"><label><input type="checkbox" name="subtitles"> English subtitles</label><label><input type="checkbox" name="playlist"> Download entire playlist</label></div>
+        <div id="downloadPreview" class="note">Paste a URL to preview its title and thumbnail.</div>
+        <div class="download-options"><button type="button" id="previewDownload" class="archive-button">Preview</button><button type="submit" class="archive-button">Add to queue</button></div>
+      </form>
+      <div id="downloadList" class="transfer-list"></div>
+    </section>
     <section id="archiveStats" class="archive-panel archive-stats">
       <div id="statsPageContent"><div class="note">Loading system statistics…</div></div>
     </section>
@@ -224,6 +235,7 @@
 
 <script src="/static/app.js?v=0.22.29"></script>
 <script src="/static/lookup-enhancements.js?v=0.20.13"></script>
+<script src="/static/downloads.js?v=0.22.30"></script>
 <script src="/static/archive.js?v=0.22.29"></script>
 <script src="/static/library.js?v=0.22.29"></script>
 </body>

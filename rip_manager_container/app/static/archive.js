@@ -41,15 +41,17 @@ async function renderRoute(route){
   clearInterval(refreshTimer);refreshTimer=null;if(route==="library"){window.openLibraryLookup?.(false);return}window.hideLibraryLookup?.();markRoute(route);
   if(route==="dashboard"){overlay.classList.add("hidden");q("#driveGrid").classList.remove("hidden");document.title="Rip Remote";return}
   q("#driveGrid").classList.add("hidden");overlay.classList.remove("hidden");
+  if(route==="downloads"){q("#archiveHeading").textContent="Downloads";q("#archiveSubheading").textContent="Server download queue";document.title="Downloads · Rip Remote";showPanel("archiveDownloads");window.refreshDownloads?.();refreshTimer=setInterval(()=>window.refreshDownloads?.(),2000);return}
   if(route==="mover"){q("#archiveHeading").textContent="Mover";q("#archiveSubheading").textContent="One folder at a time to Byte-Me";document.title="Mover · Rip Remote";showPanel("archiveTransfers");renderMoverShares();await loadTransfers();refreshTimer=setInterval(loadTransfers,2000);return}
   if(route==="stats"){q("#archiveHeading").textContent="Stats";q("#archiveSubheading").textContent="Live system health and drive performance";document.title="Stats · Rip Remote";showPanel("archiveStats");renderStatsPage();return}
   q("#archiveHeading").textContent="Physical media";q("#archiveSubheading").textContent="Photos and disc details";document.title="Physical Media · Rip Remote";showPanel("archiveLibrary");await loadMedia()
 }
-function routeFromPath(){return location.pathname==="/mover"?"mover":location.pathname==="/physical-media"?"physical-media":location.pathname==="/stats"?"stats":location.pathname==="/library"?"library":"dashboard"}
-async function navigate(route,push=true){if(route==="library"){window.openLibraryLookup?.(push);return}const path=route==="mover"?"/mover":route==="physical-media"?"/physical-media":route==="stats"?"/stats":"/";if(push&&location.pathname!==path)history.pushState({route},"",path);await renderRoute(route)}
+function routeFromPath(){return location.pathname==="/downloads"?"downloads":location.pathname==="/mover"?"mover":location.pathname==="/physical-media"?"physical-media":location.pathname==="/stats"?"stats":location.pathname==="/library"?"library":"dashboard"}
+async function navigate(route,push=true){if(route==="library"){window.openLibraryLookup?.(push);return}const path=route==="downloads"?"/downloads":route==="mover"?"/mover":route==="physical-media"?"/physical-media":route==="stats"?"/stats":"/";if(push&&location.pathname!==path)history.pushState({route},"",path);await renderRoute(route)}
 window.openDashboard=()=>navigate("dashboard");
 window.openArchive=()=>navigate("physical-media");
 window.openMover=()=>navigate("mover");
+window.openDownloads=()=>navigate("downloads");
 window.openStats=()=>navigate("stats");
 window.addEventListener("popstate",()=>renderRoute(routeFromPath()));
 q("#archiveBack").onclick=()=>{q("#archiveDetail").classList.remove("active");q("#archiveLibrary").classList.add("active");current=null};q("#archiveSaveBarcode").onclick=saveBarcode;q("#archiveBarcode").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();saveBarcode()}});q("#archiveSaveText").onclick=saveText;q("#archiveTextArea").oninput=()=>q("#archiveTextState").textContent="Unsaved changes";
