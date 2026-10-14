@@ -1,7 +1,8 @@
 {
-  "version": "0.22.35",
+  "version": "0.22.36",
   "notes": [
-    "Fixes the Physical Media photo detail layout on phones.",
-    "Keeps UPC controls compact and shows Front, Rear and Extras in dedicated areas without large blank gaps."
+    "Adds Physical Media search by title, TV series, barcode and folder path.",
+    "Shows TV series names alongside season and extras folders, including previously scanned media.",
+    "Keeps Front, Rear and Extras photo controls visible on portrait and landscape phones; fixes title wrapping and compact barcode controls."
   ]
 }
