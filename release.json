@@ -1,8 +1,8 @@
 {
-  "version": "0.22.36",
+  "version": "0.22.37",
   "notes": [
-    "Adds Physical Media search by title, TV series, barcode and folder path.",
-    "Shows TV series names alongside season and extras folders, including previously scanned media.",
-    "Keeps Front, Rear and Extras photo controls visible on portrait and landscape phones; fixes title wrapping and compact barcode controls."
+    "Combines repeated rip attempts for the same media folder into one Physical Media entry, preferring the latest successful rip.",
+    "Retains cover photos and extras from earlier attempts without deleting rip history.",
+    "Fixes overlapping titles and missing-storage paths on narrow mobile screens."
   ]
 }

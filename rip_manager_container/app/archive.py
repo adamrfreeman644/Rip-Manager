@@ -303,6 +303,43 @@ def media_display_title(item: dict) -> str:
     return " · ".join(labels)
 
 
+def group_media_attempts(rows: list[dict]) -> list[dict]:
+    """Combine retries for one folder in the UI, keeping every stored record intact."""
+    groups = {}
+    for row in rows:
+        location = row.get("existing_dir") or row.get("final_dir") or row.get("expected_dir")
+        if location and Path(location).is_absolute():
+            identity = os.path.normpath(location)
+        elif row.get("output_dir"):
+            identity = (row.get("node_id"), os.path.normpath(row["output_dir"]))
+        else:
+            identity = row["manager_job_id"]
+        key = (row.get("media_type"), identity, row.get("year"), row.get("season"), row.get("disc"))
+        groups.setdefault(key, []).append(row)
+
+    result = []
+    for attempts in groups.values():
+        # Input is newest first. A failed retry must not hide a successful rip.
+        selected = next((row for row in attempts if row.get("state") == "complete"), attempts[0])
+        item = dict(selected)
+        item["attempt_count"] = len(attempts)
+        item["latest_attempt_state"] = attempts[0].get("state")
+        item["latest_attempt_id"] = attempts[0]["manager_job_id"]
+        donors = [selected] + [row for row in attempts if row is not selected]
+        for slot in ("front", "rear"):
+            donor = next((row for row in donors if row.get(f"{slot}_url")), None)
+            item[f"{slot}_url"] = donor[f"{slot}_url"] if donor else None
+            item[f"{slot}_image_job_id"] = donor["manager_job_id"] if donor else selected["manager_job_id"]
+        item["extra_urls"] = []
+        item["extra_sources"] = []
+        for donor in donors:
+            for index, url in enumerate(donor.get("extra_urls") or []):
+                item["extra_urls"].append(url)
+                item["extra_sources"].append({"manager_job_id": donor["manager_job_id"], "index": index})
+        result.append(item)
+    return result
+
+
 def list_media() -> list[dict]:
     rows = db.query(
         """SELECT j.*,p.front_image,p.rear_image,p.extras_json,p.final_dir
@@ -324,7 +361,7 @@ def list_media() -> list[dict]:
         for key in ("verification_json", "raw_json"):
             item.pop(key, None)
         out.append(item)
-    return out
+    return group_media_attempts(out)
 
 
 def expected_folder(item: dict) -> Optional[str]:

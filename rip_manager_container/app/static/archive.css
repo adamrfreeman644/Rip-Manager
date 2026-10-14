@@ -66,3 +66,14 @@
   #archivePhotos .archive-slot>span:first-child{line-height:1.1}
   #archivePhotos .archive-plus{font-size:1.3rem}
 }
+
+/* Retry groups and long missing-storage paths must grow with their contents. */
+#archiveList{display:flex;flex-direction:column;gap:8px}
+#archiveList .archive-card{flex:0 0 auto;min-height:84px;height:auto;overflow:hidden}
+#archiveList .archive-card>span:first-child{display:grid;gap:4px;align-content:start}
+#archiveList .archive-card-title,#archiveList .archive-card-meta,#archiveList .archive-storage-warning{margin:0;line-height:1.3;overflow-wrap:anywhere}
+.archive-attempt-summary{display:block;font-size:.7rem;line-height:1.3;color:var(--muted);overflow-wrap:anywhere}
+@media(max-width:420px){
+  #archiveList .archive-card{grid-template-columns:minmax(0,1fr)}
+  #archiveList .archive-statuses{justify-content:flex-start;gap:18px}
+}

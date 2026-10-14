@@ -321,3 +321,66 @@ def test_tv_labels_handle_unavailable_rips_and_leave_movies_unchanged(tmp_path, 
         "disc": 2}) == "Example S01 D02"
     assert archive.media_display_title({"media_type": "movie", "title": "Film",
         "final_dir": "/media/Movies/Film/extras"}) == "Film"
+
+
+def test_retry_group_keeps_latest_success_and_photos_from_older_attempts():
+    import archive
+    def row(identity, state, **extra):
+        return {"manager_job_id": identity, "title": "Film", "media_type": "movie",
+                "expected_dir": "/rip-nodes/node/Movies/Film", "year": 2019,
+                "state": state, "extra_urls": [], **extra}
+    attempts = [row("latest-failed", "verification_failed"),
+                row("success", "complete", rear_url="/success/rear"),
+                row("old-failed", "verification_failed", front_url="/old/front", extra_urls=["/old/extra1", "/old/extra2"]),
+                row("old-success", "complete", front_url="/success/front")]
+    grouped = archive.group_media_attempts(attempts)
+    assert len(grouped) == 1
+    item = grouped[0]
+    assert item["manager_job_id"] == "success"
+    assert item["attempt_count"] == 4
+    assert item["latest_attempt_id"] == "latest-failed"
+    assert item["latest_attempt_state"] == "verification_failed"
+    assert item["front_url"] == "/old/front"
+    assert item["front_image_job_id"] == "old-failed"
+    assert item["rear_image_job_id"] == "success"
+    assert item["extra_sources"] == [{"manager_job_id": "old-failed", "index": 0},
+                                     {"manager_job_id": "old-failed", "index": 1}]
+    assert attempts[1]["extra_urls"] == []  # No mutation of original rip records.
+
+
+def test_retry_group_keeps_distinct_folders_discs_and_unknown_paths():
+    import archive
+    rows = []
+    for index, (folder, season, disc) in enumerate([
+        ("/media/TV/Show/Season 01", 1, 1), ("/media/TV/Show/Season 01", 1, 2),
+        ("/media/TV/Show/Season 02", 2, 1), ("/media/TV/Other/Season 01", 1, 1),
+        (None, None, None), (None, None, None),
+    ]):
+        rows.append({"manager_job_id": str(index), "title": "Season 01", "media_type": "tv",
+                     "expected_dir": folder, "season": season, "disc": disc, "state": "failed"})
+    assert len(archive.group_media_attempts(rows)) == len(rows)
+    repeated = [{"manager_job_id": "new", "media_type": "movie", "state": "failed", "node_id": "node-1", "output_dir": "/mnt/ripping/Film"},
+                {"manager_job_id": "old", "media_type": "movie", "state": "verification_failed", "node_id": "node-1", "output_dir": "/mnt/ripping/Film"}]
+    result = archive.group_media_attempts(repeated)
+    assert len(result) == 1
+    assert result[0]["manager_job_id"] == "new"
+    other_node = {**repeated[0], "manager_job_id": "other-node", "node_id": "node-2"}
+    assert len(archive.group_media_attempts([*repeated, other_node])) == 2
+
+
+def test_media_list_groups_attempts_without_deleting_history_or_images(tmp_path, monkeypatch):
+    db = fresh_database(tmp_path, monkeypatch)
+    add_complete_job(db, "/mnt/ripping/Movies/Film")
+    with db.write() as conn:
+        conn.execute("UPDATE jobs_history SET manager_job_id='old',node_job_id='old',started_at=1,state='verification_failed'")
+        conn.execute("INSERT INTO physical_media(manager_job_id,front_image,extras_json,created_at,updated_at) VALUES ('old','cover.jpg','[\"extra.jpg\"]',1,1)")
+    add_complete_job(db, "/mnt/ripping/Movies/Film")
+    import archive
+    grouped = archive.list_media()
+    assert len(grouped) == 1
+    assert grouped[0]["attempt_count"] == 2
+    assert grouped[0]["manager_job_id"] == "rip-node-1:job-1"
+    assert grouped[0]["front_url"] == "/archive/old/images/cover.jpg"
+    assert grouped[0]["front_image_job_id"] == "old"
+    assert db.query_one("SELECT COUNT(*) AS total FROM jobs_history")["total"] == 2
+    assert db.query_one("SELECT front_image FROM physical_media WHERE manager_job_id='old'")["front_image"] == "cover.jpg"
