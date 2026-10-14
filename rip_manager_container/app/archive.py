@@ -272,6 +272,37 @@ def existing_folder(item: dict) -> Optional[Path]:
     return candidate if candidate.is_dir() else None
 
 
+def media_display_title(item: dict) -> str:
+    """Label TV folders with their series, without rewriting stored rip metadata."""
+    title = item.get("title") or "Untitled disc"
+    if item.get("media_type") != "tv":
+        return title
+    root = Path(db.get_setting("mover_destination_root", "/media"))
+    tv_folder = db.get_setting_json("mover_destination_folders", {}).get("tv", "TV")
+    for value in (item.get("existing_dir"), item.get("final_dir"), item.get("output_dir")):
+        if not value:
+            continue
+        path = Path(value)
+        try:
+            parts = path.relative_to(root / tv_folder).parts
+        except ValueError:
+            parts = ()
+        if parts:
+            return " · ".join(parts)
+        # Rip-node and unavailable folders may be outside the Byte-Me library.
+        # Recover a series only from a recognizable season directory.
+        for index, part in enumerate(path.parts):
+            if index > 1 and re.fullmatch(r"(?i)(?:season[ ._-]*|s)\d{1,2}", part):
+                if re.fullmatch(r"(?i)(?:season[ ._-]*|s)\d{1,2}|extras|bloopers|disc[ ._-]*\d+", title):
+                    return " · ".join(path.parts[index - 1:])
+    labels = [title]
+    if item.get("season") is not None and not re.search(r"(?i)\b(?:season\s*|s)\d+", title):
+        labels.append(f"Season {int(item['season']):02d}")
+    if item.get("disc") is not None and not re.search(r"(?i)\b(?:disc|disk|d)\s*\d+", title):
+        labels.append(f"Disc {item['disc']}")
+    return " · ".join(labels)
+
+
 def list_media() -> list[dict]:
     rows = db.query(
         """SELECT j.*,p.front_image,p.rear_image,p.extras_json,p.final_dir
@@ -286,6 +317,7 @@ def list_media() -> list[dict]:
         item["storage_available"] = folder is not None
         item["existing_dir"] = str(folder) if folder else None
         item["expected_dir"] = expected_folder(item)
+        item["display_title"] = media_display_title(item)
         item["front_url"] = _image_url(item["manager_job_id"], item.pop("front_image"))
         item["rear_url"] = _image_url(item["manager_job_id"], item.pop("rear_image"))
         item["extra_urls"] = [_image_url(item["manager_job_id"], name) for name in extras]

@@ -287,3 +287,37 @@ def test_media_prep_removes_high_confidence_tv_play_all(tmp_path, monkeypatch):
     result=media_prep.prepare_completed_rip(source,{"state":"complete","media_type":"tv","title":"Show","season":1,"disc":1})
     assert result["play_all_removed"]==1
     assert not files[0].exists()
+
+
+def test_tv_media_labels_include_series_without_rescanning(tmp_path, monkeypatch):
+    db = fresh_database(tmp_path, monkeypatch)
+    root = tmp_path / "media"
+    db.set_settings({"mover_destination_root": str(root),
+                     "mover_destination_folders": json.dumps({"tv": "2 ~ TV"})})
+    import archive
+    for leaf in ("Season 01", "Bloopers", "Season 01/extras"):
+        folder = root / "2 ~ TV" / "Example Show" / leaf
+        folder.mkdir(parents=True, exist_ok=True)
+        assert archive.media_display_title({"media_type": "tv", "title": folder.name,
+                                           "final_dir": str(folder)}) == "Example Show · " + leaf.replace("/", " · ")
+    # Previously scanned rows keep their identities and photo associations.
+    add_complete_job(db, str(root / "2 ~ TV" / "Example Show" / "Season 01"))
+    with db.write() as conn:
+        conn.execute("UPDATE jobs_history SET media_type='tv',title='Season 01',node_id='Byte-Me'")
+    row = archive.list_media()[0]
+    assert row["display_title"] == "Example Show · Season 01"
+    assert row["title"] == "Season 01"
+    assert row["manager_job_id"] == "rip-node-1:job-1"
+
+
+def test_tv_labels_handle_unavailable_rips_and_leave_movies_unchanged(tmp_path, monkeypatch):
+    fresh_database(tmp_path, monkeypatch)
+    import archive
+    assert archive.media_display_title({"media_type": "tv", "title": "Season 01",
+        "output_dir": "/mnt/ripping/TV/Example/Season 01"}) == "Example · Season 01"
+    assert archive.media_display_title({"media_type": "tv", "title": "Example", "season": 1,
+        "disc": 2}) == "Example · Season 01 · Disc 2"
+    assert archive.media_display_title({"media_type": "tv", "title": "Example S01 D02", "season": 1,
+        "disc": 2}) == "Example S01 D02"
+    assert archive.media_display_title({"media_type": "movie", "title": "Film",
+        "final_dir": "/media/Movies/Film/extras"}) == "Film"
