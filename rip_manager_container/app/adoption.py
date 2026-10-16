@@ -24,8 +24,8 @@ from fastapi import HTTPException
 import db
 import poller
 
-BUNDLED_NODE = Path(__file__).resolve().parent / "bundled_rip_node_api_v0.2.10.py"
-NODE_VERSION = "0.2.10"
+BUNDLED_NODE = Path(__file__).resolve().parent / "bundled_rip_node_api_v0.2.11.py"
+NODE_VERSION = "0.2.11"
 SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
 SAFE_USER = re.compile(r"^[a-z_][a-z0-9_-]{0,31}$")
 ProgressCallback = Callable[[str, int, str], None]
@@ -733,3 +733,56 @@ def install_and_adopt(*, node_id: str, name: str, host: str, ssh_port: int,
     }
     _progress(progress, "complete", 100, "Node installed and adopted successfully")
     return result
+
+
+MAKEMKV_HELPER_SCRIPT = """#!/bin/sh
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+[ "$#" -eq 0 ] || exit 2
+exec 9>/run/lock/rip-makemkv-maintenance.lock
+flock -n 9 || exit 3
+if ps -C makemkvcon -C abcde -C cdparanoia -C icedax -C cdda2wav -o pid= | grep -q '[0-9]'; then exit 4; fi
+export DEBIAN_FRONTEND=noninteractive
+apt-get -o DPkg::Lock::Timeout=120 update
+set --
+for package in makemkv-bin makemkv-oss; do
+    if dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q 'install ok installed'; then
+        set -- "$@" "$package"
+    fi
+done
+[ "$#" -gt 0 ] || exit 5
+apt-get -o DPkg::Lock::Timeout=120 install -y --only-upgrade "$@"
+"""
+
+
+def setup_makemkv_maintenance(host, port, username, password, sudo_password):
+    if not SAFE_USER.fullmatch(username.strip()):
+        raise HTTPException(status_code=422, detail="SSH username is not valid")
+    client = _ssh(host, port, username.strip(), password)
+    sudo = sudo_password if sudo_password is not None else password
+    try:
+        rc, owner, error = _run(client, "systemctl show rip-node-api.service --property=User --value", sudo)
+        owner = owner.strip() or "root"
+        if rc or not SAFE_USER.fullmatch(owner):
+            raise HTTPException(status_code=502, detail="Could not identify the Rip Node service user")
+        helper = base64.b64encode(MAKEMKV_HELPER_SCRIPT.encode()).decode()
+        rule = base64.b64encode((owner + ' ALL=(root) NOPASSWD: /usr/local/sbin/rip-makemkv-maintenance ""\n').encode()).decode()
+        command = (
+            "set -eu; umask 077; mkdir -p /usr/local/sbin /etc/sudoers.d; "
+            "helper_tmp=$(mktemp /usr/local/sbin/.rip-makemkv.XXXXXX); "
+            "printf %s " + shlex.quote(helper) + " | base64 -d > \"$helper_tmp\"; "
+            "chown root:root \"$helper_tmp\"; chmod 0755 \"$helper_tmp\"; "
+            "mv \"$helper_tmp\" /usr/local/sbin/rip-makemkv-maintenance; "
+            "temporary=$(mktemp /etc/sudoers.d/.rip-makemkv.XXXXXX); "
+            "trap 'rm -f \"$temporary\"' EXIT; "
+            "printf %s " + shlex.quote(rule) + " | base64 -d > \"$temporary\"; "
+            "chmod 0440 \"$temporary\"; visudo -cf \"$temporary\"; "
+            "mv \"$temporary\" /etc/sudoers.d/rip-makemkv-maintenance"
+        )
+        rc, _, error = _run(client, command, sudo, timeout=60)
+        if rc:
+            raise HTTPException(status_code=502, detail="Could not install MakeMKV maintenance permissions")
+        return {"ok": True, "message": "Maintenance permissions installed. No login password was saved."}
+    finally:
+        client.close()

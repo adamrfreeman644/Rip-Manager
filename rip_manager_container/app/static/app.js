@@ -1320,6 +1320,17 @@ function hardwareNodePage(index) {
       <div class="note compact-note">Node API installation remains manual. Busy nodes wait until their active rips finish.</div>
       <button id="managedNodeApiUpdate" class="primary full-button" type="button" data-settings-action="install-node-api-from-detail" disabled>Install Node API update</button>
     </div>
+    <div class="settings-group"><h3>MakeMKV maintenance</h3>
+      <div class="note compact-note">Updates MakeMKV every 14 days when idle and refreshes the official free beta key. Existing personal registration keys are preserved. Does not upgrade Ubuntu.</div>
+      <div id="makemkvMaintenanceStatus" class="note compact-note">Loading maintenance status…</div>
+      <label><input id="makemkvMaintenanceEnabled" type="checkbox"> Automatic check every 14 days</label>
+      <label><input id="makemkvBetaEnabled" type="checkbox" checked> Refresh official free beta key</label>
+      <button class="secondary full-button" data-settings-action="save-makemkv-maintenance" data-node-id="${esc(node.id)}">Save schedule</button>
+      <button class="primary full-button" data-settings-action="run-makemkv-maintenance" data-node-id="${esc(node.id)}">Update MakeMKV now</button>
+      <button class="secondary full-button" data-settings-action="status-makemkv-maintenance" data-node-id="${esc(node.id)}">Refresh maintenance status</button>
+      <div class="note compact-note">One-time setup: enter your Ubuntu login in the fields below, then press Enable maintenance. No terminal needed; SSH must be reachable. Your password is never saved.</div>
+      <button class="secondary full-button" data-settings-action="setup-makemkv-maintenance" data-node-id="${esc(node.id)}">Enable maintenance using login below</button>
+    </div>
     <div class="settings-group"><h3>Dependencies</h3>
       <div class="note compact-note">Compare installed and available Ubuntu packages and Node API Python packages. This never performs an Ubuntu release upgrade.</div>
       <div class="field"><label>SSH username</label><input id="dependencyUser" value="adam" autocomplete="username"></div>
@@ -1336,8 +1347,32 @@ function hardwareNodePage(index) {
       <div class="note compact-note">Remove this node from Rip Manager. This does not uninstall the Node API or delete completed rip history.</div>
       <button class="danger full-button" type="button" data-remove-node="${index}">Remove node</button>
     </div>${saveBar()}`);
+  loadMakemkvMaintenance(node.id);
   loadNodeStorage(node.id);
   loadManagedNodeUpdateStatus(node.id,live.version);
+}
+
+async function loadMakemkvMaintenance(nodeId){
+  const box=document.querySelector("#makemkvMaintenanceStatus");if(!box)return;
+  try{const d=await api(`/nodes/${encodeURIComponent(nodeId)}/maintenance/makemkv`);
+    box.textContent=`${d.running?"Running":d.state||"Not run yet"} · ${d.message||""}${d.next_check?` · Next check: ${new Date(d.next_check*1000).toLocaleString()}`:""}${d.helper_installed?"":" · One-time setup needed for package updates"}`;
+    document.querySelector("#makemkvMaintenanceEnabled").checked=Boolean(d.enabled);
+    document.querySelector("#makemkvBetaEnabled").checked=d.refresh_beta!==false;
+  }catch(error){box.textContent=error.message}
+}
+async function changeMakemkvMaintenance(nodeId,action){
+  const box=document.querySelector("#makemkvMaintenanceStatus");box.textContent="Working…";
+  const path=`/nodes/${encodeURIComponent(nodeId)}/maintenance/makemkv`;
+  try{
+    if(action==="setup"){
+      const password=document.querySelector("#dependencyPassword"),sudo=document.querySelector("#dependencySudo");
+      const body={username:document.querySelector("#dependencyUser").value,password:password.value,sudo_password:sudo.value||null,ssh_port:Number(document.querySelector("#dependencyPort").value)||22};
+      password.value="";sudo.value="";
+      await api(path+"/setup",{method:"POST",body:JSON.stringify(body)});
+    }else if(action==="run")await api(path+"/run",{method:"POST"});
+    else if(action==="save")await api(path,{method:"PUT",body:JSON.stringify({enabled:document.querySelector("#makemkvMaintenanceEnabled").checked,refresh_beta:document.querySelector("#makemkvBetaEnabled").checked})});
+    await loadMakemkvMaintenance(nodeId);
+  }catch(error){box.textContent=error.message}
 }
 
 async function loadManagedNodeUpdateStatus(nodeId, installedVersion) {
@@ -2556,6 +2591,10 @@ $("#settingsContent").addEventListener("click", (event) => {
     case "restart-manager": restartManager(); return;
     case "save-node-storage": saveNodeStorage(button.dataset.nodeIndex); return;
     case "check-node-deps": runNodeDependencyDetails(button.dataset.nodeId,"check"); return;
+    case "setup-makemkv-maintenance": changeMakemkvMaintenance(button.dataset.nodeId,"setup"); return;
+    case "run-makemkv-maintenance": changeMakemkvMaintenance(button.dataset.nodeId,"run"); return;
+    case "save-makemkv-maintenance": changeMakemkvMaintenance(button.dataset.nodeId,"save"); return;
+    case "status-makemkv-maintenance": loadMakemkvMaintenance(button.dataset.nodeId); return;
     case "update-node-deps": runNodeDependencyDetails(button.dataset.nodeId,"update"); return;
     case "install-node-api-from-detail": pushNodeUpdates(); return;
     case "setup-node-smb": openNodeSmbSetup(button.dataset.nodeIndex); return;

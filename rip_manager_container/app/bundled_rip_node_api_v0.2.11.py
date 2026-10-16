@@ -26,6 +26,11 @@ Edit DRIVE_MAP below to match your real drive devices/symlinks.
 For production, use persistent udev symlinks rather than /dev/sr0 etc.
 
 
+What changed in 0.2.11
+----------------------
+- Persistent 14-day MakeMKV package maintenance and official temporary-key refresh.
+- Authenticated status, schedule and manual-run endpoints; maintenance waits for idle drives.
+
 What changed in 0.2.10
 ----------------------
 - Accepts readable short MKV extras instead of failing an otherwise healthy rip
@@ -270,7 +275,7 @@ FINISHED_STATES = {"complete", "failed", "verification_failed", "cancelled"}
 
 app = FastAPI(
     title="Rip Node API",
-    version="0.2.10",
+    version="0.2.11",
     description=f"Backend API for {NODE_NAME}",
 )
 
@@ -1534,6 +1539,183 @@ def run_rip(job: Job) -> None:
         prune_jobs()
 
 
+# MakeMKV maintenance runs on the node, independently of Manager uptime.
+MAINTENANCE_INTERVAL = 14 * 24 * 60 * 60
+MAINTENANCE_HELPER = "/usr/local/sbin/rip-makemkv-maintenance"
+maintenance_active = False
+maintenance_stop = threading.Event()
+maintenance_wakeup = threading.Event()
+maintenance_thread = None
+
+
+def maintenance_config():
+    with node_settings_lock:
+        return dict(load_node_settings().get("makemkv_maintenance") or {})
+
+
+def save_maintenance(**changes):
+    with node_settings_lock:
+        settings = load_node_settings()
+        settings["makemkv_maintenance"] = {**(settings.get("makemkv_maintenance") or {}), **changes}
+        save_node_settings(settings)
+
+
+def maintenance_status():
+    settings = maintenance_config()
+    return {key: settings.get(key) for key in
+            ("enabled", "refresh_beta", "state", "message", "last_attempt", "last_success", "next_check", "requested")} | {
+                "running": maintenance_active, "interval_days": 14,
+                "helper_installed": Path(MAINTENANCE_HELPER).is_file()}
+
+
+def refresh_beta_key():
+    from urllib.request import Request, urlopen
+    from urllib.parse import urlparse
+    path = Path.home() / ".MakeMKV" / "settings.conf"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    existing = re.search(r'^app_Key\s*=\s*"([^"\n]*)"', text, re.MULTILINE)
+    previous_auto = maintenance_config().get("managed_beta_key")
+    if existing and existing.group(1) and existing.group(1) != previous_auto and not existing.group(1).startswith("T-"):
+        return "Existing registration key preserved"
+    # Only use the publisher's beta key; never send a registration key anywhere.
+    request = Request("https://www.makemkv.com/buy/", headers={"User-Agent": "RipNode maintenance"})
+    with urlopen(request, timeout=30) as response:
+        if urlparse(response.url).hostname not in {"www.makemkv.com", "makemkv.com"}:
+            raise ValueError("Unexpected beta-key download destination")
+        html = response.read(256000).decode("utf-8", errors="replace")
+    match = re.search(r"\bT-[A-Za-z0-9_@-]{50,100}", html)
+    if not match:
+        raise ValueError("Official beta key was not found; existing key preserved")
+    key = match.group(0)
+    line = 'app_Key = "' + key + '"'
+    text = re.sub(r'^app_Key\s*=.*$', lambda _: line, text, flags=re.MULTILINE) if existing else text.rstrip() + "\n" + line + "\n"
+    temporary = path.with_suffix(".conf.tmp")
+    temporary.write_text(text, encoding="utf-8")
+    temporary.chmod(0o600)
+    temporary.replace(path)
+    save_maintenance(managed_beta_key=key)
+    return "Official beta key refreshed"
+
+
+def package_maintenance_busy():
+    try:
+        with open("/run/lock/rip-makemkv-maintenance.lock", "rb") as handle:
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return True
+            fcntl.flock(handle, fcntl.LOCK_UN)
+    except FileNotFoundError:
+        pass
+    except OSError:
+        return True
+    return False
+
+
+def perform_maintenance():
+    global maintenance_active
+    # Reserve every drive before invoking apt; start_rip checks the same lock.
+    with lock:
+        if maintenance_active or drive_active_job or package_maintenance_busy():
+            return False
+        maintenance_active = True
+    try:
+        # Also protect rips started outside this API.
+        if any(process.info.get("name") in {"makemkvcon", "abcde", "cdparanoia", "icedax", "cdda2wav"}
+               for process in psutil.process_iter(["name"])):
+            save_maintenance(state="waiting", message="Waiting for ripping processes to finish")
+            return False
+        now = time.time()
+        save_maintenance(state="running", last_attempt=now, message="Updating MakeMKV")
+        messages = []
+        failures = []
+        try:
+            command = [MAINTENANCE_HELPER] if os.geteuid() == 0 else ["sudo", "-n", MAINTENANCE_HELPER]
+            result = subprocess.run(command, capture_output=True, text=True, timeout=1200,
+                                    env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LANG": "C.UTF-8"})
+            if result.returncode in {3, 4}:
+                save_maintenance(state="waiting", message="Waiting for another rip or maintenance process")
+                return False
+            if result.returncode:
+                # Avoid echoing package-manager output containing repository credentials.
+                raise RuntimeError("MakeMKV package update failed. Check the one-time maintenance setup and Ubuntu package sources.")
+            messages.append("MakeMKV packages checked and updated where available")
+        except (OSError, subprocess.SubprocessError, RuntimeError):
+            failures.append("Package update failed: check maintenance setup and Ubuntu package sources")
+        if maintenance_config().get("refresh_beta", True):
+            try:
+                messages.append(refresh_beta_key())
+            except Exception:
+                failures.append("Could not refresh the official beta key; existing key preserved")
+        finished = time.time()
+        changes = dict(state="error" if failures else "complete", message=" · ".join(messages + failures),
+                       requested=False, next_check=finished + (3600 if failures else MAINTENANCE_INTERVAL))
+        if not failures:
+            changes["last_success"] = finished
+        save_maintenance(**changes)
+        return True
+    finally:
+        with lock:
+            maintenance_active = False
+
+
+def maintenance_loop():
+    while not maintenance_stop.is_set():
+        settings = maintenance_config()
+        due = settings.get("requested") or (settings.get("enabled") and time.time() >= (settings.get("next_check") or 0))
+        if due:
+            try:
+                if not perform_maintenance():
+                    save_maintenance(state="waiting", message="Maintenance queued until the node is idle")
+            except Exception:
+                save_maintenance(state="error", message="Maintenance failed; retrying in one hour", requested=False,
+                                 next_check=time.time() + 3600)
+        maintenance_wakeup.wait(60)
+        maintenance_wakeup.clear()
+
+
+@app.on_event("startup")
+def start_maintenance():
+    global maintenance_thread
+    maintenance_stop.clear()
+    maintenance_thread = threading.Thread(target=maintenance_loop, daemon=True)
+    maintenance_thread.start()
+
+
+@app.on_event("shutdown")
+def stop_maintenance():
+    maintenance_stop.set()
+    maintenance_wakeup.set()
+
+
+class MaintenanceSettings(BaseModel):
+    enabled: bool
+    refresh_beta: bool = True
+
+
+@app.get("/maintenance/makemkv")
+def get_maintenance(authorization: Optional[str] = Header(default=None)):
+    require_token(authorization)
+    return maintenance_status()
+
+
+@app.put("/maintenance/makemkv")
+def set_maintenance(req: MaintenanceSettings, authorization: Optional[str] = Header(default=None)):
+    require_token(authorization)
+    save_maintenance(enabled=req.enabled, refresh_beta=req.refresh_beta)
+    maintenance_wakeup.set()
+    return maintenance_status()
+
+
+@app.post("/maintenance/makemkv/run")
+def queue_maintenance(authorization: Optional[str] = Header(default=None)):
+    require_token(authorization)
+    save_maintenance(requested=True, state="queued", message="MakeMKV maintenance queued; busy nodes wait")
+    maintenance_wakeup.set()
+    return maintenance_status()
+
+
 # ---------------------------------------------------------------------------
 # API
 # ---------------------------------------------------------------------------
@@ -1831,6 +2013,8 @@ def start_rip(
         raise HTTPException(status_code=404, detail=f"{device} does not exist")
 
     with lock:
+        if maintenance_active or package_maintenance_busy():
+            raise HTTPException(status_code=409, detail="MakeMKV maintenance is running; retry when it finishes")
         if name in drive_active_job:
             existing = jobs[drive_active_job[name]]
             raise HTTPException(
@@ -1889,6 +2073,8 @@ def start_rip(
     job = Job(name, output_dir, command, req, engine=engine, temp_paths=temp_paths)
 
     with lock:
+        if maintenance_active or package_maintenance_busy():
+            raise HTTPException(status_code=409, detail="MakeMKV maintenance is running; retry when it finishes")
         if name in drive_active_job:
             existing = jobs[drive_active_job[name]]
             raise HTTPException(

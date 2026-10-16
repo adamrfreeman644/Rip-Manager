@@ -1,4 +1,5 @@
 import importlib.util
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -6,13 +7,14 @@ from types import SimpleNamespace
 NODE_FILE = (
     Path(__file__).parents[1]
     / "app"
-    / "bundled_rip_node_api_v0.2.10.py"
+    / "bundled_rip_node_api_v0.2.11.py"
 )
 
 
 def load_node():
-    spec = importlib.util.spec_from_file_location("rip_node_api_v0_2_10", NODE_FILE)
+    spec = importlib.util.spec_from_file_location("rip_node_api_v0_2_11", NODE_FILE)
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module

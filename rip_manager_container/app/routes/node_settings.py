@@ -117,3 +117,44 @@ async def update_dependencies(node_id: str, credentials: SmbCredentials):
         _ssh_host(node), credentials.ssh_port, credentials.username,
         credentials.password, credentials.sudo_password,
     )
+
+
+async def _maintenance_request(node_id, method, suffix="", body=None):
+    node = node_client.get_node(node_id)
+    try:
+        response = await node_client.client().request(method,
+            f"{node_client.base_url(node)}/maintenance/makemkv{suffix}",
+            headers=node_client.headers_for(node), json=body, timeout=node_client.COMMAND_TIMEOUT)
+        if response.status_code == 404:
+            raise HTTPException(status_code=409, detail="Install Rip Node API v0.2.11 or newer first, using Install Node API update")
+        response.raise_for_status()
+        return response.json()
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail="Could not reach MakeMKV maintenance on this node") from exc
+
+
+@router.get("/maintenance/makemkv")
+async def maintenance_status(node_id: str):
+    return await _maintenance_request(node_id, "GET")
+
+
+@router.put("/maintenance/makemkv")
+async def maintenance_settings(node_id: str, payload: dict = Body(...)):
+    return await _maintenance_request(node_id, "PUT", body=payload)
+
+
+@router.post("/maintenance/makemkv/run")
+async def run_maintenance(node_id: str):
+    return await _maintenance_request(node_id, "POST", "/run")
+
+
+@router.post("/maintenance/makemkv/setup")
+async def setup_maintenance(node_id: str, credentials: SmbCredentials):
+    await _maintenance_request(node_id, "GET")
+    node = node_client.get_node(node_id)
+    _assert_node_idle(node_id)
+    result = await asyncio.to_thread(adoption.setup_makemkv_maintenance, _ssh_host(node),
+        credentials.ssh_port, credentials.username, credentials.password, credentials.sudo_password)
+    await _maintenance_request(node_id, "PUT", body={"enabled": True, "refresh_beta": True})
+    await _maintenance_request(node_id, "POST", "/run")
+    return result

@@ -42,10 +42,15 @@ jobs:
         run: python -m pytest -q rip_manager_container/tests/test_archive_mover.py
       - name: Rip Node output verification tests
         run: python -m pytest -q rip_manager_container/tests/test_node_verification.py
+      - name: MakeMKV maintenance tests
+        run: python -m pytest -q rip_manager_container/tests/test_makemkv_maintenance.py
+      - name: Library API tests
+        run: python -m pytest -q rip_manager_container/tests/test_library.py
       - name: Check JavaScript syntax
         run: |
           node --check rip_manager_container/app/static/app.js
           node --check rip_manager_container/app/static/archive.js
+          node --check rip_manager_container/app/static/library.js
       - name: Check HTML and CSS
         run: |
           python3 - <<'PY'

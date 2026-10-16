@@ -1,7 +1,7 @@
 # Rip Manager v0.19.2
 
 Release date: 26 August 2026  
-Bundled Rip Node API: v0.2.10
+Bundled Rip Node API: v0.2.11
 
 Rip Manager controls optical-disc ripping nodes from one mobile-friendly web
 interface. This package also includes a built-in simulator, the real Rip Node
@@ -420,3 +420,25 @@ prevent old interface files being reused.
 5. Add or revise circular **i** help for new settings needing instructions.
 6. Test help with touch, keyboard, screen reader labels and narrow mobile width.
 7. Verify Python/JavaScript syntax, package contents and updater filenames.
+
+## MakeMKV maintenance (Manager v0.22.40 / Node v0.2.11)
+
+Update Manager first, then use **Settings → Hardware → your node → Install Node API update**.
+In the same page, enter the node's Ubuntu credentials under Dependencies and press
+**Enable maintenance using login below** once. This needs the node's existing SSH
+service, but no SSH terminal. The credentials are not saved. Setup grants the
+service user access only to a fixed root-owned MakeMKV package update helper.
+
+Setup enables the 14-day schedule and queues the first run. **Update MakeMKV now**
+also queues a run; busy nodes wait and new rips pause while maintenance runs.
+Schedules survive API restarts and run on the node while Manager is offline.
+Only installed MakeMKV packages are upgraded, using the node's configured Ubuntu
+repositories. No distribution upgrade is performed. Package-source or network
+failures appear in maintenance status and retry after one hour. An unavailable
+new package or official beta key can still require attention.
+
+The official free temporary beta key is read from makemkv.com. Empty keys,
+T-prefixed temporary keys and keys previously managed by maintenance can be
+refreshed; other existing registration keys are preserved. **Save schedule**
+can disable automatic maintenance or beta-key refresh. **Refresh maintenance
+status** shows the most recent result and next scheduled check.
