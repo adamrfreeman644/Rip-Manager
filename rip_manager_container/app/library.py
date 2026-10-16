@@ -35,53 +35,164 @@ def _index_manifest(path: Path,payload: dict):
     return item_id
 
 def _title_key(value):
-    value=re.sub(r"\\b(?:the|a|an|dvd|blu ray|bluray|uhd|4k|special edition|collector s edition)\\b"," ",str(value or "").lower())
+    value=re.sub(r"\b(?:the|a|an|dvd|blu ray|bluray|uhd|4k|special edition|collector s edition)\b"," ",str(value or "").lower())
     return " ".join(re.findall(r"[a-z0-9]+",value))
 
-def fuzzy_search(title: str, limit: int=12) -> list[dict]:
-    needle=_title_key(title)
-    if not needle: return []
-    nwords=set(needle.split()); ranked=[]
-    for row in db.query("SELECT id,title,barcode,manifest_path FROM library_items WHERE title IS NOT NULL"):
-        candidate=_title_key(row["title"]); cwords=set(candidate.split())
-        seq=SequenceMatcher(None,needle,candidate).ratio()
-        overlap=len(nwords & cwords)/max(1,len(nwords | cwords))
-        contains=1.0 if needle in candidate or candidate in needle else 0.0
-        score=max(seq,(seq+overlap)/2,0.92 if contains else 0)
-        if score>=0.38: ranked.append((score,dict(row)))
-    for row in db.query("SELECT id,title,barcode FROM owned_upcs WHERE title IS NOT NULL"):
-        candidate=_title_key(row["title"]); cwords=set(candidate.split())
-        seq=SequenceMatcher(None,needle,candidate).ratio()
-        overlap=len(nwords & cwords)/max(1,len(nwords | cwords))
-        contains=1.0 if needle in candidate or candidate in needle else 0.0
-        score=max(seq,(seq+overlap)/2,0.92 if contains else 0)
-        if score>=0.38:
-            ranked.append((score,{"id":f"upc:{row['id']}","title":row["title"],
-                                  "barcode":row["barcode"],"manifest_path":None,
-                                  "ownership":"owned_upc"}))
-    ranked.sort(key=lambda x:(-x[0],str(x[1].get("title") or "").lower()))
-    return [item|{"match_score":round(score,3)} for score,item in ranked[:limit]]
+def _media_folder(item):
+    import archive
+    folder = archive.existing_folder(item) if item.get("manager_job_id") else None
+    if folder is None and item.get("manifest_path"):
+        folder = Path(item["manifest_path"]).parent
+    if folder is None:
+        return None
+    folder = folder.resolve()
+    roots = [db.get_setting("mover_destination_root", "/media"),
+             *db.get_setting_json("mover_node_mounts", {}).values()]
+    return folder if any(folder.is_relative_to(Path(root).resolve()) for root in roots) else None
 
-def search(query: str="", **_ignored) -> list[dict]:
-    # The SQLite catalogue is only a cache of disc-info.json manifests.  Older
-    # installs can therefore have media on disk but an empty cache until the
-    # user manually runs the maintenance tool.  Rebuild on demand so browsing
-    # and title search work immediately after an upgrade.
+
+def local_metadata(item):
+    """Read Jellyfin-compatible sidecars without modifying them or disc photos."""
+    from xml.etree import ElementTree
+    folder = _media_folder(item)
+    if folder is None:
+        return {}
+    result = {}
+    names = ["movie.nfo", "tvshow.nfo", "season.nfo", "album.nfo", "artist.nfo"]
+    try:
+        files = list(folder.iterdir())
+    except OSError:
+        return {}
+    nfos = [folder / name for name in names if (folder / name).is_file()]
+    if not nfos:
+        nfos = [path for path in files if path.suffix.lower() == ".nfo"]
+        if len(nfos) != 1:
+            nfos = []
+    if nfos:
+        try:
+            path = nfos[0].resolve()
+            if path.parent == folder and path.stat().st_size <= 1024 * 1024:
+                raw = path.read_bytes()
+                if b"<!DOCTYPE" not in raw.upper() and b"<!ENTITY" not in raw.upper():
+                    node = ElementTree.fromstring(raw)
+                    result = {key: node.findtext(tag) for key, tag in
+                              (("title", "title"), ("year", "year"), ("overview", "plot"),
+                               ("rating", "rating"), ("runtime", "runtime")) if node.findtext(tag)}
+                    result["genres"] = [tag.text for tag in node.findall("genre") if tag.text]
+                    result["source"] = "Local NFO"
+        except (OSError, ValueError, ElementTree.ParseError):
+            pass
+    return result
+
+
+def artwork_path(item):
+    folder = _media_folder(item)
+    if folder is None:
+        return None
+    for stem in ("poster", "folder", "cover"):
+        for suffix in (".jpg", ".jpeg", ".png", ".webp"):
+            path = (folder / (stem + suffix)).resolve()
+            if path.parent == folder and path.is_file():
+                return path
+    return None
+
+
+def _enrich(item):
+    item["local_metadata"] = local_metadata(item)
+    if artwork_path(item):
+        from urllib.parse import quote
+        item["artwork_url"] = "/api/collection/" + quote(str(item["id"]), safe="") + "/artwork"
+    return item
+
+
+def _collection() -> list[dict]:
+    """Join manifests and rip history by folder/record identity, never title alone."""
+    import archive
     if not db.query_one("SELECT 1 FROM library_items LIMIT 1"):
         check_manifests()
-    q=(query or "").strip()
-    if q.isdigit():
-        rows=db.query("SELECT id,title,barcode,manifest_path FROM library_items WHERE barcode=? ORDER BY title COLLATE NOCASE",(q,))
-        if rows: return [dict(r)|{"ownership":"manifest"} for r in rows]
-        owned=db.query("SELECT id,barcode,title FROM owned_upcs WHERE barcode=?",(q,))
-        return [{"id":f"upc:{r['id']}","title":r["title"] or "Owned — metadata pending","barcode":r["barcode"],"manifest_path":None,"ownership":"owned_upc"} for r in owned]
-    if q: return fuzzy_search(q)
-    manifests=[dict(r)|{"ownership":"manifest"} for r in db.query(
-        "SELECT id,title,barcode,manifest_path FROM library_items WHERE title IS NOT NULL")]
-    owned=[{"id":f"upc:{r['id']}","title":r["title"],"barcode":r["barcode"],
-            "manifest_path":None,"ownership":"owned_upc"} for r in db.query(
-        "SELECT id,title,barcode FROM owned_upcs WHERE title IS NOT NULL")]
-    return sorted(manifests+owned,key=lambda item:str(item.get("title") or "").casefold())
+    physical = archive.list_media()
+    by_folder = {}
+    by_job = {}
+    for item in physical:
+        by_job[item["manager_job_id"]] = item
+        by_job[item.get("latest_attempt_id", item["manager_job_id"])] = item
+        for key in ("existing_dir", "final_dir", "expected_dir"):
+            if item.get(key):
+                by_folder[str(Path(item[key]).resolve())] = item
+    result = []
+    used = set()
+    folders = db.get_setting_json("mover_destination_folders", {})
+    destination = Path(db.get_setting("mover_destination_root", "/media")).resolve()
+    for row in db.query("SELECT id,title,barcode,manifest_path FROM library_items"):
+        item = dict(row)
+        path = Path(item["manifest_path"])
+        manifest = _read_manifest(path) or {}
+        physical_item = by_folder.get(str(path.parent.resolve())) or by_job.get(manifest.get("manager_job_id"))
+        if physical_item:
+            used.add(physical_item["manager_job_id"])
+            item.update(physical_item)
+            item["id"] = row["id"]
+        item["title"] = manifest.get("title") or item.get("title") or path.parent.name
+        item["barcode"] = row["barcode"] or item.get("barcode")
+        item["year"] = manifest.get("year") or item.get("year")
+        item["media_type"] = manifest.get("media_type") or item.get("media_type")
+        if not item["media_type"]:
+            for kind, relative in folders.items():
+                if path.is_relative_to((destination / relative).resolve()):
+                    item["media_type"] = kind
+                    break
+        item["ownership"] = "manifest"
+        item["location_status"] = "In library"
+        result.append(item)
+    for item in physical:
+        if item["manager_job_id"] in used:
+            continue
+        item = dict(item)
+        item.update(id="rip:" + item["manager_job_id"], ownership="rip", manifest_path=None)
+        item["location_status"] = ("In library" if item.get("final_dir") or item.get("node_id") == "Byte-Me"
+                                   else "Awaiting transfer" if item.get("state") == "complete"
+                                   else "On ripping node")
+        result.append(item)
+    barcodes = {item["barcode"] for item in result if item.get("barcode")}
+    for row in db.query("SELECT id,title,barcode FROM owned_upcs"):
+        if row["barcode"] not in barcodes:
+            result.append({"id": f"upc:{row['id']}", "title": row["title"] or "Owned — metadata pending",
+                           "barcode": row["barcode"], "manifest_path": None, "media_type": None,
+                           "ownership": "owned_upc", "location_status": "Owned UPC"})
+    return sorted([_enrich(item) for item in result], key=lambda item: str(item.get("display_title") or item.get("title") or "").casefold())
+
+
+def fuzzy_search(title: str, limit: int = 12, media_type: str = "") -> list[dict]:
+    needle = _title_key(title)
+    if not needle:
+        return []
+    nwords = set(needle.split())
+    ranked = []
+    for item in _collection():
+        if media_type and item.get("media_type") != media_type:
+            continue
+        candidate = _title_key(item.get("display_title") or item.get("title"))
+        if not candidate:
+            continue
+        seq = SequenceMatcher(None, needle, candidate).ratio()
+        cwords = set(candidate.split())
+        overlap = len(nwords & cwords) / max(1, len(nwords | cwords))
+        contains = needle in candidate or candidate in needle
+        score = max(seq, (seq + overlap) / 2, 0.92 if contains else 0)
+        if score >= 0.38:
+            ranked.append((score, item))
+    ranked.sort(key=lambda pair: (-pair[0], str(pair[1].get("title") or "").casefold()))
+    return [item | {"match_score": round(score, 3)} for score, item in ranked[:limit]]
+
+
+def search(query: str = "", media_type: str = "", **_ignored) -> list[dict]:
+    q = (query or "").strip()
+    if q and not q.isdigit():
+        return fuzzy_search(q, limit=10000, media_type=media_type)
+    return [item for item in _collection()
+            if (not media_type or item.get("media_type") == media_type)
+            and (not q or item.get("barcode") == q
+                 or (len(q) == 4 and (str(item.get("year") or "") == q or q in str(item.get("title") or ""))))]
 
 def resolve_owned_upc(barcode: str, title: str) -> dict:
     code=_clean_barcode(barcode); title=str(title or "").strip()
@@ -127,13 +238,51 @@ def check_manifests() -> dict:
                 conn.execute("DELETE FROM library_items WHERE id=?",(row["id"],))
     return {"manifests_found":found,"database_updated":updated,"skipped":skipped}
 
+def ensure_physical(item_id):
+    """Give manifest-only titles editable photos/notes using the scan's folder identity."""
+    import hashlib
+    item = get_item(item_id)
+    if not item or not item.get("manifest_path"):
+        return item
+    if item.get("manager_job_id"):
+        return item
+    folder = _media_folder(item)
+    if folder is None or not folder.is_dir():
+        raise ValueError("Media folder is unavailable")
+    identity = hashlib.sha256(str(folder).encode("utf-8")).hexdigest()[:24]
+    job_id = "existing:" + identity
+    now = time.time()
+    with db.write() as conn:
+        conn.execute("""INSERT OR IGNORE INTO jobs_history
+                        (manager_job_id,node_id,node_job_id,drive,state,title,year,barcode,media_type,
+                         output_dir,progress,cleared,updated_at)
+                        VALUES (?,'Byte-Me',?,'ARCHIVE','complete',?,?,?,?,?,100,1,?)""",
+                     (job_id, identity, item["title"], item.get("year"), item.get("barcode"),
+                      item.get("media_type"), str(folder), now))
+        conn.execute("""INSERT OR IGNORE INTO physical_media
+                        (manager_job_id,final_dir,created_at,updated_at) VALUES (?,?,?,?)""",
+                     (job_id, str(folder), now, now))
+    return get_item(item_id)
+
+
 def get_item(item_id):
+    if isinstance(item_id, str) and item_id.startswith("rip:"):
+        item = next((item for item in _collection() if item["id"] == item_id), None)
+        if item:
+            import archive
+            folder = archive.existing_folder(item)
+            item["manifest"] = _read_manifest(folder / "disc-info.json") if folder else None
+        return item
     if isinstance(item_id,str) and item_id.startswith("upc:"):
         try: row=db.query_one("SELECT barcode,title FROM owned_upcs WHERE id=?",(int(item_id.split(":",1)[1]),))
         except ValueError: row=None
         return {"title":row["title"] or "Owned — metadata pending","barcode":row["barcode"],"manifest":None,"ownership":"owned_upc"} if row else None
-    try: row=db.query_one("SELECT id,title,barcode,manifest_path FROM library_items WHERE id=?",(int(item_id),))
-    except (TypeError,ValueError): return None
-    if not row: return None
-    item=dict(row); item["manifest"]=_read_manifest(Path(item["manifest_path"])) if item.get("manifest_path") else None
+    try:
+        numeric_id = int(item_id)
+    except (TypeError, ValueError):
+        return None
+    item = next((item for item in _collection() if item["id"] == numeric_id), None)
+    if not item:
+        return None
+    item["manifest"] = _read_manifest(Path(item["manifest_path"]))
     return item

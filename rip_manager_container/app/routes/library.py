@@ -21,9 +21,9 @@ def bulk(req: BulkImport):
     return library.bulk_add(req.upcs)
 
 @router.get("/smart/{code}")
-async def smart_lookup(code: str):
+async def smart_lookup(code: str, media_type: str=""):
     # Owned always wins: never call an external provider for a UPC we already know.
-    owned=library.search(code)
+    owned=library.search(code, media_type=media_type)
     if owned:
         return {"state":"owned","items":owned}
     result=await upc.lookup(code)
@@ -32,11 +32,11 @@ async def smart_lookup(code: str):
         # collection with a null detected title so the UI can keep the scanned
         # UPC pending while the user searches by title.
         return {"state":"new_unresolved","lookup":result,"detected_title":None,
-                "matches":library.search()}
+                "matches":library.search(media_type=media_type)}
     lookup_matches=result.get("matches") or []
     title=lookup_matches[0].get("title") if lookup_matches else None
     return {"state":"new","lookup":result,"detected_title":title,
-            "matches":library.fuzzy_search(title) if title else []}
+            "matches":library.fuzzy_search(title, media_type=media_type) if title else []}
 
 @router.post("/resolve-upc")
 def resolve_upc(req: ResolveUPC):
@@ -45,6 +45,27 @@ def resolve_upc(req: ResolveUPC):
 @router.post("/check-manifests")
 def manifests():
     return library.check_manifests()
+
+@router.post("/{item_id}/physical")
+def attach_physical(item_id: str):
+    from fastapi import HTTPException
+    try:
+        item = library.ensure_physical(item_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if item is None:
+        raise HTTPException(status_code=404, detail="Library item not found")
+    return item
+
+@router.get("/{item_id}/artwork")
+def library_artwork(item_id: str):
+    from fastapi import HTTPException
+    from fastapi.responses import FileResponse
+    item = library.get_item(item_id)
+    path = library.artwork_path(item) if item else None
+    if path is None:
+        raise HTTPException(status_code=404, detail="No local artwork found")
+    return FileResponse(path)
 
 @router.get("/{item_id}")
 def library_item(item_id: str):

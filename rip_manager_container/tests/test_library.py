@@ -101,3 +101,83 @@ def test_collection_http_route_populates_empty_index_and_searches(tmp_path, monk
         response = client.get("/api/collection/" + str(response.json()["items"][0]["id"]))
         assert response.status_code == 200
         assert response.json()["manifest"]["year"] == 1979
+
+
+def add_rip(db, job_id, title, kind, folder, barcode=None):
+    with db.write() as conn:
+        conn.execute("""INSERT INTO jobs_history(manager_job_id,node_id,node_job_id,drive,state,title,media_type,output_dir,barcode,updated_at)
+                        VALUES (?,?,?,'DVD','complete',?,?,?,?,1)""",
+                     (job_id, 'node', job_id, title, kind, str(folder), barcode))
+
+
+def test_unified_library_includes_untransferred_rips_and_filters(tmp_path, monkeypatch):
+    db = fresh(tmp_path, monkeypatch)
+    import library
+    add_rip(db, 'running', 'Running Man', 'movie', '/mnt/ripping/Running Man', '12345678')
+    add_rip(db, 'show', 'Running Show', 'tv', '/mnt/ripping/Running Show')
+    assert [x['title'] for x in library.search('Running', media_type='movie')] == ['Running Man']
+    assert [x['title'] for x in library.search(media_type='tv')] == ['Running Show']
+    assert library.search('12345678')[0]['location_status'] == 'Awaiting transfer'
+    assert library.search('12345678', media_type='tv') == []
+    assert library.get_item('rip:running')['title'] == 'Running Man'
+
+
+def test_manifest_and_physical_record_join_without_title_deduplication(tmp_path, monkeypatch):
+    db = fresh(tmp_path, monkeypatch)
+    import library
+    folder = tmp_path / 'media' / 'Movies' / 'Film'
+    folder.mkdir(parents=True)
+    db.set_settings({'mover_destination_root': str(tmp_path / 'media'),
+                     'mover_destination_folders': json.dumps({'movie': 'Movies'})})
+    add_rip(db, 'film', 'Film', 'movie', folder)
+    add_rip(db, 'other', 'Film', 'movie', '/mnt/ripping/Other Edition')
+    with db.write() as conn:
+        conn.execute("INSERT INTO physical_media(manager_job_id,final_dir,created_at,updated_at) VALUES ('film',?,1,1)", (str(folder),))
+    (folder / 'disc-info.json').write_text(json.dumps({'title': 'Film', 'media_type': 'movie', 'manager_job_id': 'film'}))
+    rows = library.search()
+    assert len(rows) == 2
+    merged = next(x for x in rows if x['ownership'] == 'manifest')
+    assert merged['manager_job_id'] == 'film'
+    assert library.get_item(merged['id'])['manifest']['title'] == 'Film'
+
+
+def test_local_nfo_and_artwork_are_separate_from_disc_photos(tmp_path, monkeypatch):
+    db = fresh(tmp_path, monkeypatch)
+    import library
+    folder = tmp_path / 'media' / 'Movies' / 'Film'
+    folder.mkdir(parents=True)
+    db.set_settings({'mover_destination_root': str(tmp_path / 'media'),
+                     'mover_destination_folders': json.dumps({'movie': 'Movies'})})
+    (folder / 'disc-info.json').write_text(json.dumps({'title': 'Film'}))
+    (folder / 'movie.nfo').write_text('<movie><title>Matched title</title><plot>Synopsis</plot><genre>Action</genre></movie>')
+    (folder / 'poster.jpg').write_bytes(b'poster')
+    item = library.search()[0]
+    assert item['local_metadata']['overview'] == 'Synopsis'
+    assert item['local_metadata']['genres'] == ['Action']
+    assert item['artwork_url'].endswith('/artwork')
+    assert not item.get('front_url')
+    assert library.artwork_path(item) == folder / 'poster.jpg'
+    (folder / 'poster.jpg').unlink()
+    (folder / 'poster.jpg').symlink_to(tmp_path / 'outside.jpg')
+    (tmp_path / 'outside.jpg').write_bytes(b'private')
+    assert library.artwork_path(item) is None
+
+
+def test_manifest_only_entry_can_open_photo_editor_without_duplicate(tmp_path, monkeypatch):
+    db = fresh(tmp_path, monkeypatch)
+    import library
+    folder = tmp_path / 'media' / 'Movies' / 'Film'
+    folder.mkdir(parents=True)
+    db.set_settings({'mover_destination_root': str(tmp_path / 'media'),
+                     'mover_destination_folders': json.dumps({'movie': 'Movies'})})
+    manifest = folder / 'disc-info.json'
+    original = json.dumps({'title': 'Film', 'year': 1999})
+    manifest.write_text(original)
+    item = library.search()[0]
+    assert not item.get('manager_job_id')
+    attached = library.ensure_physical(item['id'])
+    assert attached['manager_job_id'].startswith('existing:')
+    assert attached['year'] == 1999
+    assert library.ensure_physical(item['id'])['manager_job_id'] == attached['manager_job_id']
+    assert len(library.search()) == 1
+    assert manifest.read_text() == original

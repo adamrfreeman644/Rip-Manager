@@ -1,7 +1,9 @@
 {
-  "version": "0.22.38",
+  "version": "0.22.39",
   "notes": [
-    "Fixes Library Lookup failing to load titles because of an API search argument mismatch.",
-    "Shows loading, empty collection and request failure messages in Library Lookup."
+    "Combines Physical Media and Library Lookup into one Library with a media type filter.",
+    "Includes rips awaiting transfer alongside manifests and owned UPCs; links matching folders without combining different discs by title.",
+    "Retains photo editing and disc notes, with manifest details and scan tools in the Library.",
+    "Displays Jellyfin-compatible NFO descriptions and local poster artwork when saved beside media, separately from disc photos."
   ]
 }
