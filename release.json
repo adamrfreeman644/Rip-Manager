@@ -1,8 +1,7 @@
 {
-  "version": "0.22.37",
+  "version": "0.22.38",
   "notes": [
-    "Combines repeated rip attempts for the same media folder into one Physical Media entry, preferring the latest successful rip.",
-    "Retains cover photos and extras from earlier attempts without deleting rip history.",
-    "Fixes overlapping titles and missing-storage paths on narrow mobile screens."
+    "Fixes Library Lookup failing to load titles because of an API search argument mismatch.",
+    "Shows loading, empty collection and request failure messages in Library Lookup."
   ]
 }

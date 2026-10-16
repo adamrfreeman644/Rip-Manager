@@ -14,7 +14,7 @@ class ResolveUPC(BaseModel):
 
 @router.get("")
 def list_library(q: str="", media_type: str="", extras: str="", sort: str="title"):
-    return {"items":library.search(q, media_type, extras, sort)}
+    return {"items":library.search(q, media_type=media_type, extras=extras, sort=sort)}
 
 @router.post("/bulk")
 def bulk(req: BulkImport):

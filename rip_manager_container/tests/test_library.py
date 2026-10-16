@@ -78,3 +78,26 @@ def test_unresolved_upc_returns_collection_for_manual_title_search(tmp_path,monk
     assert result["state"]=="new_unresolved"
     assert result["detected_title"] is None
     assert [item["title"] for item in result["matches"]]==["Film"]
+
+
+def test_collection_http_route_populates_empty_index_and_searches(tmp_path, monkeypatch):
+    db = fresh(tmp_path, monkeypatch)
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from routes.library import router
+
+    folder = tmp_path / "media" / "Movies" / "Alien (1979)"
+    folder.mkdir(parents=True)
+    (folder / "disc-info.json").write_text(json.dumps({"title": "Alien", "year": 1979}))
+    db.set_settings({"mover_destination_root": str(tmp_path / "media"),
+                     "mover_destination_folders": json.dumps({"movie": "Movies"})})
+    app = FastAPI()
+    app.include_router(router)
+    with TestClient(app) as client:
+        for params in ({}, {"q": "Alien"}, {"q": "Alien", "media_type": "movie", "extras": "", "sort": "title"}):
+            response = client.get("/api/collection", params=params)
+            assert response.status_code == 200
+            assert [item["title"] for item in response.json()["items"]] == ["Alien"]
+        response = client.get("/api/collection/" + str(response.json()["items"][0]["id"]))
+        assert response.status_code == 200
+        assert response.json()["manifest"]["year"] == 1979
