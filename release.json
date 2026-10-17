@@ -1,8 +1,8 @@
 {
-  "version": "0.22.40",
+  "version": "0.22.41",
   "notes": [
-    "Adds MakeMKV Update now and automatic maintenance every 14 days on idle nodes.",
-    "Includes Rip Node API v0.2.11 with persistent scheduling and official beta-key refresh, preserving personal registration keys.",
-    "Adds one-time package-update permission setup through the web UI; passwords are not saved."
+    "Writes disc-info.txt and disc-info.json to a completed Rip Node folder before it is queued for transfer.",
+    "Backfills reachable completed Rip Node rips with sidecars when Rip Manager starts.",
+    "Keeps moving behaviour unchanged; sidecar preparation is available even when automatic moving is disabled."
   ]
 }
