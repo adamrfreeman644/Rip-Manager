@@ -42,8 +42,8 @@ def _destination_name(job: dict, source: Path) -> Path:
     title = _safe_folder_component(job.get("title"), source.name)
     if media_type == "movie":
         year = str(job.get("year") or "").strip()
-        if re.fullmatch(r"(?:18|19|20|21)\\d{2}", year) and not re.search(
-                rf"\\({re.escape(year)}\\)\\s*$", title):
+        if re.fullmatch(r"(?:18|19|20|21)\d{2}", year) and not re.search(
+                rf"\({re.escape(year)}\)\s*$", title):
             title = f"{title} ({year})"
         return Path(title)
     if media_type == "tv":
