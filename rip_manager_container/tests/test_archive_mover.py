@@ -384,3 +384,28 @@ def test_media_list_groups_attempts_without_deleting_history_or_images(tmp_path,
     assert grouped[0]["front_image_job_id"] == "old"
     assert db.query_one("SELECT COUNT(*) AS total FROM jobs_history")["total"] == 2
     assert db.query_one("SELECT front_image FROM physical_media WHERE manager_job_id='old'")["front_image"] == "cover.jpg"
+
+
+def test_scan_existing_attaches_supplemental_video_to_its_title(tmp_path, monkeypatch):
+    db = fresh_database(tmp_path, monkeypatch)
+    media = tmp_path / "media"
+    title = media / "Movies" / "Film"
+    extras = title / "Behind The Scenes"
+    extras.mkdir(parents=True)
+    (title / "film.mkv").write_bytes(b"feature")
+    (extras / "featurette.mkv").write_bytes(b"bonus")
+    db.set_settings({
+        "mover_destination_root": str(media),
+        "mover_destination_folders": json.dumps({"movie": "Movies"}),
+    })
+
+    import archive
+    result = archive.scan_existing()
+
+    assert result["folders_seen"] == result["records_processed"] == result["imported"] == 1
+    assert (title / "disc-info.json").is_file()
+    assert not (extras / "disc-info.json").exists()
+    payload = json.loads((title / "disc-info.json").read_text(encoding="utf-8"))
+    assert {entry["path"] for entry in payload["files"]} == {
+        "film.mkv", "Behind The Scenes/featurette.mkv"
+    }
