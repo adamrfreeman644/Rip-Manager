@@ -7,6 +7,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import shutil
 import time
 from pathlib import Path
@@ -27,6 +28,33 @@ def _under(path: Path, root: Path) -> bool:
         return True
     except ValueError:
         return False
+
+
+def _safe_folder_component(value, fallback: str = "Untitled") -> str:
+    value = re.sub(r'[\\/:*?"<>|]+', " ", str(value or ""))
+    value = " ".join(value.split()).strip(". ")
+    return value or fallback
+
+
+def _destination_name(job: dict, source: Path) -> Path:
+    """Produce a safe, Jellyfin-friendly layout without merging distinct rips."""
+    media_type = str(job.get("media_type") or "").casefold()
+    title = _safe_folder_component(job.get("title"), source.name)
+    if media_type == "movie":
+        year = str(job.get("year") or "").strip()
+        if re.fullmatch(r"(?:18|19|20|21)\\d{2}", year) and not re.search(
+                rf"\\({re.escape(year)}\\)\\s*$", title):
+            title = f"{title} ({year})"
+        return Path(title)
+    if media_type == "tv":
+        try:
+            season = max(0, int(job.get("season") or 0))
+            disc = max(1, int(job.get("disc") or 1))
+        except (TypeError, ValueError):
+            season, disc = 0, 1
+        season_name = f"Season {season:02d}" if season else "Season 00"
+        return Path(title) / season_name / f"Disc {disc:02d}"
+    return Path(_safe_folder_component(source.name))
 
 
 def _resolve_paths(job: dict) -> tuple[Path, Path]:
@@ -52,7 +80,10 @@ def _resolve_paths(job: dict) -> tuple[Path, Path]:
     destination_parent = (destination_root / media_folder).resolve()
     if not _under(destination_parent, destination_root):
         raise ValueError("Unsafe destination folder setting")
-    return source, destination_parent / source.name
+    destination = (destination_parent / _destination_name(job, source)).resolve()
+    if not _under(destination, destination_parent):
+        raise ValueError("Unsafe destination path")
+    return source, destination
 
 
 def enqueue(manager_job_id: str) -> bool:
