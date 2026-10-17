@@ -110,7 +110,30 @@ def _collection() -> list[dict]:
     import archive
     if not db.query_one("SELECT 1 FROM library_items LIMIT 1"):
         check_manifests()
-    physical = archive.list_media()
+    folders = db.get_setting_json("mover_destination_folders", {})
+    destination = Path(db.get_setting("mover_destination_root", "/media")).resolve()
+
+    def is_supplemental_folder(folder):
+        if not folder:
+            return False
+        try:
+            candidate = Path(folder).resolve()
+        except OSError:
+            return False
+        for relative in folders.values():
+            base = (destination / relative).resolve()
+            try:
+                candidate.relative_to(base)
+            except ValueError:
+                continue
+            return archive.content_folder(candidate, base) != candidate
+        return False
+
+    # Existing scan rows made before supplemental-folder handling can remain in
+    # the database. Hide them here too, so the Library is immediately a clean
+    # view of Jellyfin titles plus discs/jobs awaiting a rip.
+    physical = [item for item in archive.list_media()
+                if not is_supplemental_folder(item.get("existing_dir") or item.get("final_dir"))]
     by_folder = {}
     by_job = {}
     for item in physical:
@@ -121,11 +144,12 @@ def _collection() -> list[dict]:
                 by_folder[str(Path(item[key]).resolve())] = item
     result = []
     used = set()
-    folders = db.get_setting_json("mover_destination_folders", {})
-    destination = Path(db.get_setting("mover_destination_root", "/media")).resolve()
     for row in db.query("SELECT id,title,barcode,manifest_path FROM library_items"):
         item = dict(row)
         path = Path(item["manifest_path"])
+        # Do not surface old manifests left inside recognised bonus folders.
+        if is_supplemental_folder(path.parent):
+            continue
         manifest = _read_manifest(path) or {}
         physical_item = by_folder.get(str(path.parent.resolve())) or by_job.get(manifest.get("manager_job_id"))
         if physical_item:
