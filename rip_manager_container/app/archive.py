@@ -29,6 +29,32 @@ IMAGE_TYPES = {
     "image/heic": ".heic", "image/heif": ".heif",
 }
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
+# Folders commonly used for non-feature material belong to their enclosing title.
+# They must never become separate Library entries during an existing-media scan.
+SUPPLEMENTAL_FOLDER_NAMES = frozenset({
+    "extras", "bonus", "bonusfeatures", "behindthescenes", "bts",
+    "deletedscenes", "featurettes", "interviews", "specialfeatures",
+    "supplements", "trailers",
+})
+
+
+def _folder_key(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").casefold())
+
+
+def content_folder(folder: Path, base: Path) -> Path:
+    """Return the title folder that owns a media file beneath a configured root."""
+    folder, base = Path(folder), Path(base)
+    try:
+        folder.relative_to(base)
+    except ValueError:
+        return folder
+    for candidate in (folder, *folder.parents):
+        if candidate == base:
+            break
+        if _folder_key(candidate.name) in SUPPLEMENTAL_FOLDER_NAMES:
+            return candidate.parent
+    return folder
 
 
 def _record_dir(manager_job_id: str) -> Path:
@@ -685,7 +711,9 @@ def scan_existing() -> dict:
             continue
         for path in base.rglob("*"):
             if path.is_file() and path.suffix.lower() in extensions:
-                seen_folders.setdefault(path.parent, media_type)
+                # A featurette in Movie/extras (or another recognised bonus folder)
+                # is inventory for Movie, not a new film in the Library.
+                seen_folders.setdefault(content_folder(path.parent, base), media_type)
 
     records = {}
     for folder, media_type in sorted(seen_folders.items()):
