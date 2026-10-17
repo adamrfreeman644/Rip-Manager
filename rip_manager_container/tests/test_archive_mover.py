@@ -66,7 +66,7 @@ def test_mover_maps_only_beneath_configured_mount(tmp_path, monkeypatch):
     job = jobs.row_to_dict(db.query_one("SELECT * FROM jobs_history WHERE manager_job_id='rip-node-1:job-1'"))
     mapped_source, destination = mover._resolve_paths(job)
     assert mapped_source == source.resolve()
-    assert destination == (media / "Movies" / "Test Film").resolve()
+    assert destination == (media / "Movies" / "Test Film (2026)").resolve()
 
 
 def test_media_list_marks_history_without_an_existing_folder(tmp_path, monkeypatch):
@@ -98,7 +98,7 @@ def test_failed_copy_keeps_source(tmp_path, monkeypatch):
     source = node_mount / "Movies" / "Test Film"
     source.mkdir(parents=True)
     (source / "movie.mkv").write_bytes(b"test")
-    destination = media / "Movies" / "Test Film"
+    destination = media / "Movies" / "Test Film (2026)"
     destination.mkdir(parents=True)
     add_complete_job(db, "/mnt/ripping/Movies/Test Film")
     db.set_settings({
@@ -143,7 +143,7 @@ def test_verified_copy_writes_sidecars_then_removes_source(tmp_path, monkeypatch
             (job["manager_job_id"], time.time(), time.time()),
         ).lastrowid
     mover._copy_transfer({"id": transfer_id}, job)
-    destination = media / "Movies" / "Test Film"
+    destination = media / "Movies" / "Test Film (2026)"
     assert not source.exists()
     assert (destination / "movie.mkv").read_bytes() == b"verified media"
     assert (destination / "disc-info.txt").is_file()
@@ -409,3 +409,28 @@ def test_scan_existing_attaches_supplemental_video_to_its_title(tmp_path, monkey
     assert {entry["path"] for entry in payload["files"]} == {
         "film.mkv", "Behind The Scenes/featurette.mkv"
     }
+
+
+def test_mover_builds_a_safe_jellyfin_tv_destination(tmp_path, monkeypatch):
+    db = fresh_database(tmp_path, monkeypatch)
+    node_mount = tmp_path / "node"
+    media = tmp_path / "media"
+    source = node_mount / "TV" / "source-folder"
+    source.mkdir(parents=True)
+    add_complete_job(db, "/mnt/ripping/TV/source-folder")
+    db.set_settings({
+        "mover_node_mounts": json.dumps({"rip-node-1": str(node_mount)}),
+        "mover_node_source_roots": json.dumps({"rip-node-1": "/mnt/ripping"}),
+        "mover_destination_root": str(media),
+        "mover_destination_folders": json.dumps({"tv": "TV"}),
+    })
+    with db.write() as conn:
+        conn.execute("UPDATE jobs_history SET media_type='tv',title='Example: Show',season=2,disc=3")
+
+    import jobs
+    import mover
+    job = jobs.row_to_dict(db.query_one(
+        "SELECT * FROM jobs_history WHERE manager_job_id='rip-node-1:job-1'"))
+    _, destination = mover._resolve_paths(job)
+
+    assert destination == (media / "TV" / "Example Show" / "Season 02" / "Disc 03").resolve()
