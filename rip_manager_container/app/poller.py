@@ -175,6 +175,13 @@ async def poll_node(node_id: str) -> None:
     try:
         completed = await asyncio.to_thread(_store_node_results, node_id, now, drives_result, jobs_result, stats_result)
         for manager_job_id in completed:
+            # Sidecars are the first post-rip step. They are written even when
+            # automatic transfer is disabled, so the completed folder is ready
+            # for the next workflow stage on its Rip Node.
+            try:
+                await asyncio.to_thread(mover.prepare_sidecars, manager_job_id)
+            except (OSError, ValueError, KeyError) as exc:
+                log.warning("Could not prepare sidecars for %s: %s", manager_job_id, exc)
             await asyncio.to_thread(mover.enqueue, manager_job_id)
     except sqlite3.Error as exc:
         log.error("Could not store poll results for %s: %s", node_id, exc)
