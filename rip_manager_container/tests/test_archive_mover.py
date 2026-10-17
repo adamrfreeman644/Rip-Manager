@@ -384,3 +384,26 @@ def test_media_list_groups_attempts_without_deleting_history_or_images(tmp_path,
     assert grouped[0]["front_image_job_id"] == "old"
     assert db.query_one("SELECT COUNT(*) AS total FROM jobs_history")["total"] == 2
     assert db.query_one("SELECT front_image FROM physical_media WHERE manager_job_id='old'")["front_image"] == "cover.jpg"
+
+
+def test_sidecars_are_prepared_on_completed_node_rips_before_transfer(tmp_path, monkeypatch):
+    db = fresh_database(tmp_path, monkeypatch)
+    node_mount = tmp_path / "node"
+    source = node_mount / "Movies" / "Ready Film"
+    source.mkdir(parents=True)
+    (source / "movie.mkv").write_bytes(b"ready")
+    add_complete_job(db, "/mnt/ripping/Movies/Ready Film")
+    db.set_settings({
+        "mover_node_mounts": json.dumps({"rip-node-1": str(node_mount)}),
+        "mover_node_source_roots": json.dumps({"rip-node-1": "/mnt/ripping"}),
+    })
+
+    import mover
+    first = mover.prepare_sidecars("rip-node-1:job-1")
+
+    assert first["already_present"] is False
+    assert (source / "disc-info.txt").is_file()
+    assert (source / "disc-info.json").is_file()
+    second = mover.prepare_completed_sidecars()
+    assert second["prepared"] == 0
+    assert second["already_present"] == 1

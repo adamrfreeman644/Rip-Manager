@@ -6,6 +6,7 @@ Start with:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import signal
@@ -42,11 +43,16 @@ async def lifespan(_: FastAPI):
     db.load_nodes_file()
     db.prune_history()
     await node_client.start_client()
+    # Backfill sidecars for completed jobs already waiting on mounted Rip Nodes.
+    # It runs in the background so startup and normal polling remain responsive.
+    sidecar_backfill = asyncio.create_task(asyncio.to_thread(mover.prepare_completed_sidecars))
     poller.start()
     mover.start()
     downloads.start()
     log.info("Rip Manager %s ready", VERSION)
     yield
+    if not sidecar_backfill.done():
+        sidecar_backfill.cancel()
     await poller.stop()
     downloads.stop()
     await mover.stop()

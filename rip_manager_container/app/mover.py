@@ -29,7 +29,8 @@ def _under(path: Path, root: Path) -> bool:
         return False
 
 
-def _resolve_paths(job: dict) -> tuple[Path, Path]:
+def _source_path(job: dict) -> Path:
+    """Resolve a completed rip's mounted folder without depending on the mover."""
     node_id = job["node_id"]
     mounts = db.get_setting_json("mover_node_mounts", {})
     source_roots = db.get_setting_json("mover_node_source_roots", {})
@@ -46,6 +47,11 @@ def _resolve_paths(job: dict) -> tuple[Path, Path]:
     source = (mount / relative).resolve()
     if not _under(source, mount) or source == mount:
         raise ValueError("Unsafe source path")
+    return source
+
+
+def _resolve_paths(job: dict) -> tuple[Path, Path]:
+    source = _source_path(job)
     destination_root = Path(db.get_setting("mover_destination_root", "/media")).resolve()
     folders = db.get_setting_json("mover_destination_folders", {})
     media_folder = folders.get(job.get("media_type"), "Other")
@@ -53,6 +59,50 @@ def _resolve_paths(job: dict) -> tuple[Path, Path]:
     if not _under(destination_parent, destination_root):
         raise ValueError("Unsafe destination folder setting")
     return source, destination_parent / source.name
+
+
+
+def prepare_sidecars(manager_job_id: str) -> dict:
+    """Write Rip Manager sidecars onto a completed mounted rip before transfer."""
+    import jobs
+    row = db.query_one("SELECT * FROM jobs_history WHERE manager_job_id=?", (manager_job_id,))
+    if not row:
+        raise KeyError(manager_job_id)
+    job = jobs.row_to_dict(row)
+    if job.get("state") != "complete":
+        raise ValueError("Sidecars are available only after a rip completes")
+    source = _source_path(job)
+    if not source.is_dir():
+        raise FileNotFoundError(f"Completed rip folder is unavailable: {source}")
+    text_path, json_path = source / "disc-info.txt", source / "disc-info.json"
+    already_present = text_path.is_file() and json_path.is_file()
+    archive.sync_sidecars(manager_job_id, source)
+    return {"manager_job_id": manager_job_id, "source_dir": str(source),
+            "already_present": already_present}
+
+
+def prepare_completed_sidecars() -> dict:
+    """Backfill sidecars for every completed rip currently reachable on a node."""
+    rows = db.query(
+        "SELECT manager_job_id FROM jobs_history WHERE state='complete' "
+        "AND node_id != 'Byte-Me' ORDER BY COALESCE(finished_at,updated_at)"
+    )
+    prepared = already_present = unavailable = 0
+    errors = []
+    for row in rows:
+        manager_job_id = row["manager_job_id"]
+        try:
+            result = prepare_sidecars(manager_job_id)
+            if result["already_present"]:
+                already_present += 1
+            else:
+                prepared += 1
+        except (KeyError, OSError, ValueError) as exc:
+            unavailable += 1
+            errors.append({"manager_job_id": manager_job_id, "error": str(exc)})
+    return {"prepared": prepared, "already_present": already_present,
+            "unavailable": unavailable, "errors": errors}
+
 
 
 def enqueue(manager_job_id: str) -> bool:

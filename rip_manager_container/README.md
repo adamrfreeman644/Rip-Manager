@@ -421,7 +421,7 @@ prevent old interface files being reused.
 6. Test help with touch, keyboard, screen reader labels and narrow mobile width.
 7. Verify Python/JavaScript syntax, package contents and updater filenames.
 
-## MakeMKV maintenance (Manager v0.22.40 / Node v0.2.11)
+## MakeMKV maintenance (Manager v0.22.41 / Node v0.2.11)
 
 Update Manager first, then use **Settings → Hardware → your node → Install Node API update**.
 In the same page, enter the node's Ubuntu credentials under Dependencies and press
