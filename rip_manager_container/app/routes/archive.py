@@ -36,6 +36,7 @@ class BarcodeUpdate(BaseModel):
 class RecoveryRequest(BaseModel):
     node_id: str = Field(min_length=1, max_length=100)
     folder: str = Field(min_length=1, max_length=255)
+    media_type: str = Field(default="movie", pattern="^(movie|tv|music|audiobook)$")
     delete_source: bool = True
 
 
@@ -258,7 +259,7 @@ def recovery_candidates():
 @router.post("/mover/recovery/analyse")
 def analyse_recovery(req: RecoveryRequest):
     try:
-        return recovery.analyse(req.node_id, req.folder)
+        return recovery.analyse(req.node_id, req.folder, req.media_type)
     except (OSError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -266,7 +267,7 @@ def analyse_recovery(req: RecoveryRequest):
 @router.post("/mover/recovery/move")
 def move_recovery(req: RecoveryRequest):
     try:
-        return recovery.recover(req.node_id, req.folder, req.delete_source)
+        return recovery.recover(req.node_id, req.folder, req.delete_source, req.media_type)
     except FileExistsError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (OSError, ValueError) as exc:
