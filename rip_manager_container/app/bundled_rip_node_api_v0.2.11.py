@@ -26,6 +26,11 @@ Edit DRIVE_MAP below to match your real drive devices/symlinks.
 For production, use persistent udev symlinks rather than /dev/sr0 etc.
 
 
+What changed in 0.2.12
+----------------------
+- Creates disc-info.json in every Movie, TV, Music and Audiobook output folder
+  before the rip process starts, then refreshes it at verification/completion/failure.
+
 What changed in 0.2.11
 ----------------------
 - Persistent 14-day MakeMKV package maintenance and official temporary-key refresh.
@@ -275,7 +280,7 @@ FINISHED_STATES = {"complete", "failed", "verification_failed", "cancelled"}
 
 app = FastAPI(
     title="Rip Node API",
-    version="0.2.11",
+    version="0.2.12",
     description=f"Backend API for {NODE_NAME}",
 )
 
@@ -1360,6 +1365,57 @@ def parse_audio_message(line: str, job: Job) -> None:
         job.last_message = line.strip()[-500:]
 
 
+def write_source_manifest(job: Job) -> None:
+    """Create/update one atomic manifest in the source folder for every media type."""
+    folder = job.output_dir
+    folder.mkdir(parents=True, exist_ok=True)
+    target = folder / "disc-info.json"
+    existing = {}
+    if target.is_file():
+        try:
+            decoded = json.loads(target.read_text(encoding="utf-8"))
+            existing = decoded if isinstance(decoded, dict) else {}
+        except (OSError, ValueError, TypeError):
+            # Never destroy an unknown/damaged manifest.
+            return
+    files = []
+    try:
+        for path in sorted(p for p in folder.rglob("*") if p.is_file() and p.name != "disc-info.json"):
+            try:
+                stat = path.stat()
+                files.append({"path": path.relative_to(folder).as_posix(), "size_bytes": stat.st_size,
+                              "modified_at": stat.st_mtime, "extension": path.suffix.lower() or None})
+            except OSError:
+                pass
+    except OSError:
+        pass
+    payload = dict(existing)
+    payload.update({
+        "schema_version": 2,
+        "node_job_id": job.id,
+        "title": job.request.title,
+        "year": job.request.year,
+        "upc": job.request.barcode,
+        "media_type": job.request.media_type or "movie",
+        "creator": job.request.creator,
+        "narrator": job.request.narrator,
+        "disc": {"season": job.request.season, "number": job.request.disc},
+        "folder": {"name": folder.name, "path": str(folder)},
+        "files": files,
+        "summary": {"file_count": len(files), "total_bytes": sum(x["size_bytes"] for x in files)},
+        "rip": {"node": NODE_NAME, "drive": job.drive, "engine": job.engine,
+                "state": job.state, "started_at": job.started_at, "finished_at": job.finished_at,
+                "progress": job.progress, "verification": job.verification},
+    })
+    history = payload.setdefault("process_history", [])
+    state = job.state
+    if not history or history[-1].get("state") != state:
+        history.append({"state": state, "at": time.time()})
+    tmp = folder / ".disc-info.json.tmp"
+    tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.replace(tmp, target)
+
+
 def prepare_replacement(job: Job) -> None:
     """Move an existing destination aside before writing the replacement."""
     output_dir = job.output_dir
@@ -1427,7 +1483,9 @@ def run_rip(job: Job) -> None:
     drive = job.drive
     try:
         prepare_replacement(job)
+        write_source_manifest(job)
         job.state = "ripping"
+        write_source_manifest(job)
         job.last_activity_at = time.time()
 
         proc = subprocess.Popen(
@@ -1476,6 +1534,7 @@ def run_rip(job: Job) -> None:
                 job.progress = 100.0
                 job.state = "complete"
                 job.current_operation = "Complete"
+                write_source_manifest(job)
                 short_titles = int(job.verification.get("small_files") or 0)
                 suffix = (
                     f"; accepted {short_titles} readable short title"
@@ -1502,11 +1561,13 @@ def run_rip(job: Job) -> None:
                         play_sound(NEEDS_ATTENTION_SOUND)
             else:
                 job.state = "verification_failed"
+                write_source_manifest(job)
                 job.current_operation = "Verification failed"
                 job.last_message = job.verification.get("error") or "Verification failed"
                 play_sound(VERIFY_FAIL_SOUND)
         else:
             job.state = "failed"
+            write_source_manifest(job)
             job.current_operation = "Rip failed"
             play_sound(FAIL_SOUND)
 
@@ -1518,6 +1579,10 @@ def run_rip(job: Job) -> None:
         job.finished_at = time.time()
         job.current_operation = "Backend/rip error"
         job.last_message = str(exc)
+        try:
+            write_source_manifest(job)
+        except OSError:
+            pass
         roll_back_replacement(job)
         play_sound(FAIL_SOUND)
 
