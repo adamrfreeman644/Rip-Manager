@@ -140,3 +140,46 @@ def test_interrupted_transfer_is_requeued_not_deleted(tmp_path, monkeypatch):
     row=db.query_one("SELECT state,error FROM transfer_queue WHERE manager_job_id='j'")
     assert row["state"] == "queued"
     assert "restarted" in row["error"].lower()
+
+
+@pytest.mark.parametrize("kind", ["movie", "tv", "music", "audiobook"])
+def test_rip_node_source_manifest_exists_for_every_media_type(tmp_path, kind):
+    import importlib.util
+    module_path = Path(__file__).parents[1] / "app" / "bundled_rip_node_api_v0.2.12.py"
+    spec = importlib.util.spec_from_file_location("bundled_node_for_test", module_path)
+    node = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(node)
+    output = tmp_path / kind / "Example"
+    request = node.RipRequest(title="Example", media_type=kind)
+    job = node.Job("DVD1", output, ["true"], request)
+    node.write_source_manifest(job)
+    manifest = json.loads((output / "disc-info.json").read_text(encoding="utf-8"))
+    assert manifest["schema_version"] == 2
+    assert manifest["media_type"] == kind
+    assert manifest["rip"]["state"] == "starting"
+    assert manifest["title"] == "Example"
+
+
+def test_invalid_existing_source_manifest_is_never_overwritten(tmp_path):
+    import importlib.util
+    module_path = Path(__file__).parents[1] / "app" / "bundled_rip_node_api_v0.2.12.py"
+    spec = importlib.util.spec_from_file_location("bundled_node_invalid_test", module_path)
+    node = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(node)
+    output = tmp_path / "movie" / "Example"
+    output.mkdir(parents=True)
+    target = output / "disc-info.json"
+    target.write_text("{damaged", encoding="utf-8")
+    job = node.Job("DVD1", output, ["true"], node.RipRequest(title="Example", media_type="movie"))
+    node.write_source_manifest(job)
+    assert target.read_text(encoding="utf-8") == "{damaged"
+
+
+def test_app_health_route_starts(tmp_path, monkeypatch):
+    fresh_database(tmp_path, monkeypatch)
+    from fastapi.testclient import TestClient
+    import main
+    with TestClient(main.app) as client:
+        response = client.get("/health")
+        assert response.status_code == 200
+        assert response.json()["ok"] is True
