@@ -132,7 +132,7 @@ def _copy_transfer(transfer: dict, job: dict) -> None:
     archive.record_process_event(source, "transfer_started", "running", {
         "destination": str(destination),
     })
-    prep = media_prep.prepare_completed_rip(source, job)
+    prep = ({"ok": True, "prepared": 0, "structure_preserved": True} if job.get("drive") == "INTAKE" else media_prep.prepare_completed_rip(source, job))
     log.info("Prepared %s before mover transfer: %s", job["manager_job_id"], prep)
     files = _inventory(source)
     total = sum(item[2] for item in files)
