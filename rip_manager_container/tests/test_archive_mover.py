@@ -59,7 +59,8 @@ def test_mover_maps_only_beneath_configured_mount(tmp_path, monkeypatch):
         "mover_enabled": 1,
         "mover_node_mounts": json.dumps({"rip-node-1": str(node_mount)}),
         "mover_node_source_roots": json.dumps({"rip-node-1": "/mnt/ripping"}),
-        "mover_destination_root": str(media),\n        "mover_destination_folders": json.dumps({"movie": "Movies", "tv": "TV", "music": "Music", "audiobook": "Audiobooks"}),
+        "mover_destination_root": str(media),
+        "mover_destination_folders": json.dumps({"movie": "Movies", "tv": "TV", "music": "Music", "audiobook": "Audiobooks"}),
     })
     import jobs
     import mover
@@ -105,7 +106,8 @@ def test_failed_copy_keeps_source(tmp_path, monkeypatch):
         "mover_enabled": 1,
         "mover_node_mounts": json.dumps({"rip-node-1": str(node_mount)}),
         "mover_node_source_roots": json.dumps({"rip-node-1": "/mnt/ripping"}),
-        "mover_destination_root": str(media),\n        "mover_destination_folders": json.dumps({"movie": "Movies", "tv": "TV", "music": "Music", "audiobook": "Audiobooks"}),
+        "mover_destination_root": str(media),
+        "mover_destination_folders": json.dumps({"movie": "Movies", "tv": "TV", "music": "Music", "audiobook": "Audiobooks"}),
     })
     import jobs
     import mover
@@ -132,7 +134,8 @@ def test_verified_copy_writes_sidecars_then_removes_source(tmp_path, monkeypatch
         "mover_delete_source": 1,
         "mover_node_mounts": json.dumps({"rip-node-1": str(node_mount)}),
         "mover_node_source_roots": json.dumps({"rip-node-1": "/mnt/ripping"}),
-        "mover_destination_root": str(media),\n        "mover_destination_folders": json.dumps({"movie": "Movies", "tv": "TV", "music": "Music", "audiobook": "Audiobooks"}),
+        "mover_destination_root": str(media),
+        "mover_destination_folders": json.dumps({"movie": "Movies", "tv": "TV", "music": "Music", "audiobook": "Audiobooks"}),
     })
     import jobs
     import mover
@@ -179,7 +182,8 @@ def test_scan_existing_writes_json_only_and_is_idempotent(tmp_path, monkeypatch)
         folder.mkdir(parents=True)
         (folder / filename).write_bytes(b"media")
     db.set_settings({
-        "mover_destination_root": str(media),\n        "mover_destination_folders": json.dumps({"movie": "Movies", "tv": "TV", "music": "Music", "audiobook": "Audiobooks"}),
+        "mover_destination_root": str(media),
+        "mover_destination_folders": json.dumps({"movie": "Movies", "tv": "TV", "music": "Music", "audiobook": "Audiobooks"}),
         "mover_destination_folders": json.dumps({
             "movie": "1 ~ Movies", "tv": "2 ~ TV",
             "music": "3 ~ Music", "audiobook": "4 ~ Audiobooks",
