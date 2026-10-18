@@ -3,6 +3,8 @@ from pydantic import BaseModel
 import library
 import archive
 import upc
+import recovery
+import media_intake
 
 router=APIRouter(prefix="/api/collection",tags=["library"])
 
@@ -85,3 +87,29 @@ def library_item(item_id: str):
         from fastapi import HTTPException
         raise HTTPException(status_code=404,detail="Library item not found")
     return item
+
+@router.get("/health-scan")
+def health_scan():
+    manifests = archive.backfill_missing_manifests(preview=True)
+    intake = media_intake.scan()
+    try:
+        stranded = recovery.discover()
+    except (OSError, ValueError):
+        stranded = {"items": []}
+    items = stranded.get("items", stranded if isinstance(stranded, list) else [])
+    return {
+        "ok": True,
+        "healthy": manifests["manifests_existing"],
+        "missing_json": manifests["manifests_missing"],
+        "invalid_json": manifests["manifests_invalid"],
+        "waiting_intake": intake["count"],
+        "stranded_rips": len(items),
+        "inaccessible_roots": manifests["inaccessible_roots"],
+        "safe_repairs": manifests["manifests_missing"],
+    }
+
+@router.post("/health-repair")
+def health_repair():
+    result = archive.backfill_missing_manifests(preview=False)
+    library.check_manifests()
+    return result
