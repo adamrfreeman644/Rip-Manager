@@ -227,7 +227,7 @@ def run_job(row):
                               "socket_timeout": 15, "retries": 1}) as probe:
             metadata = probe.extract_info(row["url"], download=False) or {}
         intake_title = row.get("custom_name") or metadata.get("title") or f"Download {job_id}"
-        target = media_intake.folder_for(preset, intake_title)
+        target = media_intake.folder_for(preset, intake_title, unique=True)
     target.mkdir(parents=True, exist_ok=True)
     fmt = "bestaudio/best" if row["media_type"] == "audio" else ("bv*+ba/b" if row["quality"] == "best" else f"bv*[height<={row['quality']}]+ba/b[height<={row['quality']}]")
     displayed_title = row.get("title")
@@ -251,12 +251,17 @@ def run_job(row):
                "merge_output_format": "mkv", "postprocessors": ([{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "0"}] if row["media_type"] == "audio" else [])}
     with yt_dlp.YoutubeDL(options) as ydl:
         info = ydl.extract_info(row["url"], download=True) or {}
-    if preset != "downloads":
-        media_intake.prepare_all()
-        media_intake.queue_all()
     update(job_id, title=row.get("custom_name") or info.get("title") or displayed_title,
            thumbnail=info.get("thumbnail"), percent=100, speed=None, eta=None,
-           output=str(target), status="completed")
+           output=str(target), status="completed", error=None)
+    if preset != "downloads":
+        # Download success is independent of downstream intake/mover state.
+        # Queue only this download, never unrelated manually staged media.
+        try:
+            item = next(x for x in media_intake.scan()["items"] if Path(x["folder"]).resolve() == target.resolve())
+            media_intake.queue(item["id"], provenance="download", source=row["url"])
+        except Exception as exc:
+            update(job_id, error=("Downloaded successfully; Intake needs attention: " + str(exc))[:500])
 
 
 def loop():
