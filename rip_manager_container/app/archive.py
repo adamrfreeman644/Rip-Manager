@@ -750,6 +750,52 @@ def scan_existing() -> dict:
         "manifests_skipped": skipped,
     }
 
+
+def write_recovery_manifest(folder: Path, title: Optional[str] = None, year: Optional[int] = None,
+                            media_type: str = "movie", node_id: Optional[str] = None) -> str:
+    """Write the standard schema-v2 manifest for an untracked rip before transfer."""
+    folder = Path(folder)
+    target = folder / "disc-info.json"
+    previous = {}
+    if target.is_file():
+        try:
+            decoded = json.loads(target.read_text(encoding="utf-8"))
+            previous = decoded if isinstance(decoded, dict) else {}
+        except (OSError, ValueError, TypeError):
+            raise ValueError("Existing disc-info.json is invalid; refusing to overwrite it")
+    inferred = _infer_folder_metadata(folder, media_type)
+    stat = folder.stat()
+    files = _existing_files(folder)
+    generated = {
+        "schema_version": 2,
+        "manager_job_id": None,
+        "title": title or inferred.get("title") or folder.name,
+        "year": year or inferred.get("year"),
+        "upc": None,
+        "media_type": media_type,
+        "creator": None,
+        "narrator": None,
+        "disc": {"season": None, "number": None},
+        "legacy_import": {
+            "imported": True,
+            "source": "rip_node_recovery",
+            "historical_rip_details_available": False,
+            "note": "Recovered from an existing Rip Node folder; unavailable rip history was not invented.",
+        },
+        "folder": {"name": folder.name, "path": str(folder), "modified_at": _iso_timestamp(stat.st_mtime)},
+        "files": files,
+        "summary": _inventory_summary(files),
+        "file_structure": folder_structure(folder),
+        "rip": {"node": node_id, "drive": None, "started_at": None, "finished_at": None, "verification": None},
+    }
+    payload = refresh_file_inventory(folder, _merge_manifest(previous, generated))
+    rendered = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+    temp = folder / ".disc-info.json.tmp"
+    temp.write_text(rendered, encoding="utf-8")
+    os.replace(temp, target)
+    return "updated" if previous else "created"
+
+
 def sync_sidecars(manager_job_id: str, destination: Optional[Path] = None) -> None:
     """Copy archive assets to a reachable final folder using atomic text writes."""
     _ensure_record(manager_job_id)
