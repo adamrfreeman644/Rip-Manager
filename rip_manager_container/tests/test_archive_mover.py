@@ -60,6 +60,7 @@ def test_mover_maps_only_beneath_configured_mount(tmp_path, monkeypatch):
         "mover_node_mounts": json.dumps({"rip-node-1": str(node_mount)}),
         "mover_node_source_roots": json.dumps({"rip-node-1": "/mnt/ripping"}),
         "mover_destination_root": str(media),
+        "mover_destination_folders": json.dumps({"movie": "Movies", "tv": "TV", "music": "Music", "audiobook": "Audiobooks"}),
     })
     import jobs
     import mover
@@ -106,6 +107,7 @@ def test_failed_copy_keeps_source(tmp_path, monkeypatch):
         "mover_node_mounts": json.dumps({"rip-node-1": str(node_mount)}),
         "mover_node_source_roots": json.dumps({"rip-node-1": "/mnt/ripping"}),
         "mover_destination_root": str(media),
+        "mover_destination_folders": json.dumps({"movie": "Movies", "tv": "TV", "music": "Music", "audiobook": "Audiobooks"}),
     })
     import jobs
     import mover
@@ -133,6 +135,7 @@ def test_verified_copy_writes_sidecars_then_removes_source(tmp_path, monkeypatch
         "mover_node_mounts": json.dumps({"rip-node-1": str(node_mount)}),
         "mover_node_source_roots": json.dumps({"rip-node-1": "/mnt/ripping"}),
         "mover_destination_root": str(media),
+        "mover_destination_folders": json.dumps({"movie": "Movies", "tv": "TV", "music": "Music", "audiobook": "Audiobooks"}),
     })
     import jobs
     import mover
@@ -145,7 +148,7 @@ def test_verified_copy_writes_sidecars_then_removes_source(tmp_path, monkeypatch
     mover._copy_transfer({"id": transfer_id}, job)
     destination = media / "Movies" / "Test Film"
     assert not source.exists()
-    assert (destination / "movie.mkv").read_bytes() == b"verified media"
+    assert (destination / "Test Film.mkv").read_bytes() == b"verified media"
     assert (destination / "disc-info.txt").is_file()
     manifest = json.loads((destination / "disc-info.json").read_text(encoding="utf-8"))
     transfer_log = [entry for entry in manifest["change_log"] if any(
@@ -153,13 +156,13 @@ def test_verified_copy_writes_sidecars_then_removes_source(tmp_path, monkeypatch
     )]
     assert transfer_log
     moved = next(change for change in transfer_log[-1]["changes"] if change.get("action") == "moved_and_verified")
-    assert moved["path"] == "movie.mkv"
+    assert moved["path"] == "Test Film.mkv"
     assert moved["size_bytes"] == len(b"verified media")
     assert moved["extension"] == ".mkv"
-    assert moved["old_paths"] == [str(source / "movie.mkv")]
-    assert moved["current_path"] == "movie.mkv"
+    assert moved["old_paths"] == [str(source / "Test Film.mkv")]
+    assert moved["current_path"] == "Test Film.mkv"
     assert any(event["event"] == "transfer_finished" for event in manifest["process_history"])
-    file_entry = next(item for item in manifest["files"] if item["path"] == "movie.mkv")
+    file_entry = next(item for item in manifest["files"] if item["path"] == "Test Film.mkv")
     assert any(event["event"] == "transfer_finished" for event in file_entry["process_history"])
     transfer = db.query_one("SELECT state,error FROM transfer_queue WHERE id=?", (transfer_id,))
     assert transfer["state"] == "complete"
@@ -180,6 +183,7 @@ def test_scan_existing_writes_json_only_and_is_idempotent(tmp_path, monkeypatch)
         (folder / filename).write_bytes(b"media")
     db.set_settings({
         "mover_destination_root": str(media),
+        "mover_destination_folders": json.dumps({"movie": "Movies", "tv": "TV", "music": "Music", "audiobook": "Audiobooks"}),
         "mover_destination_folders": json.dumps({
             "movie": "1 ~ Movies", "tv": "2 ~ TV",
             "music": "3 ~ Music", "audiobook": "4 ~ Audiobooks",

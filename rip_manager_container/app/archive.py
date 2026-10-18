@@ -564,14 +564,14 @@ def _infer_folder_metadata(folder: Path, media_type: Optional[str] = None) -> di
     name = folder.name.strip()
     out = {}
     # Common library convention: Title (YYYY), optionally followed by edition text.
-    years = re.findall(r"(?<!\\d)((?:18|19|20|21)\\d{2})(?!\\d)", name)
+    years = re.findall(r"(?<!\d)((?:18|19|20|21)\d{2})(?!\d)", name)
     if years:
         out["year"] = int(years[-1])
-        title = re.sub(r"\\s*[\\(\\[\\{]?(?:18|19|20|21)\\d{2}[\\)\\]\\}]?\\s*.*$", "", name).strip(" .-_")
+        title = re.sub(r"\s*[\(\[\{]?(?:18|19|20|21)\d{2}[\)\]\}]?\s*.*$", "", name).strip(" .-_")
         if title:
             out["title"] = title
     if media_type == "tv":
-        m = re.search(r"(?i)(?:^|[ ._-])S(?:eason[ ._-]*)?(\\d{1,2})(?:$|[ ._-])", name)
+        m = re.search(r"(?i)(?:^|[ ._-])S(?:eason[ ._-]*)?(\d{1,2})(?:$|[ ._-])", name)
         if m: out["season"] = int(m.group(1))
     return out
 
@@ -639,7 +639,7 @@ def write_existing_manifest(manager_job_id: str, folder: Path) -> str:
         "folder": {
             "name": folder.name,
             "path": str(folder),
-            "modified_at": _iso_timestamp(folder_stat.st_mtime),
+            "modified_at": max((item.get("modified_at") for item in files if item.get("modified_at")), default=_iso_timestamp(folder_stat.st_mtime)),
         },
         "files": files,
         "summary": _inventory_summary(files),
