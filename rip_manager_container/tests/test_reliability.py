@@ -144,11 +144,8 @@ def test_interrupted_transfer_is_requeued_not_deleted(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("kind", ["movie", "tv", "music", "audiobook"])
 def test_rip_node_source_manifest_exists_for_every_media_type(tmp_path, kind):
-    import importlib.util
-    module_path = Path(__file__).parents[1] / "app" / "bundled_rip_node_api_v0.2.12.py"
-    spec = importlib.util.spec_from_file_location("bundled_node_for_test", module_path)
-    node = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(node)
+    from test_node_verification import load_node
+    node = load_node()
     output = tmp_path / kind / "Example"
     request = node.RipRequest(title="Example", media_type=kind)
     job = node.Job("DVD1", output, ["true"], request)
@@ -161,11 +158,8 @@ def test_rip_node_source_manifest_exists_for_every_media_type(tmp_path, kind):
 
 
 def test_invalid_existing_source_manifest_is_never_overwritten(tmp_path):
-    import importlib.util
-    module_path = Path(__file__).parents[1] / "app" / "bundled_rip_node_api_v0.2.12.py"
-    spec = importlib.util.spec_from_file_location("bundled_node_invalid_test", module_path)
-    node = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(node)
+    from test_node_verification import load_node
+    node = load_node()
     output = tmp_path / "movie" / "Example"
     output.mkdir(parents=True)
     target = output / "disc-info.json"
