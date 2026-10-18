@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 import library
+import archive
 import upc
 
 router=APIRouter(prefix="/api/collection",tags=["library"])
@@ -45,6 +46,16 @@ def resolve_upc(req: ResolveUPC):
 @router.post("/check-manifests")
 def manifests():
     return library.check_manifests()
+
+@router.get("/manifest-backfill")
+def manifest_backfill_preview():
+    return archive.backfill_missing_manifests(preview=True)
+
+@router.post("/manifest-backfill")
+def manifest_backfill_create():
+    result = archive.backfill_missing_manifests(preview=False)
+    library.check_manifests()
+    return result
 
 @router.post("/{item_id}/physical")
 def attach_physical(item_id: str):
