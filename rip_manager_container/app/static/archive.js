@@ -66,19 +66,18 @@ async function loadRecovery(){
   box.innerHTML='<div class="note">Scanning configured Rip Node shares…</div>';
   try{
     const rows=await request("/archive/mover/recovery");
-    box.innerHTML=rows.length?rows.map(x=>`<article class="transfer-card"><div class="transfer-top"><div><strong>${E(x.folder)}</strong><small>${E(x.node_id)} · ${x.files} video file${x.files===1?"":"s"} · ${formatBytes(x.bytes)}</small></div><b>${x.destination_exists?"Already exists":"Waiting"}</b></div><small>Destination: ${E(x.destination)}</small><button class="archive-button" data-recovery-analyse data-node="${E(x.node_id)}" data-folder="${E(x.folder)}" ${x.destination_exists?"disabled":""}>Analyse</button></article>`).join(""):'<div class="note">No existing movie rips found.</div>';
+    box.innerHTML=rows.length?rows.map(x=>`<article class="transfer-card"><div class="transfer-top"><div><strong>${E(x.folder)}</strong><small>${E(x.node_id)} · ${E(x.media_type)} · ${x.files} file${x.files===1?"":"s"} · ${formatBytes(x.bytes)}</small></div><b>${x.destination_exists?"Already exists":"Waiting"}</b></div><small>Destination: ${E(x.destination)}</small><button class="archive-button" data-recovery-analyse data-node="${E(x.node_id)}" data-folder="${E(x.folder)}" data-media-type="${E(x.media_type)}" ${x.destination_exists?"disabled":""}>Review</button></article>`).join(""):'<div class="note">No stranded rips found.</div>';
   }catch(e){box.innerHTML=`<div class="note">${E(e.message)}</div>`;}
 }
-async function analyseRecovery(nodeId,folder){
+async function analyseRecovery(nodeId,folder,mediaType){
   try{
-    const p=await request("/archive/mover/recovery/analyse",{method:"POST",body:JSON.stringify({node_id:nodeId,folder,delete_source:true})});
-    const rows=p.files.map(x=>`<tr><td>${E(x.classification.toUpperCase())}</td><td>${E(x.path)}</td><td>${Math.round(x.duration/60)} min</td><td>${formatBytes(x.bytes)}</td></tr>`).join("");
-    const warning=p.ready?"All files classified. Prepare & Move will copy and SHA-256 verify every file before the source is removed.":"REVIEW files were found. Prepare & Move is locked for safety.";
+    const p=await request("/archive/mover/recovery/analyse",{method:"POST",body:JSON.stringify({node_id:nodeId,folder,media_type:mediaType,delete_source:true})});
+    const rows=p.files.map(x=>`<tr><td>${E(x.path)}</td><td>${formatBytes(x.bytes)}</td></tr>`).join("");
     q("#genericModalTitle").textContent=`Recovery preview · ${folder}`;
-    q("#genericModalBody").innerHTML=`<div class="note">${E(warning)}</div><div class="note">Destination: ${E(p.destination)}</div><div style="overflow:auto"><table class="archive-table"><thead><tr><th>Use</th><th>File</th><th>Duration</th><th>Size</th></tr></thead><tbody>${rows}</tbody></table></div>${p.ready?`<button class="primary action-full" id="confirmRecoveryMove">Prepare & Move</button>`:""}`;
+    q("#genericModalBody").innerHTML=`<div class="note">The complete folder will be queued into the normal Mover unchanged. JSON, subtitles, artwork and nested season/album folders are included and SHA-256 verified before source cleanup.</div><div class="note">Destination: ${E(p.destination)}</div><div style="overflow:auto"><table class="archive-table"><thead><tr><th>File</th><th>Size</th></tr></thead><tbody>${rows}</tbody></table></div>${p.ready?'<button class="primary action-full" id="confirmRecoveryMove">Queue verified move</button>':""}`;
     q("#genericModal").classList.remove("hidden");
     const go=q("#confirmRecoveryMove");
-    if(go)go.onclick=async()=>{if(!confirm(`Move ${folder} to Byte-Me? The Rip Node source is deleted only after every copied file passes SHA-256 verification.`))return;go.disabled=true;go.textContent="Copying and verifying…";try{const r=await request("/archive/mover/recovery/move",{method:"POST",body:JSON.stringify({node_id:nodeId,folder,delete_source:true})});closeModal("genericModal");toast(`Recovered ${folder} · ${r.files.length} files verified`);await loadRecovery();await loadTransfers()}catch(e){go.disabled=false;go.textContent="Prepare & Move";toast(e.message)}};
+    if(go)go.onclick=async()=>{if(!confirm(`Queue ${folder} for verified transfer to Byte-Me?`))return;go.disabled=true;go.textContent="Queueing…";try{await request("/archive/mover/recovery/move",{method:"POST",body:JSON.stringify({node_id:nodeId,folder,media_type:mediaType,delete_source:true})});closeModal("genericModal");toast(`${folder} queued in Mover`);await loadRecovery();await loadTransfers()}catch(e){go.disabled=false;go.textContent="Queue verified move";toast(e.message)}};
   }catch(e){toast(e.message)}
 }
 
