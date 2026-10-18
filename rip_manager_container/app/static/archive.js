@@ -54,6 +54,13 @@ function renderMoverShares(){
 }
 
 
+async function loadIntake(){
+  const box=q("#intakeList");if(!box)return;
+  try{
+    const data=await request("/archive/mover/intake");
+    box.innerHTML=data.items.length?data.items.map(x=>`<article class="transfer-card"><div class="transfer-top"><div><strong>${E(x.name)}</strong><small>${E(x.media_type)} · ${x.manifest?"JSON ready":"JSON missing"}</small></div><b>Intake</b></div></article>`).join(""):`<div class="note">Intake is empty · ${E(data.root)}</div>`;
+  }catch(e){box.innerHTML=`<div class="note">${E(e.message)}</div>`;}
+}
 async function loadRecovery(){
   const box=q("#recoveryList"); if(!box)return;
   box.innerHTML='<div class="note">Scanning configured Rip Node shares…</div>';
@@ -82,7 +89,7 @@ async function renderRoute(route){
   if(route==="dashboard"){overlay.classList.add("hidden");q("#driveGrid").classList.remove("hidden");document.title="Rip Remote";return}
   q("#driveGrid").classList.add("hidden");overlay.classList.remove("hidden");
   if(route==="downloads"){q("#archiveHeading").textContent="Downloads";q("#archiveSubheading").textContent="Server download queue";document.title="Downloads · Rip Remote";showPanel("archiveDownloads");window.refreshDownloads?.();refreshTimer=setInterval(()=>window.refreshDownloads?.(),2000);return}
-  if(route==="mover"){q("#archiveHeading").textContent="Mover";q("#archiveSubheading").textContent="Verified transfers and existing-rip recovery";document.title="Mover · Rip Remote";showPanel("archiveTransfers");renderMoverShares();await loadTransfers();await loadRecovery();refreshTimer=setInterval(loadTransfers,2000);return}
+  if(route==="mover"){q("#archiveHeading").textContent="Mover";q("#archiveSubheading").textContent="Verified transfers and existing-rip recovery";document.title="Mover · Rip Remote";showPanel("archiveTransfers");renderMoverShares();await loadTransfers();await loadIntake();await loadRecovery();refreshTimer=setInterval(loadTransfers,2000);return}
   if(route==="stats"){q("#archiveHeading").textContent="Stats";q("#archiveSubheading").textContent="Live system health and drive performance";document.title="Stats · Rip Remote";showPanel("archiveStats");renderStatsPage();return}
   q("#archiveHeading").textContent="Physical media";q("#archiveSubheading").textContent="Photos and disc details";document.title="Physical Media · Rip Remote";showPanel("archiveLibrary");await loadMedia()
 }
@@ -98,7 +105,7 @@ window.addEventListener("popstate",()=>renderRoute(routeFromPath()));
 q("#archiveSearch").addEventListener("input",renderList);
 q("#archiveBack").onclick=()=>{if(fromLibrary){fromLibrary=false;window.openLibraryLookup?.(false);return}q("#archiveDetail").classList.remove("active");q("#archiveLibrary").classList.add("active");current=null};q("#archiveSaveBarcode").onclick=saveBarcode;q("#archiveBarcode").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();saveBarcode()}});q("#archiveSaveText").onclick=saveText;q("#archiveTextArea").oninput=()=>q("#archiveTextState").textContent="Unsaved changes";
 q("#archiveScan").onclick=async()=>{try{const result=await request("/archive/scan",{method:"POST"});await loadMedia();toast(`Scan complete · ${result.folders_seen} discovered · ${result.imported} imported · ${result.manifests_created||0} manifests created · ${result.manifests_updated||0} updated`)}catch(e){toast(e.message)}};
-q("#recoveryScan").onclick=loadRecovery;
+q("#recoveryScan").onclick=loadRecovery;q("#intakeScan").onclick=loadIntake;q("#intakeQueue").onclick=async()=>{const b=q("#intakeQueue");b.disabled=true;try{const r=await request("/archive/mover/intake/queue",{method:"POST"});toast(`${r.queued} intake folder${r.queued===1?"":"s"} queued`);await loadIntake();await loadTransfers()}catch(e){toast(e.message)}finally{b.disabled=false}};
 overlay.onclick=async e=>{const recovery=e.target.closest("[data-recovery-analyse]");if(recovery){analyseRecovery(recovery.dataset.node,recovery.dataset.folder);return}const m=e.target.closest("[data-media]");if(m){openDetail(Number(m.dataset.media));return}const del=e.target.closest("[data-remove]");if(del){remove(del.dataset.remove,Number(del.dataset.index));return}const add=e.target.closest("[data-add]");if(add){choose(add.dataset.add);return}const tab=e.target.closest("[data-detail-panel]");if(tab){activateDetail(tab.dataset.detailPanel);return}const top=e.target.closest("[data-archive-panel]");if(top){showPanel(top.dataset.archivePanel);if(top.dataset.archivePanel==="archiveTransfers")loadTransfers();return}const retry=e.target.closest("[data-retry]");if(retry){await request(`/archive/mover/transfers/${retry.dataset.retry}/retry`,{method:"POST"});loadTransfers();return}const cancel=e.target.closest("[data-cancel]");if(cancel){await request(`/archive/mover/transfers/${cancel.dataset.cancel}/cancel`,{method:"POST"});loadTransfers()}};
 renderRoute(routeFromPath());
 })();

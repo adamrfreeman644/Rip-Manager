@@ -15,6 +15,7 @@ import archive
 import db
 import mover
 import recovery
+import media_intake
 from routes import node_settings
 
 router = APIRouter(prefix="/archive", tags=["physical media"])
@@ -222,6 +223,28 @@ def save_mover_config(req: MoverConfig):
     return mover_config()
 
 
+
+
+@router.get("/mover/intake")
+def intake_status():
+    try:
+        return media_intake.scan()
+    except OSError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+@router.post("/mover/intake/prepare")
+def intake_prepare():
+    try:
+        return media_intake.prepare_all()
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+@router.post("/mover/intake/queue")
+def intake_queue():
+    try:
+        return media_intake.queue_all()
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/mover/recovery")

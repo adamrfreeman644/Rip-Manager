@@ -35,17 +35,24 @@ def _resolve_paths(job: dict) -> tuple[Path, Path]:
     source_roots = db.get_setting_json("mover_node_source_roots", {})
     configured_mount = mounts.get(node_id)
     output = Path(job.get("output_dir") or "")
-    if not configured_mount or not output.is_absolute():
-        raise ValueError(f"No mounted rip-share path is configured for {node_id}")
-    mount = Path(configured_mount).resolve()
-    node_root = Path(source_roots.get(node_id, "/mnt/ripping"))
-    try:
-        relative = output.relative_to(node_root)
-    except ValueError as exc:
-        raise ValueError(f"Node output is outside its configured rip root: {output}") from exc
-    source = (mount / relative).resolve()
-    if not _under(source, mount) or source == mount:
-        raise ValueError("Unsafe source path")
+    if node_id == "Media-Intake":
+        import media_intake
+        mount = media_intake.root().resolve()
+        source = output.resolve()
+        if not _under(source, mount) or source == mount:
+            raise ValueError("Unsafe media intake source path")
+    else:
+        if not configured_mount or not output.is_absolute():
+            raise ValueError(f"No mounted rip-share path is configured for {node_id}")
+        mount = Path(configured_mount).resolve()
+        node_root = Path(source_roots.get(node_id, "/mnt/ripping"))
+        try:
+            relative = output.relative_to(node_root)
+        except ValueError as exc:
+            raise ValueError(f"Node output is outside its configured rip root: {output}") from exc
+        source = (mount / relative).resolve()
+        if not _under(source, mount) or source == mount:
+            raise ValueError("Unsafe source path")
     destination_root = Path(db.get_setting("mover_destination_root", "/media")).resolve()
     folders = db.get_setting_json("mover_destination_folders", {})
     media_folder = folders.get(job.get("media_type"), "Other")
@@ -125,7 +132,7 @@ def _copy_transfer(transfer: dict, job: dict) -> None:
     archive.record_process_event(source, "transfer_started", "running", {
         "destination": str(destination),
     })
-    prep = media_prep.prepare_completed_rip(source, job)
+    prep = ({"ok": True, "prepared": 0, "structure_preserved": True} if job.get("drive") == "INTAKE" else media_prep.prepare_completed_rip(source, job))
     log.info("Prepared %s before mover transfer: %s", job["manager_job_id"], prep)
     files = _inventory(source)
     total = sum(item[2] for item in files)
