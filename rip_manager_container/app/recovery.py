@@ -43,7 +43,7 @@ def _destination(folder,media_type):
     if not rel:raise ValueError(f"No destination configured for {media_type}")
     parent=(root/rel).resolve()
     if not _under(parent,root):raise ValueError("Unsafe recovery destination")
-    return parent/folder.name
+    return parent/Path(folder).name
 
 def discover():
     out=[]
