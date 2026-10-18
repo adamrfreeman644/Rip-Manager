@@ -34,7 +34,11 @@ def scan():
         section = base / name
         for path in section.rglob("*"):
             if path.is_file() and path.suffix.lower() in MEDIA_EXT:
-                found.setdefault(path.parent.resolve(), media_type)
+                relative = path.relative_to(section)
+                if relative.parts:
+                    # One immediate child is one intake unit; preserve TV seasons,
+                    # album subfolders, subtitles, artwork and other nested files.
+                    found.setdefault((section / relative.parts[0]).resolve(), media_type)
     items = []
     for folder, media_type in sorted(found.items(), key=lambda item: str(item[0]).casefold()):
         items.append({"folder": str(folder), "name": folder.name, "media_type": media_type,
