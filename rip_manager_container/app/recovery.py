@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib, os, re, shutil, subprocess, time
 from pathlib import Path
 import db
+import archive
 
 VIDEO_EXTENSIONS={".mkv",".mp4",".avi",".m4v",".mov",".wmv",".webm"}
 
@@ -85,7 +86,13 @@ def recover(node_id,folder,delete_source=True):
     if preview["destination_exists"]: raise FileExistsError("Destination already exists; recovery stopped")
     review=[x for x in preview["files"] if x["classification"]=="review"]
     if review: raise ValueError("Analysis has REVIEW files; recovery stopped until they are resolved")
-    source=_source(node_id,folder); destination=_destination(folder); partial=destination.with_name("."+destination.name+".recovery-partial")
+    source=_source(node_id,folder)
+    # Persist the same schema-v2 JSON used by normal Rip Manager jobs while the
+    # media is still on the Rip Node. It is then included in verified copying.
+    manifest_status=archive.write_recovery_manifest(source, media_type="movie", node_id=node_id)
+    if not (source/"disc-info.json").is_file():
+        raise ValueError("Rip Node manifest could not be created")
+    destination=_destination(folder); partial=destination.with_name("."+destination.name+".recovery-partial")
     destination.parent.mkdir(parents=True,exist_ok=True)
     if partial.exists(): shutil.rmtree(partial)
     partial.mkdir()
@@ -109,4 +116,4 @@ def recover(node_id,folder,delete_source=True):
     if delete_source:
         shutil.rmtree(source); source_removed=True
     return {"ok":True,"folder":folder,"destination":str(destination),"files":copied,
-            "source_removed":source_removed,"verified":True,"finished_at":time.time()}
+            "source_removed":source_removed,"verified":True,"manifest":manifest_status,"finished_at":time.time()}
