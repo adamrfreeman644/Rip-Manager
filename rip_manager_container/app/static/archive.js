@@ -53,6 +53,28 @@ function renderMoverShares(){
   box.querySelectorAll("[data-copy-share]").forEach(button=>button.onclick=()=>copyShare(button.dataset.copyShare));
 }
 
+
+async function loadRecovery(){
+  const box=q("#recoveryList"); if(!box)return;
+  box.innerHTML='<div class="note">Scanning configured Rip Node shares…</div>';
+  try{
+    const rows=await request("/archive/mover/recovery");
+    box.innerHTML=rows.length?rows.map(x=>`<article class="transfer-card"><div class="transfer-top"><div><strong>${E(x.folder)}</strong><small>${E(x.node_id)} · ${x.files} video file${x.files===1?"":"s"} · ${formatBytes(x.bytes)}</small></div><b>${x.destination_exists?"Already exists":"Waiting"}</b></div><small>Destination: ${E(x.destination)}</small><button class="archive-button" data-recovery-analyse data-node="${E(x.node_id)}" data-folder="${E(x.folder)}" ${x.destination_exists?"disabled":""}>Analyse</button></article>`).join(""):'<div class="note">No existing movie rips found.</div>';
+  }catch(e){box.innerHTML=`<div class="note">${E(e.message)}</div>`;}
+}
+async function analyseRecovery(nodeId,folder){
+  try{
+    const p=await request("/archive/mover/recovery/analyse",{method:"POST",body:JSON.stringify({node_id:nodeId,folder,delete_source:true})});
+    const rows=p.files.map(x=>`<tr><td>${E(x.classification.toUpperCase())}</td><td>${E(x.path)}</td><td>${Math.round(x.duration/60)} min</td><td>${formatBytes(x.bytes)}</td></tr>`).join("");
+    const warning=p.ready?"All files classified. Prepare & Move will copy and SHA-256 verify every file before the source is removed.":"REVIEW files were found. Prepare & Move is locked for safety.";
+    q("#genericModalTitle").textContent=`Recovery preview · ${folder}`;
+    q("#genericModalBody").innerHTML=`<div class="note">${E(warning)}</div><div class="note">Destination: ${E(p.destination)}</div><div style="overflow:auto"><table class="archive-table"><thead><tr><th>Use</th><th>File</th><th>Duration</th><th>Size</th></tr></thead><tbody>${rows}</tbody></table></div>${p.ready?`<button class="primary action-full" id="confirmRecoveryMove">Prepare & Move</button>`:""}`;
+    q("#genericModal").classList.remove("hidden");
+    const go=q("#confirmRecoveryMove");
+    if(go)go.onclick=async()=>{if(!confirm(`Move ${folder} to Byte-Me? The Rip Node source is deleted only after every copied file passes SHA-256 verification.`))return;go.disabled=true;go.textContent="Copying and verifying…";try{const r=await request("/archive/mover/recovery/move",{method:"POST",body:JSON.stringify({node_id:nodeId,folder,delete_source:true})});closeModal("genericModal");toast(`Recovered ${folder} · ${r.files.length} files verified`);await loadRecovery();await loadTransfers()}catch(e){go.disabled=false;go.textContent="Prepare & Move";toast(e.message)}};
+  }catch(e){toast(e.message)}
+}
+
 async function loadTransfers(){const rows=await request("/archive/mover/transfers");q("#transferList").innerHTML=rows.length?rows.map(x=>{const p=x.bytes_total?Math.min(100,x.bytes_copied/x.bytes_total*100):0;return `<article class="transfer-card"><div class="transfer-top"><div><strong>${E(title(x))}</strong><small>${E(x.node_id)} → Byte-Me</small></div><b>${E(x.state)}</b></div><div class="transfer-track"><div class="transfer-fill" style="width:${p}%"></div></div><small>${formatBytes(x.bytes_copied)} / ${formatBytes(x.bytes_total)} · ${x.files_copied}/${x.files_total} files${x.error?` · ${E(x.error)}`:""}</small>${x.state==="failed"?`<button class="archive-button" data-retry="${x.id}">Retry</button>`:""}${x.state==="queued"?`<button class="archive-button" data-cancel="${x.id}">Remove</button>`:""}</article>`}).join(""):`<div class="note">No transfers queued. Completed rips will appear here when the mover is enabled.</div>`}
 function markRoute(route){document.querySelectorAll("[data-app-route]").forEach(x=>x.classList.toggle("current-page",x.dataset.appRoute===route))}
 async function renderRoute(route){
@@ -60,7 +82,7 @@ async function renderRoute(route){
   if(route==="dashboard"){overlay.classList.add("hidden");q("#driveGrid").classList.remove("hidden");document.title="Rip Remote";return}
   q("#driveGrid").classList.add("hidden");overlay.classList.remove("hidden");
   if(route==="downloads"){q("#archiveHeading").textContent="Downloads";q("#archiveSubheading").textContent="Server download queue";document.title="Downloads · Rip Remote";showPanel("archiveDownloads");window.refreshDownloads?.();refreshTimer=setInterval(()=>window.refreshDownloads?.(),2000);return}
-  if(route==="mover"){q("#archiveHeading").textContent="Mover";q("#archiveSubheading").textContent="One folder at a time to Byte-Me";document.title="Mover · Rip Remote";showPanel("archiveTransfers");renderMoverShares();await loadTransfers();refreshTimer=setInterval(loadTransfers,2000);return}
+  if(route==="mover"){q("#archiveHeading").textContent="Mover";q("#archiveSubheading").textContent="Verified transfers and existing-rip recovery";document.title="Mover · Rip Remote";showPanel("archiveTransfers");renderMoverShares();await loadTransfers();await loadRecovery();refreshTimer=setInterval(loadTransfers,2000);return}
   if(route==="stats"){q("#archiveHeading").textContent="Stats";q("#archiveSubheading").textContent="Live system health and drive performance";document.title="Stats · Rip Remote";showPanel("archiveStats");renderStatsPage();return}
   q("#archiveHeading").textContent="Physical media";q("#archiveSubheading").textContent="Photos and disc details";document.title="Physical Media · Rip Remote";showPanel("archiveLibrary");await loadMedia()
 }
@@ -76,6 +98,7 @@ window.addEventListener("popstate",()=>renderRoute(routeFromPath()));
 q("#archiveSearch").addEventListener("input",renderList);
 q("#archiveBack").onclick=()=>{if(fromLibrary){fromLibrary=false;window.openLibraryLookup?.(false);return}q("#archiveDetail").classList.remove("active");q("#archiveLibrary").classList.add("active");current=null};q("#archiveSaveBarcode").onclick=saveBarcode;q("#archiveBarcode").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();saveBarcode()}});q("#archiveSaveText").onclick=saveText;q("#archiveTextArea").oninput=()=>q("#archiveTextState").textContent="Unsaved changes";
 q("#archiveScan").onclick=async()=>{try{const result=await request("/archive/scan",{method:"POST"});await loadMedia();toast(`Scan complete · ${result.folders_seen} discovered · ${result.imported} imported · ${result.manifests_created||0} manifests created · ${result.manifests_updated||0} updated`)}catch(e){toast(e.message)}};
-overlay.onclick=async e=>{const m=e.target.closest("[data-media]");if(m){openDetail(Number(m.dataset.media));return}const del=e.target.closest("[data-remove]");if(del){remove(del.dataset.remove,Number(del.dataset.index));return}const add=e.target.closest("[data-add]");if(add){choose(add.dataset.add);return}const tab=e.target.closest("[data-detail-panel]");if(tab){activateDetail(tab.dataset.detailPanel);return}const top=e.target.closest("[data-archive-panel]");if(top){showPanel(top.dataset.archivePanel);if(top.dataset.archivePanel==="archiveTransfers")loadTransfers();return}const retry=e.target.closest("[data-retry]");if(retry){await request(`/archive/mover/transfers/${retry.dataset.retry}/retry`,{method:"POST"});loadTransfers();return}const cancel=e.target.closest("[data-cancel]");if(cancel){await request(`/archive/mover/transfers/${cancel.dataset.cancel}/cancel`,{method:"POST"});loadTransfers()}};
+q("#recoveryScan").onclick=loadRecovery;
+overlay.onclick=async e=>{const recovery=e.target.closest("[data-recovery-analyse]");if(recovery){analyseRecovery(recovery.dataset.node,recovery.dataset.folder);return}const m=e.target.closest("[data-media]");if(m){openDetail(Number(m.dataset.media));return}const del=e.target.closest("[data-remove]");if(del){remove(del.dataset.remove,Number(del.dataset.index));return}const add=e.target.closest("[data-add]");if(add){choose(add.dataset.add);return}const tab=e.target.closest("[data-detail-panel]");if(tab){activateDetail(tab.dataset.detailPanel);return}const top=e.target.closest("[data-archive-panel]");if(top){showPanel(top.dataset.archivePanel);if(top.dataset.archivePanel==="archiveTransfers")loadTransfers();return}const retry=e.target.closest("[data-retry]");if(retry){await request(`/archive/mover/transfers/${retry.dataset.retry}/retry`,{method:"POST"});loadTransfers();return}const cancel=e.target.closest("[data-cancel]");if(cancel){await request(`/archive/mover/transfers/${cancel.dataset.cancel}/cancel`,{method:"POST"});loadTransfers()}};
 renderRoute(routeFromPath());
 })();
