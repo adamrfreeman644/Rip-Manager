@@ -210,6 +210,11 @@
     <section id="archiveTransfers" class="archive-panel archive-transfers">
       <div><span class="archive-summary">One folder transfers at a time</span></div>
       <section class="recovery-section">
+        <div class="archive-library-summary"><strong>Media intake</strong><button id="intakeScan" class="archive-button" type="button">Scan intake</button><button id="intakeQueue" class="archive-button" type="button">Prepare & queue all</button></div>
+        <div class="note">Place imported media in /media/0 ~ Intake/Movies, TV, Music or Audiobooks. Library-bound downloads use the same staging area automatically.</div>
+        <div id="intakeList" class="transfer-list"></div>
+      </section>
+      <section class="recovery-section">
         <div class="archive-library-summary"><strong>Existing rips</strong><button id="recoveryScan" class="archive-button" type="button">Find existing rips</button></div>
         <div class="note">Discovery and Analyse are read-only. Nothing is changed until you approve Prepare & Move.</div>
         <div id="recoveryList" class="transfer-list"></div>
