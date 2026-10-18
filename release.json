@@ -1,5 +1,5 @@
 {
-  "version": "0.22.42",
+  "version": "0.22.43",
   "notes": [
     "Adds MakeMKV Update now and automatic maintenance every 14 days on idle nodes.",
     "Includes Rip Node API v0.2.11 with persistent scheduling and official beta-key refresh, preserving personal registration keys.",
