@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 import archive
 import db
 import mover
+import recovery
 from routes import node_settings
 
 router = APIRouter(prefix="/archive", tags=["physical media"])
@@ -29,6 +30,12 @@ class ImageUpdate(BaseModel):
 
 class BarcodeUpdate(BaseModel):
     barcode: Optional[str] = Field(default=None, max_length=32)
+
+
+class RecoveryRequest(BaseModel):
+    node_id: str = Field(min_length=1, max_length=100)
+    folder: str = Field(min_length=1, max_length=255)
+    delete_source: bool = True
 
 
 class MoverConfig(BaseModel):
@@ -214,6 +221,33 @@ def save_mover_config(req: MoverConfig):
     mover.wake()
     return mover_config()
 
+
+
+
+@router.get("/mover/recovery")
+def recovery_candidates():
+    try:
+        return recovery.discover()
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/mover/recovery/analyse")
+def analyse_recovery(req: RecoveryRequest):
+    try:
+        return recovery.analyse(req.node_id, req.folder)
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/mover/recovery/move")
+def move_recovery(req: RecoveryRequest):
+    try:
+        return recovery.recover(req.node_id, req.folder, req.delete_source)
+    except FileExistsError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 @router.get("/mover/transfers")
 def transfers():
