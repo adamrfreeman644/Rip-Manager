@@ -93,7 +93,7 @@ def health_scan():
     manifests = archive.backfill_missing_manifests(preview=True)
     intake = media_intake.scan()
     try:
-        stranded = recovery.scan()
+        stranded = recovery.discover()
     except (OSError, ValueError):
         stranded = {"items": []}
     items = stranded.get("items", stranded if isinstance(stranded, list) else [])
