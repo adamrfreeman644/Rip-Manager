@@ -751,6 +751,94 @@ def scan_existing() -> dict:
     }
 
 
+def _guess_media_type(path: Path, root: Path, folders: dict) -> Optional[str]:
+    try:
+        relative = path.resolve().relative_to(root.resolve())
+    except (OSError, ValueError):
+        return None
+    first = relative.parts[0] if relative.parts else ""
+    for media_type, configured in folders.items():
+        if Path(configured).parts and Path(configured).parts[0] == first:
+            return media_type
+    return None
+
+
+def backfill_missing_manifests(preview: bool = True) -> dict:
+    """Scan Byte-Me plus every configured Rip Node mount and create only missing manifests."""
+    destinations = Path(db.get_setting("mover_destination_root", "/media")).resolve()
+    destination_folders = db.get_setting_json("mover_destination_folders", {})
+    node_mounts = db.get_setting_json("mover_node_mounts", {})
+    extensions = {".mkv", ".mp4", ".m4v", ".avi", ".mov", ".wmv", ".ts", ".m2ts", ".webm",
+                  ".flac", ".mp3", ".m4a", ".aac", ".wav", ".ogg", ".opus"}
+    roots = [("Byte-Me", destinations, destination_folders)]
+    node_folders = {"movie": "Movies", "tv": "TV", "music": "Music", "audiobook": "AudioBooks"}
+    for node_id, mount in node_mounts.items():
+        root = Path(mount).resolve()
+        # Configurations may mount /mnt/ripping itself or its Rips child.
+        if (root / "Rips").is_dir():
+            root = (root / "Rips").resolve()
+        roots.append((node_id, root, node_folders))
+
+    candidates = {}
+    inaccessible = []
+    for source, root, folders in roots:
+        if not root.is_dir():
+            inaccessible.append({"source": source, "path": str(root)})
+            continue
+        for media_type, relative in folders.items():
+            base = (root / relative).resolve()
+            try:
+                base.relative_to(root)
+            except ValueError:
+                continue
+            if not base.is_dir():
+                continue
+            for path in base.rglob("*"):
+                if path.is_file() and path.suffix.lower() in extensions:
+                    # Movie/audio folders are the file parent. For TV keep the season/file
+                    # parent as the manifest unit, matching the existing library scanner.
+                    candidates.setdefault(path.parent.resolve(), (source, media_type))
+
+    missing=[]; existing=0; invalid=0
+    for folder,(source,media_type) in sorted(candidates.items(), key=lambda x: str(x[0]).casefold()):
+        target=folder/"disc-info.json"
+        if target.is_file():
+            if _read_manifest_file(target) is None:
+                invalid += 1
+            else:
+                existing += 1
+            continue
+        missing.append((folder,source,media_type))
+
+    created=failed=0; errors=[]
+    if not preview:
+        for folder,source,media_type in missing:
+            try:
+                write_recovery_manifest(folder, media_type=media_type, node_id=source)
+                created += 1
+            except (OSError, ValueError) as exc:
+                failed += 1
+                errors.append({"folder": str(folder), "error": str(exc)})
+
+    return {
+        "ok": True, "preview": preview, "folders_scanned": len(candidates),
+        "manifests_existing": existing, "manifests_missing": len(missing),
+        "manifests_invalid": invalid, "manifests_created": created,
+        "failed": failed, "inaccessible_roots": inaccessible,
+        "missing": [{"folder": str(folder), "source": source, "media_type": media_type}
+                    for folder,source,media_type in missing[:250]],
+        "errors": errors[:100],
+    }
+
+
+def _read_manifest_file(path: Path) -> Optional[dict]:
+    try:
+        payload=json.loads(path.read_text(encoding="utf-8"))
+        return payload if isinstance(payload,dict) else None
+    except (OSError,ValueError,TypeError):
+        return None
+
+
 def write_recovery_manifest(folder: Path, title: Optional[str] = None, year: Optional[int] = None,
                             media_type: str = "movie", node_id: Optional[str] = None) -> str:
     """Write the standard schema-v2 manifest for an untracked rip before transfer."""
