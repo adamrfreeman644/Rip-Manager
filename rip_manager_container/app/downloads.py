@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 import db
+import media_intake
 from config import DB_PATH
 
 router = APIRouter(prefix="/api/downloads", tags=["downloads"])
@@ -217,9 +218,17 @@ def update(job_id, **fields):
 
 def run_job(row):
     job_id = row["id"]
-    target = destination_path(row["destination"])
+    preset = row["destination"]
+    # Library-bound downloads enter the same staging/Mover pipeline as imported collections.
+    if preset == "downloads":
+        target = destination_path(preset)
+    else:
+        with yt_dlp.YoutubeDL({"quiet": True, "skip_download": True, "noplaylist": True,
+                              "socket_timeout": 15, "retries": 1}) as probe:
+            metadata = probe.extract_info(row["url"], download=False) or {}
+        intake_title = row.get("custom_name") or metadata.get("title") or f"Download {job_id}"
+        target = media_intake.folder_for(preset, intake_title)
     target.mkdir(parents=True, exist_ok=True)
-    # yt-dlp sanitizes metadata filenames; user names are confined to one basename.
     fmt = "bestaudio/best" if row["media_type"] == "audio" else ("bv*+ba/b" if row["quality"] == "best" else f"bv*[height<={row['quality']}]+ba/b[height<={row['quality']}]")
     displayed_title = row.get("title")
     def progress(data):
@@ -241,9 +250,13 @@ def run_job(row):
                "writesubtitles": bool(row["subtitles"]), "subtitleslangs": ["en.*"],
                "merge_output_format": "mkv", "postprocessors": ([{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "0"}] if row["media_type"] == "audio" else [])}
     with yt_dlp.YoutubeDL(options) as ydl:
-        info = ydl.extract_info(row["url"], download=True)
-    info = info or {}
-    update(job_id, title=row.get("custom_name") or info.get("title") or displayed_title, thumbnail=info.get("thumbnail"), percent=100, speed=None, eta=None, output=str(target), status="completed")
+        info = ydl.extract_info(row["url"], download=True) or {}
+    if preset != "downloads":
+        media_intake.prepare_all()
+        media_intake.queue_all()
+    update(job_id, title=row.get("custom_name") or info.get("title") or displayed_title,
+           thumbnail=info.get("thumbnail"), percent=100, speed=None, eta=None,
+           output=str(target), status="completed")
 
 
 def loop():
