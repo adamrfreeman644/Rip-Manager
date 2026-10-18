@@ -159,8 +159,8 @@ def test_verified_copy_writes_sidecars_then_removes_source(tmp_path, monkeypatch
     assert moved["path"] == "Test Film.mkv"
     assert moved["size_bytes"] == len(b"verified media")
     assert moved["extension"] == ".mkv"
-    assert moved["old_paths"] == [str(source / "movie.mkv")]
-    assert moved["current_path"] == "movie.mkv"
+    assert moved["old_paths"] == [str(source / "Test Film.mkv")]
+    assert moved["current_path"] == "Test Film.mkv"
     assert any(event["event"] == "transfer_finished" for event in manifest["process_history"])
     file_entry = next(item for item in manifest["files"] if item["path"] == "Test Film.mkv")
     assert any(event["event"] == "transfer_finished" for event in file_entry["process_history"])
