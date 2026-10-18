@@ -1,16 +1,23 @@
-name: Check Rip Manager changes
+name: Rip Manager reliability
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: reliability-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  check:
+  reliability:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       PYTHONPATH: rip_manager_container/app:rip_manager_container
     steps:
@@ -20,40 +27,31 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            rip_manager_container/requirements.txt
+            rip_manager_container/requirements-dev.txt
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Prepare container-style test mounts
         run: sudo mkdir -p /data /config /updates && sudo chown -R "$USER":"$USER" /data /config /updates
-      - name: Install test dependencies
+      - name: Install dependencies
         run: python -m pip install -r rip_manager_container/requirements-dev.txt psutil
-      - name: Check Python syntax
-        run: python3 -m compileall -q rip_manager_container/app rip_manager_container/simulator_node.py rip_manager_container/tests
-      - name: PIN hashing test
-        run: python -m pytest -q rip_manager_container/tests/test_security.py::test_controller_pin_is_salted_hash_not_plaintext
-      - name: PIN change session test
-        run: python -m pytest -q rip_manager_container/tests/test_security.py::test_pin_change_hashes_and_revokes_sessions
-      - name: Console recovery preservation test
-        run: python -m pytest -q rip_manager_container/tests/test_security.py::test_console_recovery_preserves_configuration_and_nodes
-      - name: Node status secrecy test
-        run: python -m pytest -q rip_manager_container/tests/test_security.py::test_node_security_status_never_returns_token
-      - name: Node bearer token test
-        run: python -m pytest -q rip_manager_container/tests/test_security.py::test_node_client_sends_bearer_token_without_human_pin
-      - name: Health secrecy test
-        run: python -m pytest -q rip_manager_container/tests/test_security.py::test_health_security_contract_is_basic
-      - name: Physical archive and mover tests
-        run: python -m pytest -q rip_manager_container/tests/test_archive_mover.py
-      - name: Rip Node output verification tests
-        run: python -m pytest -q rip_manager_container/tests/test_node_verification.py
-      - name: MakeMKV maintenance tests
-        run: python -m pytest -q rip_manager_container/tests/test_makemkv_maintenance.py
-      - name: Library API tests
-        run: python -m pytest -q rip_manager_container/tests/test_library.py
+      - name: Compile Python
+        run: python -m compileall -q rip_manager_container/app rip_manager_container/simulator_node.py rip_manager_container/tests
+      - name: Run complete Python test suite
+        run: python -m pytest -q rip_manager_container/tests
       - name: Check JavaScript syntax
         run: |
           node --check rip_manager_container/app/static/app.js
           node --check rip_manager_container/app/static/archive.js
           node --check rip_manager_container/app/static/library.js
+          node --check rip_manager_container/app/static/downloads.js
       - name: Check HTML and CSS
         run: |
-          python3 - <<'PY'
+          python - <<'PY'
           from html.parser import HTMLParser
           from pathlib import Path
           class Parser(HTMLParser): pass
@@ -63,5 +61,5 @@ jobs:
           if css.count("{") != css.count("}"):
               raise SystemExit("Unbalanced CSS braces")
           PY
-      - name: Check Compose configuration
+      - name: Validate Compose
         run: docker compose -f rip_manager_container/docker-compose.yml config >/dev/null
