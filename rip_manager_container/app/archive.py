@@ -840,7 +840,8 @@ def _read_manifest_file(path: Path) -> Optional[dict]:
 
 
 def write_recovery_manifest(folder: Path, title: Optional[str] = None, year: Optional[int] = None,
-                            media_type: str = "movie", node_id: Optional[str] = None, provenance: str = "rip_node_recovery",\n                            source: Optional[str] = None) -> str:
+                            media_type: str = "movie", node_id: Optional[str] = None, provenance: str = "rip_node_recovery",
+                            source: Optional[str] = None) -> str:
     """Write the standard schema-v2 manifest for an untracked rip before transfer."""
     folder = Path(folder)
     target = folder / "disc-info.json"
