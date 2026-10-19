@@ -1,6 +1,6 @@
 """Discovery and safe adoption of stranded Rip Node folders into the standard Mover."""
 from __future__ import annotations
-import hashlib, json, time
+import hashlib, json, time, re
 from pathlib import Path
 import archive, db, mover
 
@@ -23,19 +23,53 @@ def _mount(node_id):
     if not root.is_dir():raise ValueError(f"Rip Node mount unavailable: {root}")
     return root
 
-def _media_root(node_id,media_type):
-    root=_mount(node_id); name=MEDIA_ROOTS[media_type]
-    for candidate in (root/"Rips"/name,root/name):
-        if candidate.is_dir():return candidate.resolve()
-    raise ValueError(f"{name} root not found on {node_id}")
+def _media_roots(node_id, media_type):
+    mount = _mount(node_id)
+    names = ("AudioBooks", "Audiobooks") if media_type == "audiobook" else (MEDIA_ROOTS[media_type],)
+    roots = []
+    for parent in (mount / "Rips", mount):
+        for name in names:
+            candidate = parent / name
+            if candidate.is_dir() and candidate.resolve() not in roots:
+                roots.append(candidate.resolve())
+    if not roots:
+        raise ValueError(f"{MEDIA_ROOTS[media_type]} root not found on {node_id}")
+    return roots
 
-def _units(node_id,media_type):
-    root=_media_root(node_id,media_type)
-    # A direct child of a media root is one recovery unit. This keeps TV seasons,
-    # discs, albums, subtitles, artwork and sidecars together.
-    for folder in sorted((p for p in root.iterdir() if p.is_dir()),key=lambda p:p.name.casefold()):
-        if any(p.is_file() and p.suffix.lower() in MEDIA_EXT[media_type] for p in folder.rglob("*")):
+
+def _media_root(node_id, media_type):
+    return _media_roots(node_id, media_type)[0]
+
+
+def _audio_units(folder, media_type):
+    children = sorted((p for p in folder.iterdir() if p.is_dir()), key=lambda p: p.name)
+    direct = any(p.is_file() and p.suffix.lower() in MEDIA_EXT[media_type] for p in folder.iterdir())
+    discs = [p for p in children if any(x.is_file() and x.suffix.lower() in MEDIA_EXT[media_type] for x in p.rglob("*"))]
+    # Explicit manifests and numbered disc/part folders define one album/book.
+    # Otherwise descend through artist/author containers into separate works.
+    disc_name = re.compile(r"^(?:cd|disc|disk|part)\s*[-_ ]?\d+\b", re.I)
+    if direct or (folder / "disc-info.json").is_file() or (discs and all(disc_name.match(p.name) for p in discs)):
+        if direct or discs:
             yield folder
+        return
+    for child in children:
+        yield from _audio_units(child, media_type)
+
+
+def _units(node_id, media_type):
+    for root in _media_roots(node_id, media_type):
+        for folder in sorted((p for p in root.iterdir() if p.is_dir()), key=lambda p: p.name):
+            if media_type in {"music", "audiobook"}:
+                yield from _audio_units(folder, media_type)
+            elif any(p.is_file() and p.suffix.lower() in MEDIA_EXT[media_type] for p in folder.rglob("*")):
+                yield folder
+
+
+def _folder_key(node_id, media_type, folder):
+    roots = _media_roots(node_id, media_type)
+    if len(roots) == 1 and folder.parent == roots[0]:
+        return folder.name  # Preserve existing direct-child API callers.
+    return folder.relative_to(_mount(node_id)).as_posix()
 
 def _destination(folder,media_type):
     root=Path(db.get_setting("mover_destination_root","/media")).resolve()
@@ -54,18 +88,26 @@ def discover():
             for folder in folders:
                 files=[p for p in folder.rglob("*") if p.is_file()]
                 destination=_destination(folder,media_type)
-                out.append({"node_id":node_id,"folder":folder.name,"media_type":media_type,
+                out.append({"node_id":node_id,"folder":_folder_key(node_id,media_type,folder),"media_type":media_type,
                             "files":len(files),"bytes":sum(p.stat().st_size for p in files),
                             "destination":str(destination),"destination_exists":destination.exists(),
                             "manifest":(folder/"disc-info.json").is_file()})
     return out
 
-def _source(node_id,folder,media_type="movie"):
-    if media_type not in MEDIA_ROOTS:raise ValueError("Unsupported media type")
-    if not folder or folder in {".",".."} or "/" in folder or "\\" in folder:raise ValueError("Unsafe folder name")
-    root=_media_root(node_id,media_type);source=(root/folder).resolve()
-    if not _under(source,root) or source==root or not source.is_dir():raise ValueError("Existing rip folder not found")
-    return source
+def _source(node_id, folder, media_type="movie"):
+    if media_type not in MEDIA_ROOTS:
+        raise ValueError("Unsupported media type")
+    relative = Path(folder)
+    if not folder or relative.is_absolute() or "\\" in folder or any(p in {".", ".."} for p in folder.split("/")):
+        raise ValueError("Unsafe folder name")
+    roots = _media_roots(node_id, media_type)
+    candidates = [(root / relative).resolve() for root in roots]
+    candidates.append((_mount(node_id) / relative).resolve())
+    units = set(_units(node_id, media_type))
+    matches = {p for p in candidates if p in units and any(_under(p, root) and p != root for root in roots)}
+    if len(matches) != 1:
+        raise ValueError("Existing rip folder not found or ambiguous; refresh Recovery")
+    return matches.pop()
 
 def analyse(node_id,folder,media_type="movie"):
     source=_source(node_id,folder,media_type)
@@ -108,7 +150,7 @@ def adopt(node_id,folder,media_type="movie"):
           manager_job_id,node_id,node_job_id,drive,state,title,media_type,started_at,finished_at,
           progress,last_message,output_dir,verification_json,raw_json,auto_started,cleared,updated_at)
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-          (manager_job_id,node_id,identity,"RECOVERY","complete",folder,media_type,now,now,100,
+          (manager_job_id,node_id,identity,"RECOVERY","complete",source.name,media_type,now,now,100,
            "Existing rip adopted for verified transfer",str(output_dir),
            json.dumps({"ok":True,"source":"recovery"}),"{}",0,0,now))
         conn.execute("""INSERT OR IGNORE INTO physical_media(manager_job_id,final_dir,created_at,updated_at)
