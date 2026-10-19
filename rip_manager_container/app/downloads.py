@@ -252,6 +252,22 @@ def update(job_id, **fields):
         con.execute(f"UPDATE download_jobs SET {assignments} WHERE id=?", [v for k, v in fields.items() if k != "updated_at"] + [job_id])
 
 
+def _check_output_collision(row, target):
+    """Resume only temporary artifacts in this job's existing staging folder."""
+    if not row.get("custom_name") or row.get("playlist"):
+        return
+    prefix=clean_name(row["custom_name"])+"."
+    resumable=bool(row.get("staging_dir") and Path(row["staging_dir"]).resolve()==target.resolve())
+    for path in target.iterdir():
+        # Compare literal names: brackets in a title must not become glob syntax.
+        if not path.name.startswith(prefix):
+            continue
+        temporary=bool(re.search(r"(?:\.part(?:-Frag\d+)?|\.ytdl)$",path.name,re.I))
+        if resumable and temporary and path.is_file() and not path.is_symlink():
+            continue
+        raise ValueError("That filename already exists in the destination")
+
+
 def run_job(row):
     job_id = row["id"]
     preset = row["destination"]
@@ -267,7 +283,6 @@ def run_job(row):
         intake_title = row.get("custom_name") or metadata.get("title") or f"Download {job_id}"
         target = media_intake.folder_for(preset, intake_title, unique=True)
     target.mkdir(parents=True, exist_ok=True)
-    update(job_id,staging_dir=str(target))
     fmt = "bestaudio/best" if row["media_type"] == "audio" else ("bv*+ba/b" if row["quality"] == "best" else f"bv*[height<={row['quality']}]+ba/b[height<={row['quality']}]")
     displayed_title = row.get("title")
     def progress(data):
@@ -280,12 +295,12 @@ def run_job(row):
         if data.get("status") == "downloading":
             update(job_id, percent=round(100 * data.get("downloaded_bytes", 0) / max(data.get("total_bytes") or data.get("total_bytes_estimate") or 1, 1), 1), speed=data.get("speed"), eta=data.get("eta"))
     template = output_template(target, bool(row["playlist"]), row.get("custom_name") or "")
-    if row.get("custom_name") and not row["playlist"] and list(target.glob(f"{clean_name(row['custom_name'])}.*")):
-        raise ValueError("That filename already exists in the destination")
+    _check_output_collision(row,target)
+    update(job_id,staging_dir=str(target))
     options = {"format": fmt, "outtmpl": template,
                "noplaylist": not bool(row["playlist"]), "paths": {"home": str(target), "temp": str(target / ".incomplete")},
                "progress_hooks": [progress], "socket_timeout": 20, "retries": 3,
-               "continuedl": True, "restrictfilenames": True, "quiet": True, "no_warnings": True,
+               "continuedl": True, "overwrites": False, "restrictfilenames": True, "quiet": True, "no_warnings": True,
                "writesubtitles": bool(row["subtitles"]), "subtitleslangs": ["en.*"],
                "merge_output_format": "mkv", "postprocessors": ([{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "0"}] if row["media_type"] == "audio" else [])}
     with yt_dlp.YoutubeDL(options) as ydl:
