@@ -5,6 +5,10 @@ import ipaddress
 import re
 import sqlite3
 import threading
+import json
+import uuid
+import time
+import archive
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -40,6 +44,10 @@ def initialize():
           created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
         if "custom_name" not in {row[1] for row in con.execute("PRAGMA table_info(download_jobs)")}:
             con.execute("ALTER TABLE download_jobs ADD COLUMN custom_name TEXT")
+        columns={row[1] for row in con.execute("PRAGMA table_info(download_jobs)")}
+        for name in ("group_id", "group_title", "playlist_url", "staging_dir", "manager_job_id"):
+            if name not in columns:
+                con.execute(f"ALTER TABLE download_jobs ADD COLUMN {name} TEXT")
         con.execute("UPDATE download_jobs SET status='queued', error='Resuming after restart' WHERE status='running'")
 
 
@@ -163,6 +171,11 @@ def add(request: AddJob):
         if not selected or not selected.issubset({item["index"] for item in entries}):
             raise HTTPException(422, "Select at least one available playlist video")
         jobs = []
+        group_id=uuid.uuid4().hex
+        group_title=clean_name(request.custom_name or info.get("title") or "Playlist")
+        target=(destination_path("downloads") / f"{group_title} [{group_id[:8]}]" if request.destination == "downloads"
+                else media_intake.folder_for(request.destination,group_title,unique=True))
+        target.mkdir(parents=True,exist_ok=True)
         with _lock, connection() as con:
             for item in entries:
                 if item["index"] not in selected:
@@ -170,6 +183,8 @@ def add(request: AddJob):
                 filename = clean_name(f"{item['index']:02d} - {item['title']}")
                 cur = con.execute("INSERT INTO download_jobs(url,media_type,quality,subtitles,playlist,destination,custom_name,title) VALUES(?,?,?,?,?,?,?,?)",
                     (item["url"], request.media_type, request.quality, int(request.subtitles), 0, request.destination, filename, filename))
+                con.execute("UPDATE download_jobs SET group_id=?,group_title=?,playlist_url=?,staging_dir=? WHERE id=?",
+                            (group_id,group_title,request.url,str(target),cur.lastrowid))
                 jobs.append(cur.lastrowid)
         _wakeup.set()
         return {"ids": jobs, "count": len(jobs), "status": "queued"}
@@ -184,18 +199,25 @@ def add(request: AddJob):
 @router.get("")
 def list_jobs():
     with connection() as con:
-        return [dict(row) for row in con.execute("SELECT * FROM download_jobs ORDER BY id DESC LIMIT 500")]
+        rows=[dict(row) for row in con.execute("SELECT * FROM download_jobs ORDER BY id DESC LIMIT 500")]
+    for row in rows:
+        transfer=db.query_one("SELECT state,destination_dir,error FROM transfer_queue WHERE manager_job_id=?",(row.get("manager_job_id"),))
+        row["transfer"]=dict(transfer) if transfer else None
+    return rows
 
 
 @router.delete("/{job_id}")
 def remove(job_id: int):
     with _lock, connection() as con:
-        row = con.execute("SELECT status FROM download_jobs WHERE id=?", (job_id,)).fetchone()
+        row = con.execute("SELECT * FROM download_jobs WHERE id=?", (job_id,)).fetchone()
         if not row:
             raise HTTPException(404, "Unknown download")
         if row["status"] == "running":
             raise HTTPException(409, "Wait for the active download to finish")
         con.execute("DELETE FROM download_jobs WHERE id=?", (job_id,))
+        sibling=con.execute("SELECT * FROM download_jobs WHERE group_id=? ORDER BY id LIMIT 1",(row["group_id"],)).fetchone() if row["group_id"] else None
+    if sibling and sibling["staging_dir"]:
+        _queue_finished_group(dict(sibling),Path(sibling["staging_dir"]))
     return {"ok": True}
 
 
@@ -209,6 +231,20 @@ def retry(job_id: int):
     return {"ok": True}
 
 
+@router.post("/{job_id}/retry-intake")
+def retry_intake(job_id: int):
+    with connection() as con:
+        row=con.execute("SELECT * FROM download_jobs WHERE id=?",(job_id,)).fetchone()
+    if not row or row["status"] != "completed" or not row["staging_dir"]:
+        raise HTTPException(409,"Only completed staged downloads can retry Intake")
+    _queue_finished_group(dict(row),Path(row["staging_dir"]))
+    with connection() as con:
+        current=con.execute("SELECT manager_job_id,error FROM download_jobs WHERE id=?",(job_id,)).fetchone()
+    if not current["manager_job_id"]:
+        raise HTTPException(409,current["error"] or "Playlist members are unfinished; complete or retry them first")
+    return {"ok":True,"manager_job_id":current["manager_job_id"]}
+
+
 def update(job_id, **fields):
     with _lock, connection() as con:
         fields["updated_at"] = None
@@ -220,7 +256,9 @@ def run_job(row):
     job_id = row["id"]
     preset = row["destination"]
     # Library-bound downloads enter the same staging/Mover pipeline as imported collections.
-    if preset == "downloads":
+    if row.get("staging_dir"):
+        target=Path(row["staging_dir"])
+    elif preset == "downloads":
         target = destination_path(preset)
     else:
         with yt_dlp.YoutubeDL({"quiet": True, "skip_download": True, "noplaylist": True,
@@ -229,6 +267,7 @@ def run_job(row):
         intake_title = row.get("custom_name") or metadata.get("title") or f"Download {job_id}"
         target = media_intake.folder_for(preset, intake_title, unique=True)
     target.mkdir(parents=True, exist_ok=True)
+    update(job_id,staging_dir=str(target))
     fmt = "bestaudio/best" if row["media_type"] == "audio" else ("bv*+ba/b" if row["quality"] == "best" else f"bv*[height<={row['quality']}]+ba/b[height<={row['quality']}]")
     displayed_title = row.get("title")
     def progress(data):
@@ -254,14 +293,50 @@ def run_job(row):
     update(job_id, title=row.get("custom_name") or info.get("title") or displayed_title,
            thumbnail=info.get("thumbnail"), percent=100, speed=None, eta=None,
            output=str(target), status="completed", error=None)
-    if preset != "downloads":
-        # Download success is independent of downstream intake/mover state.
-        # Queue only this download, never unrelated manually staged media.
-        try:
-            item = next(x for x in media_intake.scan()["items"] if Path(x["folder"]).resolve() == target.resolve())
-            media_intake.queue(item["id"], provenance="download", source=row["url"])
-        except Exception as exc:
-            update(job_id, error=("Downloaded successfully; Intake needs attention: " + str(exc))[:500])
+    try:
+        _record_download(row,target,info)
+        _queue_finished_group(row,target)
+    except Exception as exc:
+        update(job_id,error=("Downloaded successfully; provenance/Intake needs attention: "+str(exc))[:500])
+
+
+def _record_download(row,target,info):
+    """Preserve provenance in media sidecars after the download DB is cleared."""
+    manifest=target/"disc-info.json"
+    if not manifest.exists():
+        archive.write_recovery_manifest(target,title=row.get("group_title") or info.get("title"),
+            media_type=row["destination"] if row["destination"] != "downloads" else ("music" if row["media_type"] == "audio" else "movie"),
+            node_id="Media-Intake",provenance="download",source=row.get("playlist_url") or row["url"])
+    payload=json.loads(manifest.read_text())
+    entry={"job_id":row["id"],"source_url":row["url"],"playlist_url":row.get("playlist_url"),
+           "group_id":row.get("group_id"),"title":info.get("title") or row.get("title"),
+           "outcome":"downloaded_and_processed","media_type":row["media_type"],
+           "subtitles_requested":bool(row["subtitles"]),"completed_at":time.time()}
+    payload["downloads"]=[x for x in payload.get("downloads",[]) if x.get("job_id")!=row["id"]]+[entry]
+    temp=target/".download-manifest.tmp"
+    temp.write_text(json.dumps(payload,indent=2)+"\n")
+    temp.replace(manifest)
+    archive.record_process_event(target,"download_finished","complete",entry)
+
+
+def _queue_finished_group(row,target):
+    if row["destination"] == "downloads":
+        return
+    try:
+        if row.get("group_id"):
+            with connection() as con:
+                unfinished=con.execute("SELECT COUNT(*) FROM download_jobs WHERE group_id=? AND status!='completed'",(row["group_id"],)).fetchone()[0]
+            if unfinished:
+                update(row["id"],error="Playlist waiting for unfinished or failed members; retry those downloads first")
+                return  # Failed or unfinished members keep the entire playlist staged.
+        result=media_intake.queue_folder(target,row["destination"],provenance="download",source=row.get("playlist_url") or row["url"])
+        with _lock,connection() as con:
+            if row.get("group_id"):
+                con.execute("UPDATE download_jobs SET manager_job_id=?,error=NULL WHERE group_id=?",(result["manager_job_id"],row["group_id"]))
+            else:
+                con.execute("UPDATE download_jobs SET manager_job_id=?,error=NULL WHERE id=?",(result["manager_job_id"],row["id"]))
+    except Exception as exc:
+        update(row["id"],error=("Downloaded successfully; Intake needs attention: "+str(exc))[:500])
 
 
 def loop():

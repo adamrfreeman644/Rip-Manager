@@ -47,12 +47,14 @@
         const percent=Math.max(0,Math.min(100,Number(row.percent)||0));
         const title=row.title||row.custom_name||'Fetching title…';
         const state=String(row.status||'queued');
-        const detail=[`${row.media_type==='audio'?'Audio':'Video'} · ${row.destination}`,row.speed?`${(row.speed/1048576).toFixed(1)} MiB/s`:null,row.eta?`${Math.round(row.eta)}s left`:null].filter(Boolean).join(' · ');
-        return `<article class="download-job"><div class="download-job-head"><div class="download-job-copy"><strong>${escapeHTML(title)}</strong><small>${escapeHTML(detail)}</small></div><span class="download-state download-state-${escapeHTML(state)}">${escapeHTML(state)}</span></div><div class="transfer-track" role="progressbar" aria-label="Download progress" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"><div class="transfer-fill" style="width:${percent}%"></div></div><div class="download-job-foot"><small>${percent.toFixed(1)}%${row.error?` · ${escapeHTML(row.error)}`:''}</small><div class="download-job-actions">${state==='failed'?`<button type="button" data-download-retry="${row.id}">Retry</button>`:''}${state!=='running'?`<button type="button" data-download-remove="${row.id}">Remove</button>`:''}</div></div></article>`;
+        const detail=[`${row.media_type==='audio'?'Audio':'Video'} · ${row.destination}`,row.group_title?`Playlist: ${row.group_title}`:null,row.transfer?`Transfer: ${row.transfer.state}${row.transfer.destination_dir?' → '+row.transfer.destination_dir:''}`:null,row.speed?`${(row.speed/1048576).toFixed(1)} MiB/s`:null,row.eta?`${Math.round(row.eta)}s left`:null].filter(Boolean).join(' · ');
+        return `<article class="download-job"><div class="download-job-head"><div class="download-job-copy"><strong>${escapeHTML(title)}</strong><small>${escapeHTML(detail)}</small></div><span class="download-state download-state-${escapeHTML(state)}">${escapeHTML(state)}</span></div><div class="transfer-track" role="progressbar" aria-label="Download progress" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"><div class="transfer-fill" style="width:${percent}%"></div></div><div class="download-job-foot"><small>${percent.toFixed(1)}%${row.error?` · ${escapeHTML(row.error)}`:''}</small><div class="download-job-actions">${state==='completed'&&row.error&&!row.manager_job_id?`<button type="button" data-download-intake="${row.id}">Retry Intake</button>`:''}${state==='failed'?`<button type="button" data-download-retry="${row.id}">Retry</button>`:''}${state!=='running'?`<button type="button" data-download-remove="${row.id}">Remove</button>`:''}</div></div></article>`;
       }).join(''):'<div class="note">No downloads queued.</div>';
     }catch(error){list.textContent=error.message}
   }
   list.onclick=async event=>{
+    const intake=event.target.closest('[data-download-intake]');
+    if(intake){try{await call(`/${intake.dataset.downloadIntake}/retry-intake`,{method:'POST'});await refresh()}catch(error){showError(error)}return}
     const retry=event.target.closest('[data-download-retry]');
     const remove=event.target.closest('[data-download-remove]');
     if(!retry&&!remove)return;
