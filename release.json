@@ -1,8 +1,9 @@
 {
-  "version": "0.25.5",
+  "version": "0.25.6",
   "notes": [
-    "The selected main feature always receives the canonical movie name, including when an old canonical filename belongs to an extra.",
-    "Explicit theatrical, extended, director, final, uncut and unrated cuts remain features rather than being classified as extras by duration alone. Theatrical is preferred explicitly, with stable duration, size and path fallback.",
-    "Preparation records and preserves the selected main cut across retries. Adds enumeration-order, filename-collision, alternate-cut and repeat-preparation regressions."
+    "Digital Intake scans no longer create directories or move loose media. Explicit Prepare or Queue creates a safe folder for a loose file.",
+    "Content hashes and validated folder identity replace mtimes in adoption identity; generated sidecars do not create false new jobs.",
+    "Adoption retries enqueue missing transfers after Mover availability changes and explicitly retry failed/cancelled transfers. Adds direct folder queueing without scanning unrelated Intake items.",
+    "Adds regressions for disabled-then-enabled Mover, read-only discovery, mtime changes, content changes, direct folder queueing and failed transfer retry."
   ]
 }

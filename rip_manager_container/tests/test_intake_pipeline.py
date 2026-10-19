@@ -30,14 +30,19 @@ def test_intake_collision_is_needs_attention_and_not_queued(tmp_path,monkeypatch
     with pytest.raises(FileExistsError):intake.queue(item["id"])
     assert not db.query("SELECT * FROM transfer_queue")
 
-def test_loose_file_becomes_safe_intake_unit(tmp_path,monkeypatch):
+def test_loose_file_is_only_moved_by_explicit_queue(tmp_path,monkeypatch):
     db=fresh_database(tmp_path,monkeypatch);node=tmp_path/"node";node.mkdir();media=configure(db,tmp_path,node)
     import media_intake
     section=media_intake.ensure()/"Movies";(section/"Loose Film.mkv").write_bytes(b"film")
     data=media_intake.scan()
     item=next(x for x in data["items"] if x["name"].startswith("Loose Film"))
-    assert Path(item["folder"]).is_dir()
-    assert list(Path(item["folder"]).glob("*.mkv"))
+    assert Path(item["folder"]).is_file()
+    assert item["loose"] is True
+    media_intake.queue(item["id"])
+    assert not Path(item["folder"]).exists()
+    prepared=media_intake.scan()["items"][0]
+    assert Path(prepared["folder"]).is_dir()
+    assert list(Path(prepared["folder"]).glob("*.mkv"))
 
 def test_manifest_records_digital_import_provenance(tmp_path,monkeypatch):
     db,media,intake,folder=stage(tmp_path,monkeypatch)
@@ -54,3 +59,55 @@ def test_content_identity_changes_when_same_folder_is_reused(tmp_path,monkeypatc
     shutil.rmtree(folder);folder.mkdir();(folder/"different.mkv").write_bytes(b"different content")
     second=intake.queue(intake.scan()["items"][0]["id"])["manager_job_id"]
     assert first!=second
+
+
+def test_disabled_mover_adoption_can_be_queued_later(tmp_path,monkeypatch):
+    db,media,intake,folder=stage(tmp_path,monkeypatch)
+    item=intake.scan()["items"][0]
+    db.set_setting("mover_enabled",0)
+    with pytest.raises(ValueError,match="disabled"):
+        intake.queue(item["id"])
+    assert len(db.query("SELECT * FROM jobs_history"))==1
+    assert not db.query("SELECT * FROM transfer_queue")
+    db.set_setting("mover_enabled",1)
+    result=intake.queue(item["id"])
+    assert result["queued"]
+    assert len(db.query("SELECT * FROM transfer_queue"))==1
+
+
+def test_scan_does_not_create_missing_directories(tmp_path,monkeypatch):
+    db=fresh_database(tmp_path,monkeypatch)
+    db.set_setting("mover_destination_root",str(tmp_path/"missing"))
+    import media_intake
+    assert media_intake.scan()["count"]==0
+    assert not (tmp_path/"missing").exists()
+
+
+def test_intake_identity_ignores_mtime_and_tracks_same_size_changes(tmp_path,monkeypatch):
+    import os
+    db,media,intake,folder=stage(tmp_path,monkeypatch)
+    item=intake.scan()["items"][0]
+    first=intake.queue(item["id"])["manager_job_id"]
+    f=folder/"media.mkv"
+    os.utime(f,(1234,1234))
+    assert intake.queue(item["id"])["manager_job_id"]==first
+    f.write_bytes(b"other")
+    os.utime(f,(1234,1234))
+    assert intake.queue(item["id"])["manager_job_id"]!=first
+
+
+def test_direct_folder_queue_does_not_scan_other_intake(tmp_path,monkeypatch):
+    db,media,intake,folder=stage(tmp_path,monkeypatch)
+    monkeypatch.setattr(intake,"scan",lambda: (_ for _ in ()).throw(AssertionError("global scan")))
+    assert intake.queue_folder(folder,"movie")["queued"]
+
+
+def test_failed_transfer_explicit_queue_retries_existing_job(tmp_path,monkeypatch):
+    db,media,intake,folder=stage(tmp_path,monkeypatch)
+    first=intake.queue_folder(folder,"movie")
+    with db.write() as con:
+        con.execute("UPDATE transfer_queue SET state='failed',error='offline'")
+    retry=intake.queue_folder(folder,"movie")
+    assert retry["retried"]
+    assert retry["manager_job_id"]==first["manager_job_id"]
+    assert db.query_one("SELECT state FROM transfer_queue")["state"]=="queued"
