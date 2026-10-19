@@ -83,6 +83,10 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
    await page.waitForFunction(()=>document.querySelector('#toast').textContent==='Photo saved');
    assert(requests.some(r=>r.path==='/archive/node%3Aolder/images/extra'&&r.method==='PUT'&&r.query==='index=2'),'replace must target the actual photo owner');
    await page.click('[data-detail-panel="archiveText"]');await page.waitForFunction(()=>document.querySelector('#archiveTextArea').value==='Disc notes');await page.click('#archiveSaveText');await page.waitForFunction(()=>document.querySelector('#toast').textContent==='Storage disconnected');
+   for(const theme of ['light','dark']){
+    await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+    assert(await page.locator('#archiveTextArea').evaluate(el=>{const probe=document.createElement('span');probe.style.background='var(--field)';document.body.append(probe);const matches=getComputedStyle(probe).backgroundColor===getComputedStyle(el).backgroundColor;probe.remove();return matches}),'disc notes use the theme field colour');
+   }
    await page.click('#archiveBack');await page.waitForSelector('[data-library-id]');
    await navigate('mover');await page.waitForSelector('[data-recovery-analyse]');
    const intakeHelp=page.getByRole('button',{name:'About Where to put imported media'});await intakeHelp.click();await page.waitForSelector('#infoModal:not(.hidden)');assert((await page.textContent('#infoBody')).includes('/media/0 ~ Intake/Movies'));
@@ -105,12 +109,13 @@ await page.click('[data-recovery-analyse]');await page.waitForSelector('#confirm
    await page.evaluate(()=>toast('Notification layout check'));const notification=await page.locator('#toast').boundingBox(),appHeader=await page.locator('.v02-header').boundingBox();assert(notification.y>appHeader.y+appHeader.height,'notifications must not cover the app header');
    await navigate('settings');await page.waitForSelector('#overlay:not(.hidden)');
    const chooseCategory=async value=>{if(viewport.width<=760)await page.selectOption('#settingsCategory',value);else await page.click(`#settingsSidebar [data-settings-category="${value}"]`)};
-   assert.equal(Math.round((await page.locator('.settings-window').boundingBox()).width),viewport.width,'Settings should fill the display');
+   const settingsBox=await page.locator('.settings-window').boundingBox(),sharedHeader=await page.locator('.v02-header').boundingBox();assert(settingsBox.y>=sharedHeader.y+sharedHeader.height,'Settings retains the shared menu');assert(settingsBox.x>=0&&settingsBox.x+settingsBox.width<=viewport.width+1);assert.equal(await page.locator('#settingsClose,#libraryHome').count(),0,'pages have no close/home buttons');
    for(const theme of ['dark','light','system']){
     await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
     for(const category of ['dashboard','hardware','ripping','mover','security','updates','system','home']){
      await chooseCategory(category);
      assert(await page.locator('.settings-main').evaluate(el=>el.scrollWidth<=el.clientWidth+1),`${category} settings must not overflow at ${viewport.width}px in ${theme}`);
+     if(category==='home'&&viewport.width>760){const search=await page.locator('.settings-search-box').boundingBox(),sidebar=await page.locator('.settings-sidebar').boundingBox();assert(search.y>=sidebar.y,'returning Home reveals the complete settings search field');}
      if(category==='system'){
       const spacing=await page.locator('#settingsContent .settings-nav-row').evaluateAll(els=>els.map(el=>({padding:parseFloat(getComputedStyle(el).paddingLeft),inset:el.querySelector('.setting-copy').getBoundingClientRect().left-el.getBoundingClientRect().left})));
       assert(spacing.length&&spacing.every(x=>x.padding>=14&&x.inset>=14),'navigation copy must have even internal padding');
@@ -121,6 +126,13 @@ await page.click('[data-recovery-analyse]');await page.waitForSelector('#confirm
      const save=await page.locator('#settingsApply').boundingBox();assert(save.y+save.height<=viewport.height,'global Save must remain within the screen');
     }
    }
+   await page.evaluate(()=>{window.confirmationResult=null;window.confirmAction('Confirm '+('long title and path /media/ '.repeat(20))).then(result=>window.confirmationResult=result)});
+   await page.waitForSelector('#confirmationDialog[open]');
+   const confirmBox=await page.locator('#confirmationDialog').boundingBox();assert(confirmBox.x>=0&&confirmBox.y>=0&&confirmBox.x+confirmBox.width<=viewport.width+1&&confirmBox.y+confirmBox.height<=viewport.height+1,'confirmation fits viewport');
+   if(viewport.width===390){fs.mkdirSync('gui-test-artifacts',{recursive:true});await page.screenshot({path:'gui-test-artifacts/polished-confirmation.png'});}
+   await page.keyboard.press('Escape');await page.waitForFunction(()=>window.confirmationResult===false);assert(await page.locator('#overlay').isVisible(),'Escape only cancels top confirmation');
+   await page.evaluate(()=>{window.confirmationResult=null;window.confirmAction('Continue operation?').then(result=>window.confirmationResult=result)});await page.click('#confirmationAccept');await page.waitForFunction(()=>window.confirmationResult===true);
+   await page.evaluate(()=>window.uiHelp.copyPath('\\\\Byte-Me\\media'));await page.waitForSelector('#infoModal:not(.hidden)');assert.equal(await page.locator('.copy-path-field').inputValue(),'\\\\Byte-Me\\media');await page.keyboard.press('Escape');assert(await page.locator('#overlay').isVisible());
    await chooseCategory('dashboard');const cleanDraft=await page.evaluate(()=>JSON.stringify(State.draft));
    await page.getByRole('button',{name:'About Drive placement',exact:true}).click();await page.waitForSelector('#infoModal:not(.hidden)');assert((await page.textContent('#infoBody')).includes('A drive can only be assigned once'));await page.click('#infoClose');assert.equal(await page.evaluate(()=>JSON.stringify(State.draft)),cleanDraft,'help must not mutate settings');
    // Marked live messages and warnings are protected even if marked in error.
@@ -138,14 +150,15 @@ await page.click('[data-recovery-analyse]');await page.waitForSelector('#confirm
    await page.fill('#newPin','2468');await page.fill('#confirmPin','2468');await chooseCategory('dashboard');await chooseCategory('security');assert.equal(await page.inputValue('#newPin'),'2468','PIN draft must survive navigation');
    await page.fill('#newPin','');await page.fill('#confirmPin','');
    await page.fill('#settingsSearch','unknown setting qqq');assert((await page.textContent('#settingsSearchStatus')).includes('No settings found'));await page.keyboard.press('Escape');assert(await page.locator('#overlay').isVisible(),'Escape clears search before closing Settings');
-   await page.click('#settingsApply');await page.waitForSelector('#overlay.hidden',{state:'attached'});
+   await page.click('#settingsApply');await page.waitForFunction(()=>!State.settingsSaving&&!settingsDirty());assert(await page.locator('#overlay').isVisible(),'saving keeps Settings open as a page');await navigate('dashboard');
    const saved=requests.findLast(r=>r.path==='/settings'&&r.method==='PUT').body;assert.equal(saved.prefer_english_subtitles,true);assert.equal(saved.drive_preferences['node:DVD4'].visible,false);assert(!saved.new_pin,'cleared PIN draft must not be submitted');
    await navigate('settings');await page.waitForSelector('#overlay:not(.hidden)');
    await page.fill('#settingsSearch','theme');await page.keyboard.press('Enter');await page.selectOption('[data-setting-input="theme"]','light');
-   const dialog=page.waitForEvent('dialog').then(dialog=>dialog.dismiss());await page.click('#settingsClose');await dialog;assert(await page.locator('#overlay').isVisible(),'declining discard keeps unsaved settings');
+   await navigate('library');await page.waitForSelector('#confirmationDialog[open]');assert.equal(await page.locator('#confirmationCancel').evaluate(el=>el===document.activeElement),true,'Cancel has initial focus');await page.click('#confirmationCancel');assert(await page.locator('#overlay').isVisible(),'declining discard keeps unsaved settings');assert.equal(await page.locator('#libraryOverlay').isVisible(),false);
    await page.selectOption('[data-setting-input="theme"]','dark');await chooseCategory('home');
    fs.mkdirSync('gui-test-artifacts',{recursive:true});await page.screenshot({path:`gui-test-artifacts/settings-${viewport.width}x${viewport.height}.png`});
-   await page.evaluate(()=>openModal('Help','<p>Settings help</p>'));await page.keyboard.press('Escape');assert(await page.locator('#genericModal').evaluate(el=>el.classList.contains('hidden')));assert(await page.locator('#overlay').evaluate(el=>!el.classList.contains('hidden')),'Escape closes help before Settings');await page.keyboard.press('Escape');
+   await page.evaluate(()=>openModal('Help','<p>Settings help</p>'));await page.keyboard.press('Escape');assert(await page.locator('#genericModal').evaluate(el=>el.classList.contains('hidden')));assert(await page.locator('#overlay').evaluate(el=>!el.classList.contains('hidden')),'Escape closes help before Settings');await page.keyboard.press('Escape');assert(await page.locator('#overlay').isVisible(),'Escape does not close a page');await navigate('dashboard');
+   await navigate('settings');await page.waitForURL('**/preferences');assert.equal(new URL(page.url()).pathname,'/preferences');await page.reload();await page.waitForSelector('#overlay:not(.hidden)');assert(await page.locator('#mobileNavToggle').isVisible(),'menu survives direct settings reload');await navigate('dashboard');
    assert.deepEqual(errors,[],`Uncaught errors at ${viewport.width}x${viewport.height}`);
    fs.mkdirSync('gui-test-artifacts',{recursive:true});await page.screenshot({path:`gui-test-artifacts/dashboard-${viewport.width}x${viewport.height}.png`});
    await page.close();

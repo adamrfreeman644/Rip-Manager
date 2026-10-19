@@ -46,6 +46,7 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           node --check rip_manager_container/app/static/ui.js
+          node rip_manager_container/tests/test_confirmation.cjs
           node --check rip_manager_container/app/static/settings.js
           node rip_manager_container/tests/test_settings_search.cjs
           node --check rip_manager_container/app/static/app.js

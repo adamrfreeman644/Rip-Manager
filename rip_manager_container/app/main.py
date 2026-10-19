@@ -88,6 +88,7 @@ PUBLIC_PATHS = {
     "/downloads",
     "/stats",
     "/library",
+    "/preferences",
     "/health",
     "/api/info",
     "/auth/status",
@@ -123,6 +124,7 @@ def index():
 @app.get("/mover", include_in_schema=False)
 @app.get("/downloads", include_in_schema=False)
 @app.get("/stats", include_in_schema=False)
+@app.get("/preferences", include_in_schema=False)
 @app.get("/library", include_in_schema=False)
 def application_page():
     return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-store, max-age=0"})

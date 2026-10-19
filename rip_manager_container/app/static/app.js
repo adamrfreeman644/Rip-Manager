@@ -868,7 +868,7 @@ async function runAction(nodeId, drive, action, options = {}) {
 }
 
 async function ejectDrive(nodeId, drive) {
-  if (State.settings?.confirm_eject && !confirm(`Eject ${drive}?`)) return;
+  if (State.settings?.confirm_eject && !await window.confirmAction(`Eject ${drive}?`)) return;
   await runAction(nodeId, drive, "eject", { success: `${drive} ejected`, closeIntake: true });
 }
 
@@ -877,7 +877,7 @@ async function closeTray(nodeId, drive) {
 }
 
 async function cancelRip(nodeId, drive) {
-  if (!confirm(`Cancel the rip in ${drive}?`)) return;
+  if (!await window.confirmAction(`Cancel the rip in ${drive}?`)) return;
   await runAction(nodeId, drive, "cancel", { success: `${drive} cancelling` });
 }
 
@@ -892,7 +892,7 @@ async function stopWaiting(nodeId, drive) {
 }
 
 async function clearDrive(nodeId, drive) {
-  if (!confirm(`Clear the failed rip from ${drive}?`)) return;
+  if (!await window.confirmAction(`Clear the failed rip from ${drive}?`)) return;
   await runAction(nodeId, drive, "clear", { success: `${drive} cleared` });
 }
 
@@ -1034,7 +1034,7 @@ async function copyShare(value) {
     await navigator.clipboard.writeText(value);
     toast("Share path copied");
   } catch {
-    prompt("Copy this share path:", value);
+    window.uiHelp.copyPath(value);
   }
 }
 
@@ -1249,7 +1249,8 @@ function drawer(title, html) {
   window.settingsShell?.render(title);
 }
 
-async function openSettings() {
+async function openSettings(push=true) {
+  if(!$("#overlay").classList.contains("hidden"))return;
   try {
     State.settings = await api("/settings");
     State.draft = structuredClone(State.settings);
@@ -1260,6 +1261,11 @@ async function openSettings() {
     State.settingsNav = [{page:"home",args:[]}];
     markSettingsClean();
     window.settingsShell?.begin();
+    window.stopArchiveRefresh?.();window.hideLibraryLookup?.();
+    $("#archiveOverlay").classList.add("hidden");$("#driveGrid").classList.add("hidden");
+    document.querySelectorAll('[data-app-route]').forEach(el=>el.classList.toggle('current-page',el.dataset.appRoute==='settings'));
+    if(push&&location.pathname!=="/preferences")history.pushState({route:"settings"},"","/preferences");
+    document.title="Settings · Rip Remote";
     renderSettingsHome();
   } catch (error) { toast(error.message); }
 }
@@ -1728,7 +1734,7 @@ async function loadDriveMapping(nodeId=null) {
 
   box.querySelectorAll("[data-map-reconcile]").forEach(btn => btn.onclick = async () => {
     const nodeId=btn.dataset.mapReconcile;
-    if (!confirm("Rebuild drive mappings from the optical drives currently detected by this node? Existing logical slots will be replaced with DVD1, DVD2, DVD3… and surplus slots will be deleted.")) return;
+    if (!await window.confirmAction("Rebuild drive mappings from the optical drives currently detected by this node? Existing logical slots will be replaced with DVD1, DVD2, DVD3… and surplus slots will be deleted.")) return;
     btn.disabled=true;
     const original=btn.textContent;
     btn.textContent="Rebuilding mappings…";
@@ -1761,7 +1767,7 @@ async function loadDriveMapping(nodeId=null) {
 
   box.querySelectorAll("[data-map-remove]").forEach(btn => btn.onclick = async () => {
     const [nodeId,name] = btn.dataset.mapRemove.split(":");
-    if (!confirm(`Remove ${name} from this Rip Node? This does not eject or delete the physical drive.`)) return;
+    if (!await window.confirmAction(`Remove ${name} from this Rip Node? This does not eject or delete the physical drive.`)) return;
     try {
       await api(`/nodes/${encodeURIComponent(nodeId)}/drive-mapping/${encodeURIComponent(name)}`, {method:"DELETE"});
       toast(`${name} removed`);
@@ -2013,7 +2019,7 @@ async function toggleSimulator() {
 }
 
 async function resetSimulator() {
-  if(!confirm("Reset every simulated drive and job to the starting demonstration scene?"))return;
+  if(!await window.confirmAction("Reset every simulated drive and job to the starting demonstration scene?"))return;
   try{const result=await api("/simulator-node/reset",{method:"POST"});toast(result.message||"Simulator reset");await refresh(true);hardwarePage();}
   catch(error){toast(error.message);}
 }
@@ -2023,7 +2029,7 @@ async function installNode() {
   if (!fields.node_id || !fields.name || !fields.host || !fields.username || !fields.password || !fields.manager_url_for_node) {
     toast("Complete the node, SSH and manager address fields"); return;
   }
-  if (!confirm(`Install Rip Node on ${fields.host} and adopt it as ${fields.name}?`)) return;
+  if (!await window.confirmAction(`Install Rip Node on ${fields.host} and adopt it as ${fields.name}?`)) return;
   const button = $("#adoptInstall");
   const result = $("#adoptInstallResult");
   button.disabled = true;
@@ -2158,7 +2164,6 @@ function openMoverFromSettings() {
     toast("Save or cancel your settings changes before opening the Mover queue");
     return;
   }
-  cancelSettings();
   window.openMover();
 }
 
@@ -2174,7 +2179,7 @@ function systemPage() {
 }
 
 async function restartManager() {
-  if (!confirm("Restart Rip Manager now? The page will be unavailable briefly. Active node rips will continue.")) return;
+  if (!await window.confirmAction("Restart Rip Manager now? The page will be unavailable briefly. Active node rips will continue.")) return;
   const button = document.querySelector('[data-settings-action="restart-manager"]');
   if (button) { button.disabled = true; button.textContent = "Restarting…"; }
   try {
@@ -2239,7 +2244,7 @@ async function runNodeDependencyDetails(nodeId, action) {
   const check=$("#dependencyCheck"), update=$("#dependencyUpdate");
   const payload=dependencyCredentials();
   if(!payload.username||!payload.password){status.textContent="Enter the node username and password.";return;}
-  if(action==="update"&&!confirm("Install the listed dependency updates and restart the Node API?"))return;
+  if(action==="update"&&!await window.confirmAction("Install the listed dependency updates and restart the Node API?"))return;
   check.disabled=true;update.disabled=true;
   status.textContent=action==="check"
     ?"Refreshing package information and comparing versions…"
@@ -2295,9 +2300,10 @@ async function saveSettings() {
   State.settingsSaving=true;window.settingsShell?.dirty();
   try {
     State.settings = await api("/settings", { method: "PUT", body: JSON.stringify(body) });
-    State.draft = structuredClone(State.settings); State.settingsPinDraft = {}; markSettingsClean(); State.draft = null;
+    State.settingsPinDraft = {};
     applyTheme();
-    $("#overlay").classList.add("hidden");
+    State.draft=structuredClone(State.settings);markSettingsClean();
+    const currentSettingsPage=State.settingsNav?.at(-1);renderSettingsRoute(currentSettingsPage?.page||"home",...(currentSettingsPage?.args||[]));
     toast("Settings saved");
     await refresh();
   } catch (error) {
@@ -2307,11 +2313,20 @@ async function saveSettings() {
   }
 }
 
-function cancelSettings() {
-  if(State.draft&&settingsDirty()&&!confirm("Discard unsaved settings changes?"))return;
+async function cancelSettings() {
+  if(State.draft&&settingsDirty()&&!await window.confirmAction("Discard unsaved settings changes?"))return false;
   if(State.settings)document.documentElement.dataset.theme=State.settings.theme;
-  State.draft=null;State.settingsPinDraft={};State.settingsBaseline="";$("#overlay").classList.add("hidden");
+  State.draft=structuredClone(State.settings);State.settingsPinDraft={};markSettingsClean();
+  renderSettingsHome();return true;
 }
+window.leaveSettings=async()=>{
+  if($("#overlay").classList.contains("hidden"))return true;
+  if(State.settingsSaving){toast("Wait for settings to finish saving");return false;}
+  if(State.draft&&settingsDirty()&&!await window.confirmAction("Discard unsaved settings changes?"))return false;
+  if(State.settings)document.documentElement.dataset.theme=State.settings.theme;
+  State.draft=null;State.settingsPinDraft={};State.settingsBaseline="";
+  $("#overlay").classList.add("hidden");return true;
+};
 
 function applyTheme() {
   if (!State.settings) return;
@@ -2411,7 +2426,7 @@ function renderRollbackStatus(status) {
 }
 
 async function requestRollback(filename,version) {
-  if(!confirm(`Roll back Rip Manager to v${version}?\n\nSettings, PIN, node configuration and job history will be preserved.`))return;
+  if(!await window.confirmAction(`Roll back Rip Manager to v${version}?\n\nSettings, PIN, node configuration and job history will be preserved.`))return;
   try{
     const result=await api("/updates/rollback",{method:"POST",body:JSON.stringify({filename})});
     toast(result.message||"Rollback queued"); await loadUpdates();
@@ -2419,7 +2434,7 @@ async function requestRollback(filename,version) {
 }
 
 async function installManagerUpdate() {
-  if (!confirm("Install the available Rip Manager update? The web page will briefly go offline.")) return;
+  if (!await window.confirmAction("Install the available Rip Manager update? The web page will briefly go offline.")) return;
   try {
     const result = await api("/updates/install-manager", { method: "POST" });
     toast(result.message || "Update requested");
@@ -2430,7 +2445,7 @@ async function installManagerUpdate() {
 }
 
 async function pushNodeUpdates() {
-  if (!confirm("Install the newest Rip Node release on configured nodes? Busy nodes will wait until their rips finish.")) return;
+  if (!await window.confirmAction("Install the newest Rip Node release on configured nodes? Busy nodes will wait until their rips finish.")) return;
   try {
     const result = await api("/updates/push-nodes", { method: "POST" });
     toast(result.message || "Node update queued");
@@ -2697,8 +2712,7 @@ document.querySelectorAll(".modal-backdrop:not(#loginModal)").forEach((backdrop)
   backdrop.onclick = (event) => { if (event.target === backdrop) closeModal(backdrop.id); };
 });
 
-$("#overlay").onclick = (event) => { if (event.target === $("#overlay")) cancelSettings(); };
-$("#settingsClose").onclick = cancelSettings;
+document.querySelector(".app").appendChild($("#overlay"));
 $("#settingsBackHeader").onclick = settingsBack;
 
 $("#settingsContent").addEventListener("click", (event) => {
@@ -2876,7 +2890,7 @@ document.addEventListener("keydown", (event) => {
   for (const id of ["genericModal", "libraryDetailModal", "libraryMoreModal", "intakeModal"]) {
     if (!$("#"+id).classList.contains("hidden")) { closeModal(id); return; }
   }
-  if (!$("#overlay").classList.contains("hidden")) { cancelSettings(); return; }
+  if (!$("#overlay").classList.contains("hidden")) return;
   if (!$("#intakeModal").classList.contains("hidden")) closeModal("intakeModal");
 });
 
