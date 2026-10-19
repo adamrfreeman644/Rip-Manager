@@ -236,3 +236,83 @@ def test_recovery_identical_files_in_different_folders_get_distinct_jobs(tmp_pat
         ids.append(recovery.adopt("node-1", name)["manager_job_id"])
     assert len(set(ids)) == 2
     assert len(db.query("SELECT * FROM transfer_queue")) == 2
+
+
+@pytest.mark.parametrize("mutation", ["add", "replace", "remove", "corrupt_destination"])
+def test_mover_detects_changes_after_a_file_was_copied(tmp_path, monkeypatch, mutation):
+    db = fresh_database(tmp_path, monkeypatch)
+    node = tmp_path / "node"
+    source = node / "Movies" / "Changing Film"
+    source.mkdir(parents=True)
+    media_file = source / "movie.mkv"
+    media_file.write_bytes(b"original")
+    media = configure(db, tmp_path, node)
+    import recovery, mover, jobs, os
+    result = recovery.adopt("node-1", source.name)
+    job = jobs.row_to_dict(db.query_one("SELECT * FROM jobs_history WHERE manager_job_id=?", (result["manager_job_id"],)))
+    transfer = dict(db.query_one("SELECT * FROM transfer_queue WHERE manager_job_id=?", (result["manager_job_id"],)))
+    real_hash = mover._hash
+    changed = False
+
+    def mutate_after_hash(path):
+        nonlocal changed
+        digest = real_hash(path)
+        if path.name == "movie.mkv" and ".partial" in str(path) and not changed:
+            changed = True
+            if mutation == "add":
+                (source / "new-extra.mkv").write_bytes(b"new extra")
+            elif mutation == "replace":
+                stat = media_file.stat()
+                media_file.write_bytes(b"replaced")  # Same size and mtime must still be caught.
+                os.utime(media_file, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+            elif mutation == "remove":
+                media_file.unlink()
+            else:
+                path.write_bytes(b"corrupt!")
+        return digest
+
+    monkeypatch.setattr(mover, "_hash", mutate_after_hash)
+    with pytest.raises(IOError, match="changed|Verification failed"):
+        mover._copy_transfer(transfer, job)
+    assert changed
+    assert source.is_dir()
+    if mutation == "add":
+        assert (source / "new-extra.mkv").read_bytes() == b"new extra"
+    elif mutation != "remove":
+        assert media_file.read_bytes() == (b"replaced" if mutation == "replace" else b"original")
+    destination = media / "1 ~ Movies" / source.name
+    assert not destination.exists()
+    # A stable retry recreates the partial copy and verifies the new inventory.
+    if mutation != "remove":
+        monkeypatch.setattr(mover, "_hash", real_hash)
+        mover._copy_transfer(transfer, job)
+        assert not source.exists()
+        assert (destination / "movie.mkv").read_bytes() == (b"replaced" if mutation == "replace" else b"original")
+        if mutation == "add":
+            assert (destination / "new-extra.mkv").read_bytes() == b"new extra"
+
+
+def test_mover_retains_source_changed_during_archive_finalization(tmp_path, monkeypatch):
+    db = fresh_database(tmp_path, monkeypatch)
+    node = tmp_path / "node"
+    source = node / "Movies" / "Late Extra"
+    source.mkdir(parents=True)
+    (source / "movie.mkv").write_bytes(b"original")
+    configure(db, tmp_path, node)
+    import recovery, mover, jobs, archive
+    result = recovery.adopt("node-1", source.name)
+    job = jobs.row_to_dict(db.query_one("SELECT * FROM jobs_history WHERE manager_job_id=?", (result["manager_job_id"],)))
+    transfer = dict(db.query_one("SELECT * FROM transfer_queue WHERE manager_job_id=?", (result["manager_job_id"],)))
+    real_final = archive.set_final_dir
+
+    def add_late_extra(*args):
+        real_final(*args)
+        (source / "late-extra.mkv").write_bytes(b"retain me")
+
+    monkeypatch.setattr(archive, "set_final_dir", add_late_extra)
+    mover._copy_transfer(transfer, job)
+    assert (source / "late-extra.mkv").read_bytes() == b"retain me"
+    assert (source / "movie.mkv").read_bytes() == b"original"
+    row = db.query_one("SELECT state,error FROM transfer_queue WHERE id=?", (transfer["id"],))
+    assert row["state"] == "complete"
+    assert "source retained" in row["error"].lower()
