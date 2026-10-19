@@ -1167,8 +1167,8 @@ function openSettingsHelp(topic) {
 
 function settingsSnapshot(){ return JSON.stringify(State.draft || {}); }
 function markSettingsClean(){ State.settingsBaseline = settingsSnapshot(); }
-function settingsDirty(){ return Boolean(State.draft) && settingsSnapshot() !== (State.settingsBaseline || ""); }
-function updateDirtySaveButtons(){ document.querySelectorAll('[data-settings-action="save"]').forEach(b=>b.disabled=!settingsDirty()); }
+function settingsDirty(){ return Boolean(State.draft) && (settingsSnapshot() !== (State.settingsBaseline || "") || Object.values(State.settingsPinDraft||{}).some(Boolean)); }
+function updateDirtySaveButtons(){ document.querySelectorAll('[data-settings-action="save"]').forEach(b=>b.disabled=!settingsDirty()); window.settingsShell?.dirty(); }
 
 function ensureSettingsNav() {
   if (!Array.isArray(State.settingsNav)) State.settingsNav = [];
@@ -1222,7 +1222,7 @@ const toggleRow = (name, description, on, attributes) => `<div class="setting-ro
     <div class="setting-name">${esc(name)}</div>
     <div class="setting-desc">${esc(description)}</div>
   </div>
-  <button type="button" class="toggle${on ? " on" : ""}" ${attributes} aria-pressed="${Boolean(on)}"></button>
+  <button type="button" class="toggle${on ? " on" : ""}" ${attributes} aria-label="${esc(name)}" aria-pressed="${Boolean(on)}"></button>
 </div>`;
 
 const toggleRowHelp = (name, description, on, attributes, topic) => `<div class="setting-row">
@@ -1230,7 +1230,7 @@ const toggleRowHelp = (name, description, on, attributes, topic) => `<div class=
     <div class="setting-name setting-name-with-help"><span>${esc(name)}</span>${helpButton(topic,`More information about ${name}`)}</div>
     <div class="setting-desc">${esc(description)}</div>
   </div>
-  <button type="button" class="toggle${on ? " on" : ""}" ${attributes} aria-pressed="${Boolean(on)}"></button>
+  <button type="button" class="toggle${on ? " on" : ""}" ${attributes} aria-label="${esc(name)}" aria-pressed="${Boolean(on)}"></button>
 </div>`;
 
 const navRow = (name, description, page) => `<button type="button" class="settings-nav-row" data-settings-page="${page}">
@@ -1246,14 +1246,20 @@ function drawer(title, html) {
   $("#settingsBackHeader").classList.toggle("hidden", !Array.isArray(State.settingsNav) || State.settingsNav.length <= 1);
   $("#settingsContent").innerHTML = `<div class="settings-page active">${html}</div>`;
   $("#overlay").classList.remove("hidden");
+  window.settingsShell?.render(title);
 }
 
 async function openSettings() {
   try {
     State.settings = await api("/settings");
     State.draft = structuredClone(State.settings);
+    State.settingsPinDraft = {};
+    State.draft.drive_preferences ||= {};
+    normaliseDraftLayout();
+    State.drives.forEach(drive=>drivePreference(dashboardDriveKey(drive)));
     State.settingsNav = [{page:"home",args:[]}];
     markSettingsClean();
+    window.settingsShell?.begin();
     renderSettingsHome();
   } catch (error) { toast(error.message); }
 }
@@ -1261,23 +1267,7 @@ async function openSettings() {
 function renderSettingsHome() {
   ensureSettingsNav();
   if (!State.settingsNav.length || State.settingsNav[State.settingsNav.length-1]?.page !== "home") State.settingsNav = [{page:"home",args:[]}];
-  const nodes=(State.draft?.nodes||[]).filter(node=>!isSimulatorNode(node));
-  const driveCount=(State.drives||[]).filter(drive=>drive.node_id!=="simulator").length;
-  const providerCount=["metadata_musicbrainz","metadata_google_books","metadata_upcitemdb","metadata_omdb"].filter(k=>State.draft?.[k]).length;
-  const cards=[
-    ["ripping","Ripping & disc information","Disc handling, barcode lookup, metadata and notifications","▶",`${providerCount}/4 metadata sources`],
-    ["hardware","Nodes & drives","Connections, drive mapping, storage and node software","▣",`${nodes.length} node${nodes.length===1?"":"s"} · ${driveCount} drive${driveCount===1?"":"s"}`],
-    ["mover","Storage & mover","Rip Node sources, Byte-Me destinations and transfer behaviour","⇄",State.draft?.mover_enabled?"Mover enabled":"Mover disabled"],
-    ["system","App & system","Dashboard, access, updates and diagnostics","↻"],
-  ];
-  drawer("Settings", `<div class="settings-hero">
-    <div><span class="settings-eyebrow">RIP MANAGER</span><h2>What do you want to manage?</h2><p>Settings are grouped around the jobs you perform, with no duplicated configuration.</p></div>
-    <div class="settings-version-pill">${esc($("#managerVersion")?.textContent||"")}</div>
-  </div>
-  <div class="settings-dashboard">${cards.map(([page,title,desc,icon,badge])=>`<button class="settings-dashboard-card" type="button" data-settings-page="${page}">
-    <span class="settings-card-icon">${icon}</span><span class="settings-card-copy"><strong>${title}</strong><small>${desc}</small></span>
-    ${badge?`<span class="settings-card-badge">${esc(badge)}</span>`:""}<span class="settings-card-arrow">›</span></button>`).join("")}</div>
-  <div class="settings-footer-note"><span class="settings-online-dot"></span>Changes apply only after Save changes.</div>`);
+  drawer("Home", window.settingsShell?.home() || "<p>Choose a settings category.</p>");
 }
 
 const isSimulatorNode = (node) => node?.id === "simulator"
@@ -2212,6 +2202,8 @@ function securityPage() {
       <div class="field"><label>Confirm ${hasPin?"new ":""}PIN</label><input id="confirmPin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="new-password" placeholder="4–8 digits"></div>
       <div class="note compact-note">PINs must contain numbers only and can be between 4 and 8 digits long.</div>
     </div>${lockOn&&hasPin?`<button class="secondary full-button" type="button" data-settings-action="lock">Lock now</button>`:""}${saveBar()}`);
+  for(const id of ["newPin","confirmPin","currentPin"]){const input=$("#"+id);if(input)input.value=State.settingsPinDraft?.[id]||"";}
+
 }
 
 function updatesPage() {
@@ -2277,9 +2269,10 @@ async function runNodeDependencyDetails(nodeId, action) {
 }
 
 async function saveSettings() {
-  const pin = $("#newPin")?.value || "";
-  const confirmPin = $("#confirmPin")?.value || "";
-  const currentPin = $("#currentPin")?.value || "";
+  if(!State.draft||State.settingsSaving)return;
+  const pin = State.settingsPinDraft?.newPin || $("#newPin")?.value || "";
+  const confirmPin = State.settingsPinDraft?.confirmPin || $("#confirmPin")?.value || "";
+  const currentPin = State.settingsPinDraft?.currentPin || $("#currentPin")?.value || "";
 
   if (pin !== confirmPin) { toast("PINs do not match"); return; }
   if (pin && !/^\d{4,8}$/.test(pin)) { toast("PIN must be 4–8 digits"); return; }
@@ -2299,22 +2292,25 @@ async function saveSettings() {
     if (State.draft.pin_set) body.current_pin = currentPin;
   }
 
+  State.settingsSaving=true;window.settingsShell?.dirty();
   try {
     State.settings = await api("/settings", { method: "PUT", body: JSON.stringify(body) });
-    State.draft = structuredClone(State.settings); markSettingsClean(); State.draft = null;
+    State.draft = structuredClone(State.settings); State.settingsPinDraft = {}; markSettingsClean(); State.draft = null;
     applyTheme();
     $("#overlay").classList.add("hidden");
     toast("Settings saved");
     await refresh();
   } catch (error) {
     toast(error.message);
+  } finally {
+    State.settingsSaving=false;window.settingsShell?.dirty();
   }
 }
 
 function cancelSettings() {
   if(State.draft&&settingsDirty()&&!confirm("Discard unsaved settings changes?"))return;
   if(State.settings)document.documentElement.dataset.theme=State.settings.theme;
-  State.draft=null;State.settingsBaseline="";$("#overlay").classList.add("hidden");
+  State.draft=null;State.settingsPinDraft={};State.settingsBaseline="";$("#overlay").classList.add("hidden");
 }
 
 function applyTheme() {
@@ -2798,6 +2794,9 @@ $("#settingsContent").addEventListener("input", (event) => {
   const input = event.target;
   if (!State.draft) return;
 
+  if (["newPin","confirmPin","currentPin"].includes(input.id)) {
+    State.settingsPinDraft ||= {};State.settingsPinDraft[input.id]=input.value;updateDirtySaveButtons();
+  }
   if (input.dataset.settingInput) {
     const key = input.dataset.settingInput;
     State.draft[key] = ["number", "range"].includes(input.type) ? Number(input.value) : input.value;
