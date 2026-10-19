@@ -1,9 +1,9 @@
 {
-  "version": "0.25.6",
+  "version": "0.25.7",
   "notes": [
-    "Digital Intake scans no longer create directories or move loose media. Explicit Prepare or Queue creates a safe folder for a loose file.",
-    "Content hashes and validated folder identity replace mtimes in adoption identity; generated sidecars do not create false new jobs.",
-    "Adoption retries enqueue missing transfers after Mover availability changes and explicitly retry failed/cancelled transfers. Adds direct folder queueing without scanning unrelated Intake items.",
-    "Adds regressions for disabled-then-enabled Mover, read-only discovery, mtime changes, content changes, direct folder queueing and failed transfer retry."
+    "Downloads queue their own validated staging folder directly, without a global Intake scan.",
+    "Playlist selections share one staging folder and transfer job; failed or unfinished members block the group until retried or explicitly removed.",
+    "Source URLs, playlist identity and processing outcome persist in media manifests. Download history exposes transfer state and eventual destination. Intake retry avoids downloading completed media again.",
+    "Adds regressions for direct folder queueing, playlist completion and failed-member removal, playlist staging, provenance preservation and destination history."
   ]
 }
