@@ -14,11 +14,20 @@ def _manifest_upc(payload):
     return _clean_barcode(payload.get("upc") or (payload.get("physical_media") or {}).get("upc"))
 
 def _read_manifest(path: Path):
-    try:
-        payload=json.loads(path.read_text(encoding="utf-8"))
-        return payload if isinstance(payload,dict) else None
-    except (OSError,ValueError,TypeError):
-        return None
+    import archive
+    return archive._read_manifest_file(path)
+
+
+def physical_media():
+    """Shared physical records for both collection and legacy archive routes."""
+    import archive
+    return archive.list_media()
+
+
+def refresh_catalog(progress=None):
+    import archive
+    records=archive._scan_existing_records(progress=progress)
+    return {"archive":records,"index":check_manifests(progress=progress)}
 
 def _index_manifest(path: Path,payload: dict):
     now=time.time(); title=payload.get("title") or path.parent.name; barcode=_manifest_upc(payload)
@@ -110,7 +119,7 @@ def _collection() -> list[dict]:
     import archive
     if not db.query_one("SELECT 1 FROM library_items LIMIT 1"):
         check_manifests()
-    physical = archive.list_media()
+    physical = physical_media()
     by_folder = {}
     by_job = {}
     for item in physical:
@@ -217,24 +226,28 @@ def bulk_add(text: str) -> dict:
         added+=1
     return {"submitted":len(submitted),"added":added,"already_owned":existing,"duplicates":duplicates,"invalid":invalid}
 
-def check_manifests() -> dict:
+def check_manifests(progress=None) -> dict:
     root=Path(db.get_setting("mover_destination_root","/media")).resolve()
     folders=db.get_setting_json("mover_destination_folders",{})
-    found=updated=skipped=0; seen=set()
+    found=updated=skipped=0; seen=set(); scanned_roots=[]
     for relative in folders.values():
         base=(root/relative).resolve()
         try: base.relative_to(root)
         except ValueError: continue
         if not base.is_dir(): continue
+        scanned_roots.append(base)
         for manifest in base.rglob("disc-info.json"):
-            found+=1; payload=_read_manifest(manifest)
+            if not manifest.resolve().is_relative_to(base) or manifest.is_symlink(): continue
+            found+=1
+            if progress: progress(found,0,str(manifest))
+            payload=_read_manifest(manifest)
             if payload is None: skipped+=1; continue
             _index_manifest(manifest,payload); seen.add(str(manifest)); updated+=1
     # The index is disposable: remove entries whose manifests no longer exist in configured media.
     with db.write() as conn:
         rows=conn.execute("SELECT id,manifest_path FROM library_items").fetchall()
         for row in rows:
-            if row["manifest_path"] not in seen:
+            if row["manifest_path"] not in seen and any(Path(row["manifest_path"]).is_relative_to(base) for base in scanned_roots):
                 conn.execute("DELETE FROM library_items WHERE id=?",(row["id"],))
     return {"manifests_found":found,"database_updated":updated,"skipped":skipped}
 
