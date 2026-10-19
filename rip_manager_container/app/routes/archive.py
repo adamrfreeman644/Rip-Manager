@@ -233,17 +233,25 @@ def intake_status():
     except OSError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-@router.post("/mover/intake/prepare")
-def intake_prepare():
+@router.post("/mover/intake/{item_id}/prepare")
+def intake_prepare_item(item_id: str):
     try:
-        return media_intake.prepare_all()
+        return media_intake.prepare(item_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Intake item not found") from exc
+    except FileExistsError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (OSError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-@router.post("/mover/intake/queue")
-def intake_queue():
+@router.post("/mover/intake/{item_id}/queue")
+def intake_queue_item(item_id: str):
     try:
-        return media_intake.queue_all()
+        return media_intake.queue(item_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Intake item not found") from exc
+    except FileExistsError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (OSError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

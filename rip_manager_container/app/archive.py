@@ -840,7 +840,8 @@ def _read_manifest_file(path: Path) -> Optional[dict]:
 
 
 def write_recovery_manifest(folder: Path, title: Optional[str] = None, year: Optional[int] = None,
-                            media_type: str = "movie", node_id: Optional[str] = None) -> str:
+                            media_type: str = "movie", node_id: Optional[str] = None, provenance: str = "rip_node_recovery",
+                            source: Optional[str] = None) -> str:
     """Write the standard schema-v2 manifest for an untracked rip before transfer."""
     folder = Path(folder)
     target = folder / "disc-info.json"
@@ -866,9 +867,10 @@ def write_recovery_manifest(folder: Path, title: Optional[str] = None, year: Opt
         "disc": {"season": None, "number": None},
         "legacy_import": {
             "imported": True,
-            "source": "rip_node_recovery",
+            "source": provenance,
             "historical_rip_details_available": False,
-            "note": "Recovered from an existing Rip Node folder; unavailable rip history was not invented.",
+            "note": "Imported media; unavailable historical details were not invented.",
+            "original_source": source,
         },
         "folder": {"name": folder.name, "path": str(folder), "modified_at": _iso_timestamp(stat.st_mtime)},
         "files": files,
