@@ -92,6 +92,7 @@ await page.click('[data-recovery-analyse]');await page.waitForSelector('#confirm
     for(const name of ['library','mover','downloads','stats','dashboard']){
      await navigate(name);await wait(50);
      assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${name} ${theme} must not overflow ${viewport.width}px`);
+     if(viewport.width===390&&theme==='light'){fs.mkdirSync('gui-test-artifacts',{recursive:true});await page.screenshot({path:`gui-test-artifacts/fluent-${name}.png`});}
     }
    }
    await navigate('settings');await page.waitForSelector('#overlay:not(.hidden)');
@@ -105,6 +106,7 @@ await page.click('[data-recovery-analyse]');await page.waitForSelector('#confirm
      if(category==='system'){
       const spacing=await page.locator('#settingsContent .settings-nav-row').evaluateAll(els=>els.map(el=>({padding:parseFloat(getComputedStyle(el).paddingLeft),inset:el.querySelector('.setting-copy').getBoundingClientRect().left-el.getBoundingClientRect().left})));
       assert(spacing.length&&spacing.every(x=>x.padding>=14&&x.inset>=14),'navigation copy must have even internal padding');
+      if(viewport.width===390&&theme==='light'){fs.mkdirSync('gui-test-artifacts',{recursive:true});await page.screenshot({path:'gui-test-artifacts/fluent-settings-system.png'});}
       const groups=await page.locator('#settingsContent .settings-page>.settings-group').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return{top:r.top,bottom:r.bottom}}));assert(groups.slice(1).every((r,i)=>r.top-groups[i].bottom>=12),'settings cards must have visible gaps');
      }
      const save=await page.locator('#settingsApply').boundingBox();assert(save.y+save.height<=viewport.height,'global Save must remain within the screen');

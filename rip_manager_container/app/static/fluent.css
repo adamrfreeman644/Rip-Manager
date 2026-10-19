@@ -21,7 +21,7 @@ button{font-weight:600}
 /* Dynamic error/state boxes keep their content and remain visible. */
 .note{padding:12px!important;border-radius:8px!important;line-height:1.55!important;overflow-wrap:anywhere}.note.bad,.warning-box{border-left:3px solid var(--bad)!important}
 /* Resolve the legacy zero horizontal padding visible in navigation cards. */
-#settingsContent .settings-nav-row{padding:16px!important;border:1px solid var(--line)!important;border-radius:8px!important;gap:16px!important;min-height:76px}
+#settingsContent .settings-nav-row{margin:0!important;padding:16px!important;border:1px solid var(--line)!important;border-radius:8px!important;gap:16px!important;min-height:76px}
 #settingsContent .settings-page.active{gap:16px!important}#settingsContent .settings-group{display:grid;gap:12px;padding:16px!important;border-radius:8px!important}
 #settingsContent .settings-group h3{margin:0!important;font-size:15px;line-height:1.4}#settingsContent .settings-group-heading{margin:0!important;min-height:24px}
 #settingsContent .settings-nav-row+.settings-nav-row{margin-top:0}#settingsContent .setting-row{padding:12px 0!important;gap:16px!important}.setting-copy{display:grid;gap:6px}.setting-name,.setting-desc{line-height:1.5!important;margin:0!important}.settings-chevron{flex:none}
