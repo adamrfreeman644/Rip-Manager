@@ -154,3 +154,46 @@ def drive_preference(node_id: str, drive_name: str, key: str, default: bool = Tr
 
 async def gather_settled(*awaitables: Any) -> list:
     return await asyncio.gather(*awaitables, return_exceptions=True)
+
+
+async def verify_api_deployments() -> dict:
+    """Verify the running API of every configured real node, not installer claims."""
+    import time
+    from config import BUNDLED_NODE_VERSION
+    import updates
+
+    async def verify(node):
+        result={"id":node["id"],"name":node["name"],"enabled":bool(node["enabled"]),
+                "expected_version":BUNDLED_NODE_VERSION,"version":None,"verified":False,
+                "simulator":node["id"]=="simulator" or "/simulator-node" in node["url"],
+                "error":None,"api_node":None,"update_available":False}
+        if not result["enabled"]:
+            result["deployment_state"]="disabled"
+            return result
+        if result["simulator"]:
+            result["deployment_state"]="simulator"
+            return result
+        try:
+            info=await get_json(f"{base_url(node)}/api/info",headers_for(node))
+            result.update(version=info.get("version"),api_node=info.get("node"))
+            result["simulator"]=bool(info.get("simulator") or str(info.get("version") or "").endswith("-simulator"))
+            result["verified"]=not result["simulator"] and result["version"]==BUNDLED_NODE_VERSION
+            result["deployment_state"]=("simulator" if result["simulator"] else "verified" if result["verified"] else "version_mismatch" if result["version"] else "unknown_version")
+            result["update_available"]=bool(not result["simulator"] and result["version"] and updates.version_tuple(BUNDLED_NODE_VERSION)>updates.version_tuple(result["version"]))
+        except Exception as exc:
+            result.update(deployment_state="unreachable",error=str(exc) or type(exc).__name__)
+        return result
+
+    rows=db.query("SELECT id,name,url,enabled,token FROM nodes ORDER BY id")
+    versions=await asyncio.gather(*(verify(row) for row in rows))
+    real=[row for row in versions if row["enabled"] and not row["simulator"]]
+    result={"checked_at":time.time(),"expected_version":BUNDLED_NODE_VERSION,"nodes":versions,
+            "all_verified":bool(real) and all(row["verified"] for row in real),
+            "verified_count":sum(row["verified"] for row in real),"expected_count":len(real)}
+    db.set_setting("node_deployments",json.dumps(result))
+    request=updates.read_json("install-nodes.request.json") or {}
+    if result["all_verified"] and request.get("pending") and request.get("version")==BUNDLED_NODE_VERSION:
+        updates.write_request("State/github-node-update.json",{"state":"success","version":BUNDLED_NODE_VERSION,
+            "verified_at":result["checked_at"],"nodes":versions,"request_id":request.get("request_id")})
+        updates.clear_request("install-nodes.request.json")
+    return result

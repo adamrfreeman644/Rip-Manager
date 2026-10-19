@@ -2357,7 +2357,9 @@ async function loadUpdates(announce = false) {
       manager?.newer ? "new" : "ok");
     const visibleNodes = status.nodes.filter((node) => !(node.simulator && node.enabled === false));
     html += visibleNodes.map((node) => updateLine(node.name, node.version || (node.simulator ? "Included" : null), nodeVersion,
-      node.simulator ? "simulator" : node.update_available ? "new" : node.version ? "ok" : "", node.id)).join("");
+      node.simulator ? "simulator" : node.update_available ? "new" : node.verified ? "ok" : "", node.id)+
+      (!node.simulator&&node.enabled?`<small role="status">Expected API ${esc(node.expected_version)} · ${esc(node.deployment_state)}${node.error?' · '+esc(node.error):''}</small>`:'')).join("");
+    if(status.deployment_verification)html+=`<p>${status.deployment_verification.verified_count} / ${status.deployment_verification.expected_count} real nodes verified against the bundled API.</p>`;
     if (status.host_updater?.message) {
       html += `<div class="update-result ${esc(status.host_updater.state || "")}">${esc(status.host_updater.message)}</div>`;
     }
