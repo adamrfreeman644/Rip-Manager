@@ -1,9 +1,8 @@
 {
-  "version": "0.25.22",
+  "version": "0.25.23",
   "notes": [
-    "Extend the Windows 11-inspired design throughout Rip Manager: calmer drive colours, shared card surfaces, consistent typography, form padding and gaps across Library, Mover, Downloads, Stats, dialogs and Settings.",
-    "Fix Settings navigation cards whose text touched their borders. Keep separate cards and controls evenly spaced on desktop and phone layouts.",
-    "Replace explicitly marked explanatory note boxes with accessible info icons and separate help dialogs. Notes retain their complete text and formatting; Escape, keyboard focus containment and return focus are supported.",
-    "Keep live state, errors, collisions, progress and safety/verification messages visible. Help never changes settings or replaces an underlying dialog. Regression coverage exercises spacing, help, focus and live-message preservation across five viewports and three themes. Complete destination verification still gates source-media cleanup."
+    "Show immediate Library search feedback with a slim loading bar, accessible busy state, and measured indexing progress. Keep existing results visible while searching.",
+    "Cancel superseded searches and prevent stale responses from replacing current results. Enter searches immediately; leaving Library cancels pending searches.",
+    "Read local metadata and artwork only for matching search results, and load covers lazily. Preserve full metadata and artwork in results and details. Source cleanup remains gated by complete destination verification."
   ]
 }
