@@ -1,7 +1,7 @@
 /* Shared, persistent feedback for user-triggered actions. No work is retried automatically. */
 (function(root){
  const active=new Set();
- function state(element,message,phase){if(!element)return;element.hidden=false;element.classList.remove('hidden');if(element.textContent!==message)element.textContent=message;element.dataset.phase=phase;element.setAttribute('role',phase==='error'?'alert':'status');element.setAttribute('aria-live',phase==='error'?'assertive':'polite');element.setAttribute('aria-atomic','true')}
+ function state(element,message,phase){if(!element)return;element.hidden=false;element.classList.remove('hidden');if(element.textContent!==message)element.textContent=message;element.dataset.phase=phase;if(element.scrollHeight>element.clientHeight)element.tabIndex=0;element.setAttribute('role',phase==='error'?'alert':'status');element.setAttribute('aria-live',phase==='error'?'assertive':'polite');element.setAttribute('aria-atomic','true')}
  async function run(button,options,work){
   const key=options.key||button;if(active.has(key))return {ok:false,busy:true};active.add(key);
   const label=button.textContent,disabled=button.disabled,oldBusy=button.getAttribute('aria-busy');let ok=false;

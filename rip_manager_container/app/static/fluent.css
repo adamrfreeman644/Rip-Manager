@@ -125,3 +125,8 @@ button[aria-busy="true"]{cursor:progress}
 .eject-btn{background:var(--warn);border-color:var(--warn);color:var(--accent-ink)}
 html[data-theme] .drive.ripping .progress-pct,html[data-theme] .drive.complete .progress-pct{color:var(--text)!important}
 .archive-detail-tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Keep an action's outcome visible even when the transfer list is long. */
+#archiveTransfers>div:first-child:has(#moverActionState:not([hidden])){position:sticky;top:0;z-index:2;background:var(--bg);padding:6px 0}
+#moverActionState,#downloadActionState{max-height:24dvh;overflow:auto}
+#downloadActionState:not([hidden]){position:sticky;top:0;z-index:2}
+.action-state:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
