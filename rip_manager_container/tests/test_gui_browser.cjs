@@ -95,6 +95,7 @@ await page.click('[data-recovery-analyse]');await page.waitForSelector('#confirm
      if(viewport.width===390&&theme==='light'){fs.mkdirSync('gui-test-artifacts',{recursive:true});await page.screenshot({path:`gui-test-artifacts/fluent-${name}.png`});}
     }
    }
+   await page.evaluate(()=>toast('Notification layout check'));const notification=await page.locator('#toast').boundingBox(),appHeader=await page.locator('.v02-header').boundingBox();assert(notification.y>appHeader.y+appHeader.height,'notifications must not cover the app header');
    await navigate('settings');await page.waitForSelector('#overlay:not(.hidden)');
    const chooseCategory=async value=>{if(viewport.width<=760)await page.selectOption('#settingsCategory',value);else await page.click(`#settingsSidebar [data-settings-category="${value}"]`)};
    assert.equal(Math.round((await page.locator('.settings-window').boundingBox()).width),viewport.width,'Settings should fill the display');
@@ -106,6 +107,7 @@ await page.click('[data-recovery-analyse]');await page.waitForSelector('#confirm
      if(category==='system'){
       const spacing=await page.locator('#settingsContent .settings-nav-row').evaluateAll(els=>els.map(el=>({padding:parseFloat(getComputedStyle(el).paddingLeft),inset:el.querySelector('.setting-copy').getBoundingClientRect().left-el.getBoundingClientRect().left})));
       assert(spacing.length&&spacing.every(x=>x.padding>=14&&x.inset>=14),'navigation copy must have even internal padding');
+      assert(await page.locator('#settingsContent .setting-desc').evaluateAll(els=>els.every(el=>Number(getComputedStyle(el).fontWeight)===400)),'secondary navigation copy should have regular weight');
       if(viewport.width===390&&theme==='light'){fs.mkdirSync('gui-test-artifacts',{recursive:true});await page.screenshot({path:'gui-test-artifacts/fluent-settings-system.png'});}
       const groups=await page.locator('#settingsContent .settings-page>.settings-group').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return{top:r.top,bottom:r.bottom}}));assert(groups.slice(1).every((r,i)=>r.top-groups[i].bottom>=12),'settings cards must have visible gaps');
      }
