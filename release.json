@@ -1,8 +1,8 @@
 {
-  "version": "0.25.3",
+  "version": "0.25.4",
   "notes": [
-    "Mover re-verifies the complete staged destination and unchanged source before publishing transferred media.",
-    "Source additions, removals, replacements and content changes stop unsafe cleanup; changes during archive finalization retain the source with a visible warning.",
-    "Adds regression tests for concurrent source changes and late destination corruption; existing transfer, Recovery and intake behavior is preserved."
+    "Recovery discovers both AudioBooks and Audiobooks, including both roots present together and Rips-prefixed layouts.",
+    "Music and audiobook discovery descends through artist/author containers, queues separate albums/books, and preserves numbered disc/part folders as one work.",
+    "Recovery accepts validated nested folder identifiers while preserving existing direct-folder API callers. Adds four layout regression cases."
   ]
 }

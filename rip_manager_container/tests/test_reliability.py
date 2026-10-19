@@ -316,3 +316,41 @@ def test_mover_retains_source_changed_during_archive_finalization(tmp_path, monk
     row = db.query_one("SELECT state,error FROM transfer_queue WHERE id=?", (transfer["id"],))
     assert row["state"] == "complete"
     assert "source retained" in row["error"].lower()
+
+
+@pytest.mark.parametrize("prefix", ["", "Rips"])
+def test_recovery_supports_both_audiobook_roots_together(tmp_path, monkeypatch, prefix):
+    db = fresh_database(tmp_path, monkeypatch)
+    node = tmp_path / "node"
+    configure(db, tmp_path, node)
+    for spelling in ("AudioBooks", "Audiobooks"):
+        book = node / prefix / spelling / "Book"
+        book.mkdir(parents=True)
+        (book / "chapter.m4b").write_bytes(spelling.encode())
+    import recovery
+    rows = recovery.discover()
+    assert len(rows) == 2
+    assert len({row["folder"] for row in rows}) == 2
+    for row in rows:
+        assert recovery.adopt("node-1", row["folder"], "audiobook")["queued"]
+
+
+@pytest.mark.parametrize("kind,root,extension", [("music", "Music", ".flac"), ("audiobook", "Audiobooks", ".m4b")])
+def test_recovery_splits_artist_author_containers_and_keeps_discs(tmp_path, monkeypatch, kind, root, extension):
+    db = fresh_database(tmp_path, monkeypatch)
+    node = tmp_path / "node"
+    configure(db, tmp_path, node)
+    for work in ("Work A", "Work B"):
+        for disc in ("Disc 1", "Disc 2"):
+            folder = node / root / "Creator" / work / disc
+            folder.mkdir(parents=True)
+            (folder / ("track" + extension)).write_bytes(b"media")
+    import recovery
+    rows = recovery.discover()
+    assert len(rows) == 2
+    for row in rows:
+        result = recovery.adopt("node-1", row["folder"], kind)
+        assert result["queued"]
+        assert {x["path"] for x in result["files"]} == {"Disc 1/track" + extension, "Disc 2/track" + extension}
+    with pytest.raises(ValueError):
+        recovery.adopt("node-1", "Creator", kind)
