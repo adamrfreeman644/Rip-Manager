@@ -1,8 +1,8 @@
 {
-  "version": "0.25.4",
+  "version": "0.25.5",
   "notes": [
-    "Recovery discovers both AudioBooks and Audiobooks, including both roots present together and Rips-prefixed layouts.",
-    "Music and audiobook discovery descends through artist/author containers, queues separate albums/books, and preserves numbered disc/part folders as one work.",
-    "Recovery accepts validated nested folder identifiers while preserving existing direct-folder API callers. Adds four layout regression cases."
+    "The selected main feature always receives the canonical movie name, including when an old canonical filename belongs to an extra.",
+    "Explicit theatrical, extended, director, final, uncut and unrated cuts remain features rather than being classified as extras by duration alone. Theatrical is preferred explicitly, with stable duration, size and path fallback.",
+    "Preparation records and preserves the selected main cut across retries. Adds enumeration-order, filename-collision, alternate-cut and repeat-preparation regressions."
   ]
 }
