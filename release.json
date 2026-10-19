@@ -1,9 +1,9 @@
 {
-  "version": "0.25.17",
+  "version": "0.25.18",
   "notes": [
-    "Collection reads no longer synchronously rebuild an empty manifest index. Initial indexing is scheduled once through the existing background worker, including configuration and storage-availability changes.",
-    "Collection responses expose initial-index job state; the Library displays progress and reloads results after completion, ignoring outdated search requests.",
-    "UPC lookup waits for the owned index before contacting an external provider. Failed/interrupted scans stay visible for explicit retry; empty completed indexes do not repeatedly rescan.",
-    "Adds non-blocking request, owned-UPC, failed/retry and empty-index regressions plus executable JavaScript progress/error rendering tests in reliability CI. Complete local Python suite: 131 passed with warnings treated as errors."
+    "Completes the follow-up fixes across v0.25.14\u2013v0.25.18: stable Recovery retries, distinct Intake generations, safe partial download continuation, background first-load indexing and retryable download provenance.",
+    "Persist download completion metadata before writing manifests. Retry Intake repairs source URLs, titles, processing outcomes, timestamps and playlist-member history without downloading again.",
+    "Keep history repair idempotent and block enqueue if repair fails. Support legacy records without inventing timestamps, repair plain Downloads without moving them, and avoid source changes during active Mover verification.",
+    "Regression coverage includes failed manifest/event writes, repeated retries, playlists, legacy records, disabled Mover and active verification. Full local reliability suite: 139 passed with warnings treated as errors; both JavaScript regression checks passed."
   ]
 }
