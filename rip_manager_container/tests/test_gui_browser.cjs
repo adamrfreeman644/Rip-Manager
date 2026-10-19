@@ -77,7 +77,11 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
    assert(requests.some(r=>r.path==='/archive/node%3Aolder/images/extra'&&r.method==='PUT'&&r.query==='index=2'),'replace must target the actual photo owner');
    await page.click('[data-detail-panel="archiveText"]');await page.waitForFunction(()=>document.querySelector('#archiveTextArea').value==='Disc notes');await page.click('#archiveSaveText');await page.waitForFunction(()=>document.querySelector('#toast').textContent==='Storage disconnected');
    await page.click('#archiveBack');await page.waitForSelector('[data-library-id]');
-   await navigate('mover');await page.waitForSelector('[data-recovery-analyse]');await page.click('[data-recovery-analyse]');await page.waitForSelector('#confirmRecoveryMove');assert.equal(requests.findLast(r=>r.path.endsWith('/recovery/analyse')).body.media_type,'music');await page.keyboard.press('Escape');
+   await navigate('mover');await page.waitForSelector('[data-recovery-analyse]');
+   const intakeHelp=page.getByRole('button',{name:'About Where to put imported media'});await intakeHelp.click();await page.waitForSelector('#infoModal:not(.hidden)');assert((await page.textContent('#infoBody')).includes('/media/0 ~ Intake/Movies'));
+   await page.keyboard.press('Tab');assert.equal(await page.locator('#infoClose').evaluate(el=>el===document.activeElement),true,'info popup must contain keyboard focus');
+   await page.keyboard.press('Escape');assert(await page.locator('#infoModal').evaluate(el=>el.classList.contains('hidden')));assert(await intakeHelp.evaluate(el=>el===document.activeElement),'closing help returns focus to its icon');assert(await page.locator('#archiveTransfers').isVisible());
+await page.click('[data-recovery-analyse]');await page.waitForSelector('#confirmRecoveryMove');assert.equal(requests.findLast(r=>r.path.endsWith('/recovery/analyse')).body.media_type,'music');await page.keyboard.press('Escape');
    // Leaving while Mover startup is pending must not restart its poll timer.
    slowTransfers=true;await navigate('dashboard');await navigate('mover');await navigate('library');await wait(700);const reads=transferReads;await wait(2200);assert.equal(transferReads,reads,'hidden Mover must stop polling');slowTransfers=false;
    await navigate('downloads');await page.waitForSelector('[data-download-intake="1"]');
@@ -88,8 +92,10 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     for(const name of ['library','mover','downloads','stats','dashboard']){
      await navigate(name);await wait(50);
      assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${name} ${theme} must not overflow ${viewport.width}px`);
+     if(viewport.width===390&&theme==='light'){fs.mkdirSync('gui-test-artifacts',{recursive:true});await page.screenshot({path:`gui-test-artifacts/fluent-${name}.png`});}
     }
    }
+   await page.evaluate(()=>toast('Notification layout check'));const notification=await page.locator('#toast').boundingBox(),appHeader=await page.locator('.v02-header').boundingBox();assert(notification.y>appHeader.y+appHeader.height,'notifications must not cover the app header');
    await navigate('settings');await page.waitForSelector('#overlay:not(.hidden)');
    const chooseCategory=async value=>{if(viewport.width<=760)await page.selectOption('#settingsCategory',value);else await page.click(`#settingsSidebar [data-settings-category="${value}"]`)};
    assert.equal(Math.round((await page.locator('.settings-window').boundingBox()).width),viewport.width,'Settings should fill the display');
@@ -98,9 +104,22 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     for(const category of ['dashboard','hardware','ripping','mover','security','updates','system','home']){
      await chooseCategory(category);
      assert(await page.locator('.settings-main').evaluate(el=>el.scrollWidth<=el.clientWidth+1),`${category} settings must not overflow at ${viewport.width}px in ${theme}`);
+     if(category==='system'){
+      const spacing=await page.locator('#settingsContent .settings-nav-row').evaluateAll(els=>els.map(el=>({padding:parseFloat(getComputedStyle(el).paddingLeft),inset:el.querySelector('.setting-copy').getBoundingClientRect().left-el.getBoundingClientRect().left})));
+      assert(spacing.length&&spacing.every(x=>x.padding>=14&&x.inset>=14),'navigation copy must have even internal padding');
+      assert(await page.locator('#settingsContent .setting-desc').evaluateAll(els=>els.every(el=>Number(getComputedStyle(el).fontWeight)===400)),'secondary navigation copy should have regular weight');
+      if(viewport.width===390&&theme==='light'){fs.mkdirSync('gui-test-artifacts',{recursive:true});await page.screenshot({path:'gui-test-artifacts/fluent-settings-system.png'});}
+      const groups=await page.locator('#settingsContent .settings-page>.settings-group').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return{top:r.top,bottom:r.bottom}}));assert(groups.slice(1).every((r,i)=>r.top-groups[i].bottom>=12),'settings cards must have visible gaps');
+     }
      const save=await page.locator('#settingsApply').boundingBox();assert(save.y+save.height<=viewport.height,'global Save must remain within the screen');
     }
    }
+   await chooseCategory('dashboard');const cleanDraft=await page.evaluate(()=>JSON.stringify(State.draft));
+   await page.getByRole('button',{name:'About Drive placement',exact:true}).click();await page.waitForSelector('#infoModal:not(.hidden)');assert((await page.textContent('#infoBody')).includes('A drive can only be assigned once'));await page.click('#infoClose');assert.equal(await page.evaluate(()=>JSON.stringify(State.draft)),cleanDraft,'help must not mutate settings');
+   // Marked live messages and warnings are protected even if marked in error.
+   await page.evaluate(()=>openModal('Help regression','<div data-help-note="Nested guide">Original <code>folder/path</code> guidance.</div><div id="liveHelpState" class="note" data-help-note="Live state">Scanning media…</div><div class="note bad" data-help-note="Warning">Verification failed: source retained.</div><div role="alert" data-help-note="Alert">Destination collision.</div>'));
+   await page.getByRole('button',{name:'About Nested guide',exact:true}).click();assert((await page.textContent('#infoBody')).includes('folder/path'));await page.keyboard.press('Escape');assert(await page.locator('#genericModal').isVisible(),'help must not replace or dismiss the underlying dialog');assert(await page.locator('#liveHelpState').isVisible());assert(await page.getByText('Verification failed: source retained.',{exact:true}).isVisible());assert(await page.getByRole('alert').isVisible());await page.keyboard.press('Escape');
+   await chooseCategory('home');
    const settingsRequests=()=>requests.filter(r=>r.path.startsWith('/nodes/')||r.path.startsWith('/updates/')).length;
    const beforeSearch=settingsRequests();await page.fill('#settingsSearch','English subtitles');assert.equal(settingsRequests(),beforeSearch,'typing search must not run settings actions or requests');const searchBox=await page.locator('#settingsSearch').boundingBox(),searchPanel=await page.locator('#settingsSearchPanel').boundingBox();assert(searchPanel.y>=searchBox.y+searchBox.height,'search results must appear below the search field');
    await page.keyboard.press('Enter');await page.waitForSelector('[data-toggle-key="prefer_english_subtitles"]');

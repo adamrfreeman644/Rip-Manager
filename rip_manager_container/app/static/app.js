@@ -1350,7 +1350,7 @@ function dashboardPage() {
     </div>
     <div class="settings-group">${groupHeading("Tile placement","dashboard-layout")}
       <div class="layout-preview" style="--layout-preview-cols:${cols};--layout-preview-gap:${Math.round(7*spacing/100)}px">${cells}</div>
-      <div class="note compact-note">Each cell is a selector. Empty cells stay visible as plain grey tiles. A drive can only be assigned once.</div>
+      <div class="note compact-note" data-help-note="Drive placement">Each cell is a selector. Empty cells stay visible as plain grey tiles. A drive can only be assigned once.</div>
     </div>
     <div class="settings-group"><h3>Spacing</h3>
       <div class="spacing-control">
@@ -1358,7 +1358,7 @@ function dashboardPage() {
         <input type="range" min="50" max="300" step="10" value="${spacing}" data-setting-input="dashboard_spacing_percent">
         <div class="spacing-scale"><span>0.5×</span><span>Current</span><span>3×</span></div>
       </div>
-      <div class="note compact-note">50% is half the original spacing. 100% is the original spacing. 300% is three times the original spacing.</div>
+      <div class="note compact-note" data-help-note="Tile spacing">50% is half the original spacing. 100% is the original spacing. 300% is three times the original spacing.</div>
     </div>
     <div class="settings-group"><h3>Appearance</h3>
       <div class="field"><label>Theme</label><select data-setting-input="theme">
@@ -1366,7 +1366,7 @@ function dashboardPage() {
         <option value="dark"${State.draft.theme==="dark"?" selected":""}>Dark</option>
         <option value="light"${State.draft.theme==="light"?" selected":""}>Light</option>
       </select></div>
-      <div class="note compact-note">Theme changes only after Save changes is pressed.</div>
+      <div class="note compact-note" data-help-note="Saving appearance changes">Theme changes only after Save changes is pressed.</div>
     </div>${saveBar()}`);
 }
 
@@ -1412,7 +1412,7 @@ function hardwarePage() {
     <div class="settings-group"><h3>Add hardware</h3><button class="primary full-button" type="button" data-settings-page="add-node">Add Rip Node</button></div>
     <div class="settings-group simulator-settings"><div class="simulator-settings-head"><div>${groupHeading("Built-in Simulator","simulator")}<small>Demonstration and training only</small></div><span class="update-badge simulator">BUILT-IN</span></div>
       ${simulator ? `<div class="simulator-status-row"><span>Status</span><strong class="${simulator.enabled?"ok-text":"muted-inline"}">${simulator.enabled?"RUNNING":"OFF"}</strong></div>
-        <div class="note compact-note">Two simulated Blu-ray drives and four simulated DVD drives. It never accesses real hardware or storage.</div>
+        <div class="note compact-note" data-help-note="Simulator">Two simulated Blu-ray drives and four simulated DVD drives. It never accesses real hardware or storage.</div>
         <button class="secondary full-button" type="button" data-settings-action="reset-simulator" ${simulator.enabled?"":"disabled"}>Reset simulator</button>
         <button class="${simulator.enabled?"danger":"primary"} full-button" type="button" data-settings-action="toggle-simulator">${simulator.enabled?"Disable simulator":"Enable simulator"}</button>`
       : `<div class="note compact-note">The simulator is not configured and does not affect normal operation.</div><button class="primary full-button" type="button" data-settings-action="add-simulator">Add built-in simulator</button>`}
@@ -1424,7 +1424,7 @@ function simulatorManagePage() {
   drawer("Simulator",`${backBar()}<div class="settings-page-intro"><span class="settings-page-icon">◈</span><div><strong>Built-in Simulator</strong><small>Demonstration and training only</small></div></div>
     <div class="settings-group simulator-settings"><div class="simulator-settings-head"><div>${groupHeading("Simulator node","simulator")}<small>Managed as part of Rip Manager</small></div><span class="update-badge simulator">BUILT-IN</span></div>
       ${simulator ? `<div class="simulator-status-row"><span>Status</span><strong class="${simulator.enabled?"ok-text":"muted-inline"}">${simulator.enabled?"RUNNING":"OFF"}</strong></div>
-        <div class="note compact-note">Two simulated Blu-ray drives and four simulated DVD drives. It never accesses real hardware or storage.</div>
+        <div class="note compact-note" data-help-note="Simulator">Two simulated Blu-ray drives and four simulated DVD drives. It never accesses real hardware or storage.</div>
         <button class="secondary full-button" type="button" data-settings-action="reset-simulator" ${simulator.enabled?"":"disabled"}>Reset simulator</button>
         <button class="${simulator.enabled?"danger":"primary"} full-button" type="button" data-settings-action="toggle-simulator">${simulator.enabled?"Disable simulator":"Enable simulator"}</button>`
       : `<div class="note compact-note">The simulator is not configured and does not affect normal operation.</div><button class="primary full-button" type="button" data-settings-action="add-simulator">Add built-in simulator</button>`}
@@ -1452,22 +1452,22 @@ function hardwareNodePage(index) {
     </div>
     <div class="settings-group"><h3>Node software</h3>
       <div id="managedNodeApiStatus" class="update-line"><div><strong>Rip Node API</strong><small>Installed: ${esc(live.version||"Unknown")} · Checking available version…</small></div><span class="update-badge">CHECK</span></div>
-      <div class="note compact-note">Node API installation remains manual. Busy nodes wait until their active rips finish.</div>
+      <div class="note compact-note" data-help-note="Node updates">Node API installation remains manual. Busy nodes wait until their active rips finish.</div>
       <button id="managedNodeApiUpdate" class="primary full-button" type="button" data-settings-action="install-node-api-from-detail" disabled>Install Node API update</button>
     </div>
     <div class="settings-group"><h3>MakeMKV maintenance</h3>
-      <div class="note compact-note">Updates MakeMKV every 14 days when idle and refreshes the official free beta key. Existing personal registration keys are preserved. Does not upgrade Ubuntu.</div>
+      <div class="note compact-note" data-help-note="MakeMKV maintenance">Updates MakeMKV every 14 days when idle and refreshes the official free beta key. Existing personal registration keys are preserved. Does not upgrade Ubuntu.</div>
       <div id="makemkvMaintenanceStatus" class="note compact-note">Loading maintenance status…</div>
       <label><input id="makemkvMaintenanceEnabled" type="checkbox"> Automatic check every 14 days</label>
       <label><input id="makemkvBetaEnabled" type="checkbox" checked> Refresh official free beta key</label>
       <button class="secondary full-button" data-settings-action="save-makemkv-maintenance" data-node-id="${esc(node.id)}">Save schedule</button>
       <button class="primary full-button" data-settings-action="run-makemkv-maintenance" data-node-id="${esc(node.id)}">Update MakeMKV now</button>
       <button class="secondary full-button" data-settings-action="status-makemkv-maintenance" data-node-id="${esc(node.id)}">Refresh maintenance status</button>
-      <div class="note compact-note">One-time setup: enter your Ubuntu login in the fields below, then press Enable maintenance. No terminal needed; SSH must be reachable. Your password is never saved.</div>
+      <div class="note compact-note" data-help-note="Maintenance setup">One-time setup: enter your Ubuntu login in the fields below, then press Enable maintenance. No terminal needed; SSH must be reachable. Your password is never saved.</div>
       <button class="secondary full-button" data-settings-action="setup-makemkv-maintenance" data-node-id="${esc(node.id)}">Enable maintenance using login below</button>
     </div>
     <div class="settings-group"><h3>Dependencies</h3>
-      <div class="note compact-note">Compare installed and available Ubuntu packages and Node API Python packages. This never performs an Ubuntu release upgrade.</div>
+      <div class="note compact-note" data-help-note="Dependency checks">Compare installed and available Ubuntu packages and Node API Python packages. This never performs an Ubuntu release upgrade.</div>
       <div class="field"><label>SSH username</label><input id="dependencyUser" value="adam" autocomplete="username"></div>
       <div class="field"><label>SSH password</label><input id="dependencyPassword" type="password" autocomplete="current-password"></div>
       <div class="field"><label>Sudo password <span class="muted-inline">(blank = same password)</span></label><input id="dependencySudo" type="password" autocomplete="off"></div>
@@ -1718,7 +1718,7 @@ async function loadDriveMapping(nodeId=null) {
           <select data-new-device="${esc(node.id)}">${optionsFor("", "", true)}</select>
           <button type="button" class="primary" data-map-add="${esc(node.id)}">Add drive manually</button>
         </div>
-        <div class="note compact-note">Mappings save the physical drive's persistent USB/udev path where possible, so later /dev/srX renumbering should not move the logical DVD slot.</div>
+        <div class="note compact-note" data-help-note="Persistent drive names">Mappings save the physical drive's persistent USB/udev path where possible, so later /dev/srX renumbering should not move the logical DVD slot.</div>
       </div>`);
     } catch (error) {
       sections.push(`<div class="settings-group"><h3>${esc(node.name)}</h3><div class="note bad">Drive mapping requires Rip Node API v0.2.4 or newer. ${esc(error.message)}</div></div>`);
@@ -1833,7 +1833,7 @@ function providerPage(provider) {
       ${toggleRow("Enabled","Use OMDb to confirm movie/series titles and fill the release year",on,`data-toggle-key="metadata_omdb"`)}
       <div class="${on?"":"disabled-setting"}">
         <div class="field"><label>API key</label><input type="password" value="${esc(State.draft.metadata_omdb_key||"")}" data-setting-input="metadata_omdb_key" ${on?"":"disabled"}></div>
-        <div class="note compact-note">UPC identifies the product first. OMDb is then queried using the cleaned movie/series title; only an exact title match is allowed to replace the Year field.</div>
+        <div class="note compact-note" data-help-note="Movie metadata matching">UPC identifies the product first. OMDb is then queried using the cleaned movie/series title; only an exact title match is allowed to replace the Year field.</div>
       </div>
     </div>${saveBar()}`);return;
   }
@@ -1903,10 +1903,10 @@ function adoptionPage() {
     <div class="settings-group">${groupHeading("3 · Network Addresses","network-addresses")}
       <div class="field"><label>Address Rip Manager uses to reach this node</label>
         <input id="adoptNodeUrl" placeholder="Blank = http://HOST:8000" autocomplete="off"></div>
-      <div class="note compact-note">For a node on this same physical server, use <code>http://host.docker.internal:8000</code>. For another machine use its LAN IP. If both are Docker services on the same network, a service name also works.</div>
+      <div class="note compact-note" data-help-note="Node addresses">For a node on this same physical server, use <code>http://host.docker.internal:8000</code>. For another machine use its LAN IP. If both are Docker services on the same network, a service name also works.</div>
       <div class="field"><label>Rip Manager address the node uses for automatic updates</label>
         <input id="adoptManagerUrl" value="${esc(managerDefault)}" autocomplete="off"></div>
-      <div class="note compact-note">This address is saved on the new node's updater. Same machine: <code>http://127.0.0.1:8088</code> works when the manager port is published. Another LAN machine should normally use Rip Manager's LAN address.</div>
+      <div class="note compact-note" data-help-note="Manager address">This address is saved on the new node's updater. Same machine: <code>http://127.0.0.1:8088</code> works when the manager port is published. Another LAN machine should normally use Rip Manager's LAN address.</div>
     </div>
     <div class="settings-group"><h3>4 · Review and install</h3>
       <button id="adoptInstall" class="primary full-button" type="button" data-settings-action="install-node">Install &amp; Adopt Node</button>
@@ -2148,7 +2148,7 @@ function moverSettingsPage() {
       <div class="field"><label>TV folder</label><input value="${esc(folders.tv||"TV")}" data-mover-folder="tv"></div>
       <div class="field"><label>Music folder</label><input value="${esc(folders.music||"Music")}" data-mover-folder="music"></div>
       <div class="field"><label>Audiobooks folder</label><input value="${esc(folders.audiobook||"Audiobooks")}" data-mover-folder="audiobook"></div>
-      <div class="note compact-note">Destination folders are relative to <code>${esc(State.draft.mover_destination_root||"/media")}</code>. Nested paths such as <code>Video/Movies</code> are supported.</div>
+      <div class="note compact-note" data-help-note="Destination folders">Destination folders are relative to <code>${esc(State.draft.mover_destination_root||"/media")}</code>. Nested paths such as <code>Video/Movies</code> are supported.</div>
     </div>
     ${sourceSections}${saveBar()}`);
 }
@@ -2170,7 +2170,7 @@ function systemPage() {
     <div class="settings-group"><h3>Updates</h3>${navRow("Manager & node updates","Check versions, install updates and roll back Manager","updates")}</div>
     <div class="settings-group"><h3>Diagnostics</h3>${navRow("Run system diagnostics","Check Manager, nodes and update support","diagnostics")}</div>
     <div class="settings-group"><h3>Advanced</h3>${navRow("Polling & API tools","Adjust refresh intervals or open developer tools","advanced")}</div>
-    <div class="settings-group"><h3>Restart</h3><div class="note compact-note">Restarts Rip Manager only. Active rips continue on their Rip Nodes.</div><button class="secondary system-restart-button" type="button" data-settings-action="restart-manager">Restart Rip Manager</button></div>`);
+    <div class="settings-group"><h3>Restart</h3><div class="note compact-note" data-help-note="Restarting Rip Manager">Restarts Rip Manager only. Active rips continue on their Rip Nodes.</div><button class="secondary system-restart-button" type="button" data-settings-action="restart-manager">Restart Rip Manager</button></div>`);
 }
 
 async function restartManager() {
@@ -2216,7 +2216,7 @@ function updatesPage() {
         <button id="pushNodes" class="primary node-update" type="button" disabled>Install node update</button>
       </div>
     </div>
-    <div class="settings-group">${groupHeading("Rollback","rollback")}<div class="note compact-note">Restore Manager application code while preserving settings, PIN, nodes and history.</div><div id="rollbackStatus"><span>Loading verified backups…</span></div></div>
+    <div class="settings-group">${groupHeading("Rollback","rollback")}<div class="note compact-note" data-help-note="Verified rollback">Restore Manager application code while preserving settings, PIN, nodes and history.</div><div id="rollbackStatus"><span>Loading verified backups…</span></div></div>
     `);
 
   $("#checkUpdates").onclick = () => loadUpdates(true);
