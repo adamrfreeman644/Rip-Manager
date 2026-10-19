@@ -177,3 +177,29 @@ def test_app_health_route_starts(tmp_path, monkeypatch):
         response = client.get("/health")
         assert response.status_code == 200
         assert response.json()["ok"] is True
+
+
+def test_recovery_same_path_new_generation_gets_new_job(tmp_path):
+    db, _, _, recovery = fresh_database(tmp_path)
+    mount, destination = configure(db, tmp_path)
+    source = mount / "Movies" / "Reusable Movie"
+    source.mkdir(parents=True)
+    first_file = source / "movie.mkv"
+    first_file.write_bytes(b"first generation")
+    first = recovery.adopt("Rip-Node-1", "Reusable Movie", "movie")
+    first_id = first["manager_job_id"]
+
+    # Simulate the completed transfer having removed the source, then a later rip
+    # reusing exactly the same node/media/folder path with different content.
+    import shutil
+    shutil.rmtree(source)
+    source.mkdir(parents=True)
+    second_file = source / "movie.mkv"
+    second_file.write_bytes(b"a genuinely different second generation")
+    second = recovery.adopt("Rip-Node-1", "Reusable Movie", "movie")
+
+    assert second["manager_job_id"] != first_id
+    rows = db.query_all("SELECT manager_job_id FROM jobs_history WHERE drive='RECOVERY' ORDER BY manager_job_id")
+    ids = {row["manager_job_id"] for row in rows}
+    assert first_id in ids
+    assert second["manager_job_id"] in ids
