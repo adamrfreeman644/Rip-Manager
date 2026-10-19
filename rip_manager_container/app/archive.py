@@ -867,9 +867,10 @@ def write_recovery_manifest(folder: Path, title: Optional[str] = None, year: Opt
         "disc": {"season": None, "number": None},
         "legacy_import": {
             "imported": True,
-            "source": "rip_node_recovery",
+            "source": provenance,
             "historical_rip_details_available": False,
-            "note": "Recovered from an existing Rip Node folder; unavailable rip history was not invented.",
+            "note": "Imported media; unavailable historical details were not invented.",
+            "original_source": source,
         },
         "folder": {"name": folder.name, "path": str(folder), "modified_at": _iso_timestamp(stat.st_mtime)},
         "files": files,
