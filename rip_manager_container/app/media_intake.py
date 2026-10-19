@@ -99,14 +99,13 @@ def prepare(item_id, provenance="digital_import", source=None, _item_value=None)
                                         provenance=provenance,source=source)
     return describe(folder,item["media_type"])
 
-def queue(item_id, provenance="digital_import", source=None, _item_value=None):
-    import mover
-    item=prepare(item_id,provenance,source,_item_value);folder=Path(item["folder"]).resolve()
+def _content_fingerprint(folder, media_type):
     # Hash source content, not timestamps or generated adoption metadata.
     signature=[]
     for p in sorted(x for x in folder.rglob("*") if x.is_file()):
         relative=p.relative_to(folder).as_posix()
-        if relative in {"disc-info.json", "disc-info.txt", "rip-manager-prep.json"}:
+        if relative in {"disc-info.json", "disc-info.txt", "rip-manager-prep.json",
+                        ".disc-info.adoption.tmp", ".disc-info.json.tmp", ".disc-info.txt.tmp", ".download-manifest.tmp"}:
             continue
         if p.is_symlink():
             raise ValueError("Symbolic links cannot be adopted")
@@ -115,9 +114,46 @@ def queue(item_id, provenance="digital_import", source=None, _item_value=None):
             for chunk in iter(lambda: handle.read(4*1024*1024),b""):
                 digest.update(chunk)
         signature.append((relative,digest.hexdigest()))
-    identity=hashlib.sha256(json.dumps([str(folder),item["media_type"],signature],separators=(",",":")).encode()).hexdigest()[:24]
-    job_id="intake:"+identity;now=time.time()
+    return hashlib.sha256(json.dumps([str(folder),media_type,signature],separators=(",",":")).encode()).hexdigest()[:24]
+
+
+def _adoption_identity(conn, folder, fingerprint):
+    """Persist one generation per adoption; source bytes alone are not a lifecycle."""
+    manifest=folder/"disc-info.json"
+    payload=json.loads(manifest.read_text(encoding="utf-8"))
+    marker=payload.get("intake_adoption") or {}
+    generation=marker.get("generation") if isinstance(marker,dict) and marker.get("fingerprint")==fingerprint else None
+    if not isinstance(generation,str) or not (generation=="legacy" or len(generation)==32 and all(c in "0123456789abcdef" for c in generation)):
+        generation=None
+    # Reuse incomplete pre-generation jobs when upgrading, rather than duplicating
+    # failed transfers or adoptions made while the Mover was disabled.
+    legacy=conn.execute("SELECT j.manager_job_id,q.state FROM jobs_history j LEFT JOIN transfer_queue q USING(manager_job_id) WHERE j.manager_job_id=?",("intake:"+fingerprint,)).fetchone()
+    if generation is None and legacy and legacy["state"]!="complete":
+        generation="legacy"
+    def identity(value):
+        return fingerprint if value=="legacy" else hashlib.sha256(f"{fingerprint}:{value}".encode()).hexdigest()[:24]
+    generation=generation or uuid.uuid4().hex
+    current=conn.execute("SELECT state FROM transfer_queue WHERE manager_job_id=?",("intake:"+identity(generation),)).fetchone()
+    # prepare() rejected an existing destination. A completed transfer belongs
+    # to an earlier import, even if this newly staged source is identical.
+    if current and current["state"]=="complete":
+        generation=uuid.uuid4().hex
+    job_identity=identity(generation)
+    payload["intake_adoption"]={"generation":generation,"fingerprint":fingerprint,"manager_job_id":"intake:"+job_identity}
+    temporary=folder/".disc-info.adoption.tmp"
+    temporary.write_text(json.dumps(payload,indent=2,ensure_ascii=False)+"\n",encoding="utf-8")
+    temporary.replace(manifest)
+    return job_identity
+
+
+def queue(item_id, provenance="digital_import", source=None, _item_value=None):
+    import mover
+    item=prepare(item_id,provenance,source,_item_value);folder=Path(item["folder"]).resolve()
+    fingerprint=_content_fingerprint(folder,item["media_type"])
+    now=time.time()
     with db.write() as conn:
+        identity=_adoption_identity(conn,folder,fingerprint)
+        job_id="intake:"+identity
         inserted=conn.execute("""INSERT OR IGNORE INTO jobs_history(
           manager_job_id,node_id,node_job_id,drive,state,title,media_type,started_at,finished_at,
           progress,last_message,output_dir,verification_json,raw_json,auto_started,cleared,updated_at)

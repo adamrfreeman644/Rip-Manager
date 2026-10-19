@@ -1,8 +1,9 @@
 {
-  "version": "0.25.14",
+  "version": "0.25.15",
   "notes": [
-    "Recovery generation identity excludes generated disc-info.txt, disc-info.json and rip-manager-prep.json so sidecar creation/refresh does not create duplicate recovery jobs.",
-    "Re-adopting failed or cancelled Recovery transfers explicitly retries the existing queue entry, and does not override a disabled Mover.",
-    "Adds regressions for failed, cancelled and already-queued transfers after generated sidecar creation, plus disabled retry behavior. Complete local suite: 117 passed with warnings treated as errors."
+    "Intake persists a separate adoption generation alongside its deterministic content fingerprint. Identical later imports get fresh transfer jobs instead of matching completed history.",
+    "Retries, application reloads and generated sidecar refreshes retain the current generation. Existing incomplete content-only jobs migrate without duplicate history.",
+    "A completed adoption is renewed only after normal preparation has rejected destination collisions. Source media still passes through the verified Mover unchanged.",
+    "Adds lifecycle, completed-marker renewal, reload and legacy migration regressions. Complete local suite: 121 passed with warnings treated as errors."
   ]
 }
