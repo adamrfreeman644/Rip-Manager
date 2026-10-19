@@ -57,3 +57,16 @@ def test_install_callback_cannot_claim_success_for_unreachable_nodes(tmp_path,mo
     result=TestClient(app).post('/updates/node-installed',json={'version':BUNDLED_NODE_VERSION}).json()
     assert result['report_received'] and not result['ok']
     assert updates.read_json('State/github-node-update.json')['state']=='verification_pending'
+
+
+def test_real_node_reporting_simulator_cannot_bypass_deployment_check(tmp_path,monkeypatch):
+    setup(tmp_path,monkeypatch)
+    async def get(url,headers):
+        return {'version':BUNDLED_NODE_VERSION,'simulator':'two' in url}
+    monkeypatch.setattr(nodes,'get_json',get)
+    result=asyncio.run(nodes.verify_api_deployments())
+    assert result['expected_count']==2
+    assert not result['all_verified']
+    wrong=next(x for x in result['nodes'] if x['id']=='two')
+    assert not wrong['simulator']
+    assert wrong['deployment_state']=='unexpected_simulator'

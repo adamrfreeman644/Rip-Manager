@@ -79,40 +79,45 @@ def prepare_completed_rip(source, job):
     title = _safe(job.get("title") or source.name)
     disc, season = int(job.get("disc") or 1), int(job.get("season") or 0)
     changes = []
-    if media_type == "tv":
-        play_all = _play_all(files, durations)
-        if play_all:
-            changes.append({"path": play_all.relative_to(source).as_posix(), "action": "deleted_play_all"})
-            play_all.unlink()
-            files.remove(play_all)
-            durations.pop(play_all, None)
-
-    extras = set()
-    main = _movie_main(files, durations) if media_type == "movie" else None
+    base_extras={p for p in files if any(part.lower() in {"extras","bonus","featurettes"} for part in p.relative_to(source).parts[:-1])}
+    play_all = (next((p for p in sorted(base_extras) if re.search(r"\bplay[ _-]*all\b",p.stem,re.I)),None)
+                or _play_all([p for p in files if p not in base_extras], durations)) if media_type == "tv" else None
+    # A combined title is skipped as an episode, but its bytes remain in extras
+    # until the complete destination has been verified by the Mover.
+    if play_all:
+        changes.append({"path":play_all.relative_to(source).as_posix(),"action":"preserved_play_all_as_extra"})
+    extras=set(base_extras)
+    if play_all: extras.add(play_all)
+    features=[p for p in files if p not in extras]
+    main = _movie_main(features, durations) if media_type == "movie" and features else None
     main_cut = _cut_label(main) if main else None
     if main:
         try:
             previous = json.loads((source / "rip-manager-prep.json").read_text())
             previous_main = source / previous["main_feature"]
-            if previous_main in files:
+            if previous_main in features:
                 main, main_cut = previous_main, previous.get("main_cut")
         except (OSError, ValueError, KeyError, TypeError):
             pass
-    longest = max((durations.get(path, 0) for path in files), default=0)
+    longest = max((durations.get(path, 0) for path in features), default=0)
     if longest > 0:
         if media_type == "movie":
-            extras = {path for path in files if path != main and not _cut_label(path)
+            extras |= {path for path in features if path != main and not _cut_label(path)
                       and durations.get(path, 0) > 0 and durations.get(path, 0) < longest * .75}
         else:
-            extras = {path for path in files if durations.get(path, 0) > 0 and durations[path] < longest * .70}
+            extras |= {path for path in features if durations.get(path, 0) > 0 and durations[path] < longest * .70}
 
     extras_dir, prepared = source / "extras", 0
     # Free an old canonical name before assigning it to the selected feature.
     canonical = source / f"{title}{main.suffix.lower()}" if main else None
     ordered = sorted(files, key=lambda p: (0 if canonical and p == canonical and p != main else 1 if p == main else 2, p.as_posix()))
-    for number, path in enumerate(ordered, 1):
+    number=0
+    for path in ordered:
+        if path != play_all:
+            number+=1
         suffix = path.suffix.lower()
-        stem = (f"{title} S{season:02d} D{disc:02d}F{number:02d}" if media_type == "tv" else
+        stem = (f"{title} S{season:02d} D{disc:02d} Play All" if path == play_all else
+                f"{title} S{season:02d} D{disc:02d}F{number:02d}" if media_type == "tv" else
                 (title if path == main else f"{title} [{_cut_label(path) or ('Extra' if path in extras else 'Alternate Feature')} D{disc:02d}F{number:02d}]"))
         target_dir = extras_dir if path in extras else source
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -132,7 +137,7 @@ def prepare_completed_rip(source, job):
         except OSError:
             pass
     report = {"ok": True, "prepared": prepared, "extras": len(extras),
-              "play_all_removed": sum(item["action"] == "deleted_play_all" for item in changes),
+              "play_all_removed": int(bool(play_all)), "play_all_preserved": int(bool(play_all)),
               "main_feature": f"{title}{main.suffix.lower()}" if main else None,
               "main_cut": main_cut,
               "media_type": media_type, "season": season if media_type == "tv" else None, "disc": disc}

@@ -176,9 +176,11 @@ async def verify_api_deployments() -> dict:
         try:
             info=await get_json(f"{base_url(node)}/api/info",headers_for(node))
             result.update(version=info.get("version"),api_node=info.get("node"))
-            result["simulator"]=bool(info.get("simulator") or str(info.get("version") or "").endswith("-simulator"))
-            result["verified"]=not result["simulator"] and result["version"]==BUNDLED_NODE_VERSION
-            result["deployment_state"]=("simulator" if result["simulator"] else "verified" if result["verified"] else "version_mismatch" if result["version"] else "unknown_version")
+            reported_simulator=bool(info.get("simulator") or str(info.get("version") or "").endswith("-simulator"))
+            result["verified"]=not reported_simulator and result["version"]==BUNDLED_NODE_VERSION
+            # A real configured node cannot exempt itself from verification by
+            # reporting a simulator API; that is a deployment mismatch.
+            result["deployment_state"]=("unexpected_simulator" if reported_simulator else "verified" if result["verified"] else "version_mismatch" if result["version"] else "unknown_version")
             result["update_available"]=bool(not result["simulator"] and result["version"] and updates.version_tuple(BUNDLED_NODE_VERSION)>updates.version_tuple(result["version"]))
         except Exception as exc:
             result.update(deployment_state="unreachable",error=str(exc) or type(exc).__name__)
