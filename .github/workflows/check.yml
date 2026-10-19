@@ -42,7 +42,7 @@ jobs:
       - name: Compile Python
         run: python -m compileall -q rip_manager_container/app rip_manager_container/simulator_node.py rip_manager_container/tests
       - name: Run complete Python test suite
-        run: python -m pytest -q rip_manager_container/tests
+        run: python -m pytest -q -W error rip_manager_container/tests
       - name: Check JavaScript syntax
         run: |
           node --check rip_manager_container/app/static/app.js

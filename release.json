@@ -1,9 +1,8 @@
 {
-  "version": "0.25.11",
+  "version": "0.25.12",
   "notes": [
-    "Manager queries the running API of every enabled real Rip Node and compares it with the bundled version. Verified, mismatched, unknown and unreachable states are visible in Updates and cached with timestamps.",
-    "Node polling refreshes verification periodically, with a dedicated deployment-verification endpoint independent of GitHub release checks.",
-    "Installation callbacks are reports rather than proof of success. Update requests remain pending until all expected nodes positively report the bundled version; simulators and disabled nodes are excluded.",
-    "Adds regressions for mixed node versions, unreachable nodes, pending request retention, complete verification and false-success callbacks. Hardware verification occurs when the deployed Manager reaches the actual nodes."
+    "Updates the compatible web stack to FastAPI 0.146.0, Starlette 1.7.0 and AnyIO 4.15.1, with httpx2 2.14.0 for Starlette TestClient in development dependencies.",
+    "Resolves the upstream deprecated AnyIO BlockingPortal import through the dependency update, without warning suppression or vendor patches.",
+    "Adds fresh-interpreter TestClient import and lifespan regression coverage. The complete reliability suite now treats all Python warnings as errors; local result: 107 passed with zero warnings."
   ]
 }
