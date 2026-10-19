@@ -1,9 +1,9 @@
 {
-  "version": "0.25.15",
+  "version": "0.25.16",
   "notes": [
-    "Intake persists a separate adoption generation alongside its deterministic content fingerprint. Identical later imports get fresh transfer jobs instead of matching completed history.",
-    "Retries, application reloads and generated sidecar refreshes retain the current generation. Existing incomplete content-only jobs migrate without duplicate history.",
-    "A completed adoption is renewed only after normal preparation has rejected destination collisions. Source media still passes through the verified Mover unchanged.",
-    "Adds lifecycle, completed-marker renewal, reload and legacy migration regressions. Complete local suite: 121 passed with warnings treated as errors."
+    "Downloader continuation accepts .part, fragment partials and .ytdl files in the job's recorded staging folder, instead of rejecting them as completed filenames.",
+    "New jobs still reject collisions, completed media remains protected, and symlinks cannot be treated as resumable files. Literal prefix matching also handles bracketed titles correctly.",
+    "yt-dlp continues interrupted downloads with overwriting disabled. Adds an end-to-end failed-download/retry regression plus temporary-artifact and completed-collision cases.",
+    "Complete local suite: 127 passed with warnings treated as errors."
   ]
 }
