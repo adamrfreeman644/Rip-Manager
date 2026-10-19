@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#000000">
   <title>Rip Remote</title>
   <link rel="manifest" href="/static/site.webmanifest">
-  <link rel="stylesheet" href="/static/styles.css?v=0.25.22">
-  <link rel="stylesheet" href="/static/archive.css?v=0.25.22">
-  <link rel="stylesheet" href="/static/settings.css?v=0.25.22">
-  <link rel="stylesheet" href="/static/fluent.css?v=0.25.22">
+  <link rel="stylesheet" href="/static/styles.css?v=0.25.23">
+  <link rel="stylesheet" href="/static/archive.css?v=0.25.23">
+  <link rel="stylesheet" href="/static/settings.css?v=0.25.23">
+  <link rel="stylesheet" href="/static/fluent.css?v=0.25.23">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32x32.png?v=0.10.6">
   <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16x16.png?v=0.10.6">
   <link rel="apple-touch-icon" sizes="512x512" href="/static/icons/remote-ripper-512.png?v=0.10.6">
@@ -196,7 +196,8 @@
   <header class="archive-head"><div><h2>Library</h2><small>Do I own this?</small></div><div class="archive-spacer"></div><button id="libraryHome" class="archive-button">Home</button></header>
   <main class="archive-body library-page">
     <div class="library-search-row"><input id="librarySearch" aria-label="Search library by title or barcode" inputmode="search" autocomplete="off" placeholder="Search by title or scan UPC / EAN"><select id="libraryMediaType" aria-label="Media type"><option value="">All</option><option value="movie">Movies</option><option value="tv">TV</option><option value="music">Music</option><option value="audiobook">Audiobooks</option></select><button id="libraryMore" class="archive-button" type="button">More ⋯</button></div>
-    <div id="libraryStatus" class="archive-summary"></div>
+    <div id="libraryStatus" class="archive-summary" role="status" aria-live="polite"></div>
+    <div class="library-progress-track"><progress id="libraryProgress" aria-label="Library search progress" hidden></progress></div>
     <div id="libraryResults" class="library-title-list"></div>
   </main>
 </section>
@@ -256,12 +257,12 @@
 </section>
 <input id="archiveFile" class="archive-file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" capture="environment">
 
-<script src="/static/ui.js?v=0.25.22"></script>
-<script src="/static/app.js?v=0.25.22"></script>
-<script src="/static/settings.js?v=0.25.22"></script>
-<script src="/static/downloads.js?v=0.25.22"></script>
-<script src="/static/transfer_view.js?v=0.25.22"></script>
-<script src="/static/archive.js?v=0.25.22"></script>
-<script src="/static/library.js?v=0.25.22"></script>
+<script src="/static/ui.js?v=0.25.23"></script>
+<script src="/static/app.js?v=0.25.23"></script>
+<script src="/static/settings.js?v=0.25.23"></script>
+<script src="/static/downloads.js?v=0.25.23"></script>
+<script src="/static/transfer_view.js?v=0.25.23"></script>
+<script src="/static/archive.js?v=0.25.23"></script>
+<script src="/static/library.js?v=0.25.23"></script>
 </body>
 </html>

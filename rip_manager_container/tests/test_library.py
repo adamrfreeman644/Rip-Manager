@@ -187,3 +187,25 @@ def test_manifest_only_entry_can_open_photo_editor_without_duplicate(tmp_path, m
     assert library.ensure_physical(item['id'])['manager_job_id'] == attached['manager_job_id']
     assert len(library.search()) == 1
     assert manifest.read_text() == original
+
+def test_search_enriches_only_returned_matches(monkeypatch):
+    import library
+    rows = [{"id": 1, "title": "Planet Earth", "media_type": "movie", "barcode": "123456789"},
+            {"id": 2, "title": "Piano", "media_type": "music", "barcode": "999999999"},
+            {"id": 3, "title": "Planet Mars", "media_type": "movie"}]
+    monkeypatch.setattr(library, "_collection", lambda: [dict(row) for row in rows])
+    enriched = []
+    def enrich(item):
+        enriched.append(item["id"])
+        return item | {"local_metadata": {"overview": "Preserved"}, "artwork_url": "/cover"}
+    monkeypatch.setattr(library, "_enrich", enrich)
+    assert [item["id"] for item in library.search("123456789")] == [1]
+    assert enriched == [1]
+    enriched.clear()
+    result = library.fuzzy_search("Planet", limit=1, media_type="movie")
+    assert len(result) == 1 and enriched == [result[0]["id"]]
+    assert result[0]["local_metadata"]["overview"] == "Preserved"
+    assert result[0]["artwork_url"] == "/cover"
+    enriched.clear()
+    assert [item["id"] for item in library.search(media_type="music")] == [2]
+    assert enriched == [2]

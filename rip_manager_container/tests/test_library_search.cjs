@@ -1,0 +1,31 @@
+const assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
+const elements=new Map(),timers=new Map(),requests=[];let timer=0;
+function element(selector){if(!elements.has(selector))elements.set(selector,{value:'',innerHTML:'',textContent:'',attrs:{},hidden:false,classList:{add(){},remove(){},toggle(){}},appendChild(){},focus(){},setAttribute(k,v){this.attrs[k]=v},removeAttribute(k){delete this.attrs[k];if(k==='value')this.value=undefined}});return elements.get(selector)}
+const window={addEventListener(){}};
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../app/static/library.js'),'utf8'),{AbortController,document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},window,location:{pathname:'/library'},history:{pushState(){}},setTimeout(fn){timers.set(++timer,fn);return timer},clearTimeout(id){timers.delete(id)},fetch(url,opt){return new Promise(resolve=>requests.push({url,signal:opt.signal,resolve:items=>resolve({ok:true,json:async()=>({items})})}))}});
+const input=element('#librarySearch'),results=element('#libraryResults'),progress=element('#libraryProgress');
+const flush=async()=>{for(let i=0;i<12;i++)await Promise.resolve()};
+(async()=>{
+ const opening=window.openLibraryLookup(false);
+ assert.equal(progress.hidden,false);
+ requests[0].resolve([{id:1,title:'Original'}]);await opening;
+ assert.equal(progress.hidden,true);
+ input.value='Old';input.oninput();
+ assert.equal(progress.hidden,false,'feedback starts before debounce');
+ assert.equal(results.attrs['aria-busy'],'true');
+ assert(results.innerHTML.includes('Original'),'keep results while searching');
+ const [runId,run]=[...timers.entries()].at(-1);timers.delete(runId);run();
+ assert.equal(requests.length,2);
+ input.value='Latest';input.oninput();
+ assert.equal(requests[1].signal.aborted,true);
+ requests[1].resolve([{id:2,title:'Stale'}]);await flush();
+ assert(!results.innerHTML.includes('Stale'),'typing invalidates earlier responses immediately');
+ input.onkeydown({key:'Enter',preventDefault(){}});
+ assert.equal(requests.length,3);
+ requests[2].resolve([{id:3,title:'Latest'}]);await flush();
+ assert(results.innerHTML.includes('Latest'));
+ assert.equal(progress.hidden,true);assert.equal(results.attrs['aria-busy'],'false');
+ input.value='Hidden';input.oninput();const pending=timer;window.hideLibraryLookup();
+ assert.equal(progress.hidden,true);assert.equal(timers.has(pending),false,'navigation cancels pending search');
+ console.log('Library immediate progress, cancellation and stale-response tests passed');
+})().catch(e=>{console.error(e);process.exitCode=1});

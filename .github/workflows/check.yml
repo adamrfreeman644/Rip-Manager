@@ -56,6 +56,7 @@ jobs:
           node rip_manager_container/tests/test_drive_visibility.cjs
           node rip_manager_container/tests/test_transfer_view.cjs
           node rip_manager_container/tests/test_library_first_load.cjs
+          node rip_manager_container/tests/test_library_search.cjs
       - name: Install GUI browser test dependencies
         run: |
           npm install --no-save --package-lock=false playwright@1.58.2

@@ -166,7 +166,7 @@ def _collection() -> list[dict]:
             result.append({"id": f"upc:{row['id']}", "title": row["title"] or "Owned — metadata pending",
                            "barcode": row["barcode"], "manifest_path": None, "media_type": None,
                            "ownership": "owned_upc", "location_status": "Owned UPC"})
-    return sorted([_enrich(item) for item in result], key=lambda item: str(item.get("display_title") or item.get("title") or "").casefold())
+    return sorted(result, key=lambda item: str(item.get("display_title") or item.get("title") or "").casefold())
 
 
 def fuzzy_search(title: str, limit: int = 12, media_type: str = "") -> list[dict]:
@@ -189,14 +189,14 @@ def fuzzy_search(title: str, limit: int = 12, media_type: str = "") -> list[dict
         if score >= 0.38:
             ranked.append((score, item))
     ranked.sort(key=lambda pair: (-pair[0], str(pair[1].get("title") or "").casefold()))
-    return [item | {"match_score": round(score, 3)} for score, item in ranked[:limit]]
+    return [_enrich(item) | {"match_score": round(score, 3)} for score, item in ranked[:limit]]
 
 
 def search(query: str = "", media_type: str = "", **_ignored) -> list[dict]:
     q = (query or "").strip()
     if q and not q.isdigit():
         return fuzzy_search(q, limit=10000, media_type=media_type)
-    return [item for item in _collection()
+    return [_enrich(item) for item in _collection()
             if (not media_type or item.get("media_type") == media_type)
             and (not q or item.get("barcode") == q
                  or (len(q) == 4 and (str(item.get("year") or "") == q or q in str(item.get("title") or ""))))]
@@ -291,6 +291,7 @@ def get_item(item_id):
         if item:
             import archive
             folder = archive.existing_folder(item)
+            item = _enrich(item)
             item["manifest"] = _read_manifest(folder / "disc-info.json") if folder else None
         return item
     if isinstance(item_id,str) and item_id.startswith("upc:"):
@@ -304,5 +305,6 @@ def get_item(item_id):
     item = next((item for item in _collection() if item["id"] == numeric_id), None)
     if not item:
         return None
+    item = _enrich(item)
     item["manifest"] = _read_manifest(Path(item["manifest_path"]))
     return item
