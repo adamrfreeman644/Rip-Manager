@@ -6,8 +6,9 @@
   <meta name="theme-color" content="#000000">
   <title>Rip Remote</title>
   <link rel="manifest" href="/static/site.webmanifest">
-  <link rel="stylesheet" href="/static/styles.css?v=0.25.20">
-  <link rel="stylesheet" href="/static/archive.css?v=0.25.20">
+  <link rel="stylesheet" href="/static/styles.css?v=0.25.21">
+  <link rel="stylesheet" href="/static/archive.css?v=0.25.21">
+  <link rel="stylesheet" href="/static/settings.css?v=0.25.21">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32x32.png?v=0.10.6">
   <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16x16.png?v=0.10.6">
   <link rel="apple-touch-icon" sizes="512x512" href="/static/icons/remote-ripper-512.png?v=0.10.6">
@@ -147,16 +148,24 @@
   </div>
 </div>
 
-<div id="overlay" class="overlay hidden">
-  <aside class="drawer">
-    <div class="drawer-head">
-      <button class="close-btn drawer-back hidden" id="settingsBackHeader" type="button">‹ Back</button>
-      <div class="drawer-title" id="drawerTitle">Settings</div>
-      <button class="close-btn" id="settingsClose">Close</button>
-    </div>
-    <div id="settingsContent"></div>
-  </aside>
-</div>
+<section id="overlay" class="overlay hidden" aria-label="Settings">
+  <div class="drawer settings-window" role="dialog" aria-modal="true" aria-labelledby="settingsWindowTitle">
+    <header class="drawer-head settings-window-head">
+      <button class="close-btn drawer-back hidden" id="settingsBackHeader" type="button" aria-label="Back to previous settings page">‹</button>
+      <strong id="settingsWindowTitle">Settings</strong>
+      <button class="close-btn" id="settingsClose" type="button" aria-label="Close settings">Close</button>
+    </header>
+    <aside class="settings-sidebar">
+      <div class="settings-profile"><img src="/static/icons/favicon-32x32.png" alt=""><div><strong>Rip Manager</strong><small id="settingsVersion"></small></div></div>
+      <label class="settings-search-box"><span class="sr-only">Find a setting</span><input id="settingsSearch" type="search" placeholder="Find a setting" autocomplete="off" aria-controls="settingsSearchResults"><span aria-hidden="true">⌕</span></label>
+      <label class="settings-mobile-category">Category<select id="settingsCategory" aria-label="Settings category"></select></label>
+      <nav id="settingsSidebar" aria-label="Settings categories"></nav>
+    </aside>
+    <div id="settingsSearchPanel" class="settings-search-panel hidden"><div id="settingsSearchStatus" role="status" aria-live="polite"></div><div id="settingsSearchResults"></div></div>
+    <main class="settings-main"><nav id="settingsBreadcrumbs" aria-label="Settings breadcrumb"></nav><h1 id="drawerTitle">Settings</h1><div id="settingsContent"></div></main>
+    <footer class="settings-window-footer"><span id="settingsSaveState" role="status">Changes apply after saving</span><button class="secondary" type="button" id="settingsDiscard">Cancel</button><button class="primary" type="button" id="settingsApply" data-settings-action="save" disabled>Save changes</button></footer>
+  </div>
+</section>
 
 <div id="loginModal" class="modal-backdrop hidden auth-backdrop">
   <div class="modal auth-modal" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
@@ -244,10 +253,11 @@
 </section>
 <input id="archiveFile" class="archive-file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" capture="environment">
 
-<script src="/static/app.js?v=0.25.20"></script>
-<script src="/static/downloads.js?v=0.25.20"></script>
-<script src="/static/transfer_view.js?v=0.25.20"></script>
-<script src="/static/archive.js?v=0.25.20"></script>
-<script src="/static/library.js?v=0.25.20"></script>
+<script src="/static/app.js?v=0.25.21"></script>
+<script src="/static/settings.js?v=0.25.21"></script>
+<script src="/static/downloads.js?v=0.25.21"></script>
+<script src="/static/transfer_view.js?v=0.25.21"></script>
+<script src="/static/archive.js?v=0.25.21"></script>
+<script src="/static/library.js?v=0.25.21"></script>
 </body>
 </html>

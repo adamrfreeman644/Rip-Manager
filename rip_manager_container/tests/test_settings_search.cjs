@@ -1,0 +1,15 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const elements=new Map();const q=selector=>{if(!elements.has(selector))elements.set(selector,{innerHTML:'',value:'',textContent:'',classList:{add(){},remove(){},contains(){return true}},setAttribute(){},addEventListener(){}});return elements.get(selector)};
+const State={draft:{nodes:[{id:'node-1',name:'Rip Node 1',url:'http://node',password:'secret-must-not-be-indexed'}]}};
+const context={State,document:{querySelector:q},window:{},esc:v=>String(v??'').replace(/[<>&"]/g,''),isSimulatorNode:n=>n.id==='simulator',settingsDirty:()=>false};
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../app/static/settings.js'),'utf8'),context);
+const find=q=>JSON.parse(JSON.stringify(context.window.settingsShell.find(q)));
+for(const [query,route] of [['hide drives','hardware-drives'],['PIN','security'],['English subtitles','ripping'],['theme','dashboard'],['rollback','updates'],['SMB','hardware-node'],['MakeMKV','hardware-node'],['source cleanup','mover'],['polling','advanced']])assert(find(query).some(x=>x.route===route),query+' must find its actual settings page');
+assert(find('rip node 1').some(x=>x.args[0]==='node-1'));
+assert.equal(find('secret-must-not-be-indexed').length,0);
+assert.equal(find('  ').length,0);assert.equal(find('totally-unrelated-query').length,0);
+assert.equal(find('ENGLISH SUBTITLES')[0].selector,'[data-toggle-key="prefer_english_subtitles"]');
+assert.equal(find('theme')[0].selector,'[data-setting-input="theme"]');
+assert(context.window.settingsShell.home().includes('data-settings-page="security"'));
+assert(context.window.settingsShell.home().includes('data-settings-page="updates"'));
+console.log('Settings search: control routing, aliases, node-specific destinations, empty/no-results and secret exclusion passed');

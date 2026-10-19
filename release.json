@@ -1,8 +1,9 @@
 {
-  "version": "0.25.20",
+  "version": "0.25.21",
   "notes": [
-    "Add a separate Show on dashboard control to each drive in Settings \u2192 Nodes & drives \u2192 Manage drive mapping. Hidden drives remain manageable and their enabled/disabled state is preserved.",
-    "Remove hidden tiles and compact the visible grid to give working drives the available screen space. Saved placements are retained and restored when drives are shown again. Hidden missing-drive assignments are respected; all-hidden layouts explain how to restore drives.",
-    "Regression tests cover visibility persistence, independence from disabled state, saved and automatic layouts, missing drives, restoring hidden drives and a five-to-three-drive phone layout. Complete destination verification still gates source-media deletion."
+    "Overhaul Settings with a Windows-inspired full-screen layout, persistent desktop categories, phone category navigation, breadcrumbs and Back. All existing configuration and maintenance tools remain available.",
+    "Add Find a setting search with individual controls, aliases and node-specific destinations. Search opens and highlights the relevant control without sending requests or changing settings while typing.",
+    "Keep Save and Cancel visible on every page, retain unsaved values across navigation, make toggles accessible by name, and preserve PIN drafts until saved or discarded.",
+    "Regression coverage checks category navigation, search, unsaved changes, PIN drafts, drive visibility and responsive Settings across five viewports and dark/light/system themes. Source cleanup remains gated by complete destination verification."
   ]
 }
