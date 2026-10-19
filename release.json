@@ -1,9 +1,8 @@
 {
-  "version": "0.25.7",
+  "version": "0.25.8",
   "notes": [
-    "Downloads queue their own validated staging folder directly, without a global Intake scan.",
-    "Playlist selections share one staging folder and transfer job; failed or unfinished members block the group until retried or explicitly removed.",
-    "Source URLs, playlist identity and processing outcome persist in media manifests. Download history exposes transfer state and eventual destination. Intake retry avoids downloading completed media again.",
-    "Adds regressions for direct folder queueing, playlist completion and failed-member removal, playlist staging, provenance preservation and destination history."
+    "Mover displays separate Waiting, Needs Attention and History sections. Completed transfers that retained sources with warnings stay in Needs Attention.",
+    "Collision and verification messages explain the next step, show destination paths, and expose explicit retry/remove controls while verification remains visibly distinct from completion.",
+    "Adds backend status classification and executable JavaScript rendering/escaping regressions to the complete reliability workflow."
   ]
 }

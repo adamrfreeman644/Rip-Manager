@@ -265,7 +265,15 @@ def list_transfers() -> list[dict]:
            ORDER BY CASE q.state WHEN 'copying' THEN 0 WHEN 'verifying' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END,
                     q.created_at"""
     )
-    return [dict(row) for row in rows]
+    result=[]
+    for row in rows:
+        item=dict(row)
+        item["status_group"]=("attention" if item["state"]=="failed" or item.get("error") and item["state"]=="complete"
+                              else "waiting" if item["state"] in {"queued","copying","verifying"} else "history")
+        error=(item.get("error") or "").lower()
+        item["attention_kind"]=("collision" if "already exists" in error else "verification" if "verification" in error or "source changed" in error else "unavailable" if "unavailable" in error or "no such file" in error else "transfer") if item["status_group"]=="attention" else None
+        result.append(item)
+    return result
 
 
 def retry(transfer_id: int) -> None:
