@@ -116,7 +116,7 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
    const saved=requests.findLast(r=>r.path==='/settings'&&r.method==='PUT').body;assert.equal(saved.prefer_english_subtitles,true);assert.equal(saved.drive_preferences['node:DVD4'].visible,false);assert(!saved.new_pin,'cleared PIN draft must not be submitted');
    await navigate('settings');await page.waitForSelector('#overlay:not(.hidden)');
    await page.fill('#settingsSearch','theme');await page.keyboard.press('Enter');await page.selectOption('[data-setting-input="theme"]','light');
-   const dialog=page.waitForEvent('dialog');await page.click('#settingsClose');await (await dialog).dismiss();assert(await page.locator('#overlay').isVisible(),'declining discard keeps unsaved settings');
+   const dialog=page.waitForEvent('dialog').then(dialog=>dialog.dismiss());await page.click('#settingsClose');await dialog;assert(await page.locator('#overlay').isVisible(),'declining discard keeps unsaved settings');
    await page.selectOption('[data-setting-input="theme"]','dark');await chooseCategory('home');
    fs.mkdirSync('gui-test-artifacts',{recursive:true});await page.screenshot({path:`gui-test-artifacts/settings-${viewport.width}x${viewport.height}.png`});
    await page.evaluate(()=>openModal('Help','<p>Settings help</p>'));await page.keyboard.press('Escape');assert(await page.locator('#genericModal').evaluate(el=>el.classList.contains('hidden')));assert(await page.locator('#overlay').evaluate(el=>!el.classList.contains('hidden')),'Escape closes help before Settings');await page.keyboard.press('Escape');
