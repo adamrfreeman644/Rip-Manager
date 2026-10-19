@@ -115,6 +115,7 @@ await page.click('[data-recovery-analyse]');await page.waitForSelector('#confirm
     for(const category of ['dashboard','hardware','ripping','mover','security','updates','system','home']){
      await chooseCategory(category);
      assert(await page.locator('.settings-main').evaluate(el=>el.scrollWidth<=el.clientWidth+1),`${category} settings must not overflow at ${viewport.width}px in ${theme}`);
+     if(category==='home'&&viewport.width>760){const search=await page.locator('.settings-search-box').boundingBox(),sidebar=await page.locator('.settings-sidebar').boundingBox();assert(search.y>=sidebar.y,'returning Home reveals the complete settings search field');}
      if(category==='system'){
       const spacing=await page.locator('#settingsContent .settings-nav-row').evaluateAll(els=>els.map(el=>({padding:parseFloat(getComputedStyle(el).paddingLeft),inset:el.querySelector('.setting-copy').getBoundingClientRect().left-el.getBoundingClientRect().left})));
       assert(spacing.length&&spacing.every(x=>x.padding>=14&&x.inset>=14),'navigation copy must have even internal padding');
