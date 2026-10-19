@@ -18,7 +18,7 @@ from typing import List, Optional
 
 from config import ACTIVE_JOB_STATES, DEFAULT_ACTIVE_POLL, DEFAULT_IDLE_POLL
 import db
-import intake
+import disc_intake
 import jobs as job_history
 import nodes as node_client
 import mover
@@ -89,7 +89,7 @@ def _store_node_results(node_id: str, now: float, drives_result, jobs_result, st
 
 async def _start_pending(node: sqlite3.Row, drives: List[dict]) -> None:
     """Wait for Disc: launch anything whose disc has now arrived."""
-    waiting = intake.for_node(node["id"])
+    waiting = disc_intake.for_node(node["id"])
     if not waiting:
         return
 
@@ -98,7 +98,7 @@ async def _start_pending(node: sqlite3.Row, drives: List[dict]) -> None:
 
     for row in waiting:
         drive_name = row["drive"]
-        if intake.exhausted(row):
+        if disc_intake.exhausted(row):
             continue
         drive = by_name.get(drive_name)
         if not drive:
@@ -109,16 +109,16 @@ async def _start_pending(node: sqlite3.Row, drives: List[dict]) -> None:
             continue
         if not node_client.drive_preference(node["id"], drive_name, "detect", True):
             continue
-        media_ready = intake.media_is_ready(drive)
+        media_ready = disc_intake.media_is_ready(drive)
         ready_at = await asyncio.to_thread(
-            intake.mark_ready, node["id"], drive_name, media_ready
+            disc_intake.mark_ready, node["id"], drive_name, media_ready
         )
         if not media_ready or ready_at is None:
             continue
-        if time.time() - ready_at < intake.AUTO_START_DELAY_SECONDS:
+        if time.time() - ready_at < disc_intake.AUTO_START_DELAY_SECONDS:
             continue
 
-        request = intake.to_request(row)
+        request = disc_intake.to_request(row)
         try:
             result = await node_client.post(
                 node, f"/drives/{drive_name}/rip", request.node_payload(auto_eject)
@@ -126,14 +126,14 @@ async def _start_pending(node: sqlite3.Row, drives: List[dict]) -> None:
         except Exception as exc:  # HTTPException included: the node refused
             detail = getattr(exc, "detail", None) or str(exc)
             log.warning("Auto-start failed on %s/%s: %s", node["id"], drive_name, detail)
-            await asyncio.to_thread(intake.record_error, node["id"], drive_name, str(detail))
+            await asyncio.to_thread(disc_intake.record_error, node["id"], drive_name, str(detail))
             continue
 
         await asyncio.to_thread(
             job_history.record_started_job,
             node["id"], drive_name, request.model_dump(), result, True,
         )
-        await asyncio.to_thread(intake.clear, node["id"], drive_name)
+        await asyncio.to_thread(disc_intake.clear, node["id"], drive_name)
         log.info("Auto-started %s on %s: %s", drive_name, node["id"], row["title"])
 
 
@@ -157,7 +157,7 @@ async def poll_node(node_id: str) -> None:
                 "UPDATE nodes SET online=0,last_poll=?,last_error=? WHERE id=?",
                 (now, f"Health check failed: {detail}", node_id),
             )
-        await asyncio.to_thread(intake.clear_ready_for_node, node_id)
+        await asyncio.to_thread(disc_intake.clear_ready_for_node, node_id)
         return
 
     with db.write() as conn:

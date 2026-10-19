@@ -7,7 +7,7 @@ import sqlite3
 from fastapi import APIRouter, HTTPException
 
 import db
-import intake
+import disc_intake
 import jobs as job_history
 from models import RipRequest
 import nodes as node_client
@@ -35,7 +35,7 @@ async def _start(node: sqlite3.Row, drive: str, req: RipRequest, auto_started: b
     auto_eject = db.get_setting_bool("auto_eject", True)
     result = await node_client.post(node, f"/drives/{drive}/rip", req.node_payload(auto_eject))
     job_history.record_started_job(node["id"], drive, req.model_dump(), result, auto_started)
-    intake.clear(node["id"], drive)
+    disc_intake.clear(node["id"], drive)
     poller.wakeup.set()
     return result
 
@@ -81,11 +81,11 @@ async def wait_for_disc(node_id: str, drive_name: str, req: RipRequest):
     if cached and cached.get("active_job"):
         raise HTTPException(status_code=409, detail=f"{drive} is already ripping")
 
-    if cached and intake.media_is_ready(cached):
+    if cached and disc_intake.media_is_ready(cached):
         result = await _start(node, drive, req)
         return {"ok": True, "started": True, "message": f"{drive} started", "result": result}
 
-    intake.queue(node_id, drive, req)
+    disc_intake.queue(node_id, drive, req)
 
     opened = False
     open_warning = None
@@ -107,14 +107,14 @@ async def wait_for_disc(node_id: str, drive_name: str, req: RipRequest):
             f"{drive} opened — insert the disc and close the tray"
             if opened else f"{drive} is waiting for a disc"
         ),
-        "pending": intake.to_dict(intake.get(node_id, drive)),
+        "pending": disc_intake.to_dict(disc_intake.get(node_id, drive)),
     }
 
 
 @router.delete("/nodes/{node_id}/drives/{drive_name}/intake")
 def cancel_wait(node_id: str, drive_name: str):
     node, drive = _drive(node_id, drive_name)
-    if not intake.clear(node["id"], drive):
+    if not disc_intake.clear(node["id"], drive):
         raise HTTPException(status_code=404, detail=f"{drive} is not waiting for a disc")
     poller.wakeup.set()
     return {"ok": True, "message": f"{drive} is no longer waiting for a disc"}
@@ -144,19 +144,19 @@ async def retry(node_id: str, drive_name: str):
     )
 
     cached = node_client.find_cached_drive(node_id, drive)
-    if cached and intake.media_is_ready(cached):
+    if cached and disc_intake.media_is_ready(cached):
         result = await _start(node, drive, req)
         return {"ok": True, "started": True, "message": f"{drive} retrying {req.title}", "result": result}
 
     # The disc was probably ejected after the failure. Queue it so putting the
     # same disc back in is all that is left to do.
-    intake.queue(node_id, drive, req)
+    disc_intake.queue(node_id, drive, req)
     poller.wakeup.set()
     return {
         "ok": True,
         "started": False,
         "message": f"{drive} will retry {req.title} when the disc is back in",
-        "pending": intake.to_dict(intake.get(node_id, drive)),
+        "pending": disc_intake.to_dict(disc_intake.get(node_id, drive)),
     }
 
 
@@ -203,7 +203,7 @@ async def node_clear(node_id: str, drive_name: str):
     """Clear a finished job card; never delete ripped output files."""
     node, drive = _drive(node_id, drive_name)
     result = await node_client.post(node, f"/drives/{drive}/clear")
-    intake.clear(node_id, drive)
+    disc_intake.clear(node_id, drive)
     job_history.clear_drive(node_id, drive)
     poller.wakeup.set()
     return {**result, "message": f"{drive} cleared and ready"}

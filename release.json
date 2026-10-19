@@ -1,9 +1,8 @@
 {
-  "version": "0.25.9",
+  "version": "0.25.10",
   "notes": [
-    "Physical Media and Library use shared catalog refresh and manifest-reading paths; catalog refresh now updates both archive records and searchable manifest index.",
-    "Library scan, Check manifests and repair controls use a serialized background worker with progress, persisted status and explicit interrupted/failed results.",
-    "Safe repair preserves invalid JSON byte-for-byte as a uniquely named backup before rebuilding a manifest, and queues eligible stranded media through the verified Mover while leaving collisions for review.",
-    "Fixes health-scan route shadowing, supports audiobook root aliases and m4b during backfill, and preserves index entries while media roots are unavailable. Adds route, backup, stranded-repair, progress and unavailable-root regressions."
+    "Optical-disc preparation now lives in disc_intake.py, while digital staging remains media_intake.py.",
+    "Polling, optical controls, fleet views and settings use the explicit optical module name. Existing intake imports remain compatible through an alias to the same module instance.",
+    "Adds compatibility regressions and preserves optical readiness, auto-start, retry and tray-control functionality."
   ]
 }
