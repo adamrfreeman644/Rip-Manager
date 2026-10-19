@@ -1,9 +1,9 @@
 {
-  "version": "0.25.16",
+  "version": "0.25.17",
   "notes": [
-    "Downloader continuation accepts .part, fragment partials and .ytdl files in the job's recorded staging folder, instead of rejecting them as completed filenames.",
-    "New jobs still reject collisions, completed media remains protected, and symlinks cannot be treated as resumable files. Literal prefix matching also handles bracketed titles correctly.",
-    "yt-dlp continues interrupted downloads with overwriting disabled. Adds an end-to-end failed-download/retry regression plus temporary-artifact and completed-collision cases.",
-    "Complete local suite: 127 passed with warnings treated as errors."
+    "Collection reads no longer synchronously rebuild an empty manifest index. Initial indexing is scheduled once through the existing background worker, including configuration and storage-availability changes.",
+    "Collection responses expose initial-index job state; the Library displays progress and reloads results after completion, ignoring outdated search requests.",
+    "UPC lookup waits for the owned index before contacting an external provider. Failed/interrupted scans stay visible for explicit retry; empty completed indexes do not repeatedly rescan.",
+    "Adds non-blocking request, owned-UPC, failed/retry and empty-index regressions plus executable JavaScript progress/error rendering tests in reliability CI. Complete local Python suite: 131 passed with warnings treated as errors."
   ]
 }

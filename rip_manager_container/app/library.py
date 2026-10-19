@@ -117,8 +117,6 @@ def _enrich(item):
 def _collection() -> list[dict]:
     """Join manifests and rip history by folder/record identity, never title alone."""
     import archive
-    if not db.query_one("SELECT 1 FROM library_items LIMIT 1"):
-        check_manifests()
     physical = physical_media()
     by_folder = {}
     by_job = {}
@@ -226,7 +224,15 @@ def bulk_add(text: str) -> dict:
         added+=1
     return {"submitted":len(submitted),"added":added,"already_owned":existing,"duplicates":duplicates,"invalid":invalid}
 
+def index_signature():
+    """Cheap configuration/availability signature; never recursively scan on reads."""
+    root=Path(db.get_setting("mover_destination_root","/media")).resolve()
+    folders=db.get_setting_json("mover_destination_folders",{})
+    availability={kind:(root/relative).is_dir() for kind,relative in folders.items()}
+    return json.dumps([str(root),folders,availability],sort_keys=True,separators=(",",":"))
+
 def check_manifests(progress=None) -> dict:
+    signature=index_signature()
     root=Path(db.get_setting("mover_destination_root","/media")).resolve()
     folders=db.get_setting_json("mover_destination_folders",{})
     found=updated=skipped=0; seen=set(); scanned_roots=[]
@@ -249,6 +255,7 @@ def check_manifests(progress=None) -> dict:
         for row in rows:
             if row["manifest_path"] not in seen and any(Path(row["manifest_path"]).is_relative_to(base) for base in scanned_roots):
                 conn.execute("DELETE FROM library_items WHERE id=?",(row["id"],))
+    db.set_setting("library_index_signature",signature)
     return {"manifests_found":found,"database_updated":updated,"skipped":skipped}
 
 def ensure_physical(item_id):

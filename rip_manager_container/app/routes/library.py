@@ -18,7 +18,9 @@ class ResolveUPC(BaseModel):
 
 @router.get("")
 def list_library(q: str="", media_type: str="", extras: str="", sort: str="title"):
-    return {"items":library.search(q, media_type=media_type, extras=extras, sort=sort)}
+    job=library_maintenance.ensure_initial_index()
+    return {"items":library.search(q, media_type=media_type, extras=extras, sort=sort),
+            "index_job":job,"indexing":bool(job and job.get("status")=="running")}
 
 @router.post("/bulk")
 def bulk(req: BulkImport):
@@ -26,6 +28,12 @@ def bulk(req: BulkImport):
 
 @router.get("/smart/{code}")
 async def smart_lookup(code: str, media_type: str=""):
+    job=library_maintenance.ensure_initial_index()
+    if job and job.get("status")!="complete":
+        # Never fall through to an external UPC provider before the owned index
+        # is ready: an unfinished initial scan does not mean the media is new.
+        return {"state":"indexing","items":library.search(code,media_type=media_type),
+                "index_job":job,"indexing":job.get("status")=="running"}
     # Owned always wins: never call an external provider for a UPC we already know.
     owned=library.search(code, media_type=media_type)
     if owned:
