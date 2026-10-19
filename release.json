@@ -1,8 +1,9 @@
 {
-  "version": "0.25.10",
+  "version": "0.25.11",
   "notes": [
-    "Optical-disc preparation now lives in disc_intake.py, while digital staging remains media_intake.py.",
-    "Polling, optical controls, fleet views and settings use the explicit optical module name. Existing intake imports remain compatible through an alias to the same module instance.",
-    "Adds compatibility regressions and preserves optical readiness, auto-start, retry and tray-control functionality."
+    "Manager queries the running API of every enabled real Rip Node and compares it with the bundled version. Verified, mismatched, unknown and unreachable states are visible in Updates and cached with timestamps.",
+    "Node polling refreshes verification periodically, with a dedicated deployment-verification endpoint independent of GitHub release checks.",
+    "Installation callbacks are reports rather than proof of success. Update requests remain pending until all expected nodes positively report the bundled version; simulators and disabled nodes are excluded.",
+    "Adds regressions for mixed node versions, unreachable nodes, pending request retention, complete verification and false-success callbacks. Hardware verification occurs when the deployed Manager reaches the actual nodes."
   ]
 }

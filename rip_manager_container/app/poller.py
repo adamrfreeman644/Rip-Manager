@@ -187,6 +187,9 @@ async def poll_node(node_id: str) -> None:
 async def poll_once() -> None:
     ids = [row["id"] for row in db.query("SELECT id FROM nodes WHERE enabled=1")]
     await asyncio.gather(*(poll_node(node_id) for node_id in ids), return_exceptions=True)
+    previous=db.get_setting_json("node_deployments",{})
+    if time.time()-previous.get("checked_at",0)>=60:
+        await node_client.verify_api_deployments()
 
 
 def any_active_cached() -> bool:

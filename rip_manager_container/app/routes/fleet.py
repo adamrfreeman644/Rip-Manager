@@ -130,7 +130,7 @@ def overview():
             "stats": _decode(cached["stats_json"], {}) if cached else {},
             "fetched_at": cached["fetched_at"] if cached else None,
         })
-    return {"nodes": payload, "settings": current_settings(), "pending_intake": disc_intake.all_pending()}
+    return {"nodes": payload, "deployment_verification":db.get_setting_json("node_deployments",{}), "settings": current_settings(), "pending_intake": disc_intake.all_pending()}
 
 
 @router.get("/drives")
