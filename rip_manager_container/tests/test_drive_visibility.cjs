@@ -1,0 +1,17 @@
+const assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
+const source=fs.readFileSync(path.join(__dirname,'../app/static/app.js'),'utf8');
+const state={settings:{dashboard_columns:1,dashboard_rows:5,dashboard_tiles:['n:DVD5','n:DVD4','n:DVD3','n:DVD2','n:DVD1'],drive_preferences:{}},drives:[5,4,3,2,1].map(n=>({node_id:'n',name:'DVD'+n}))};
+const context={State:state};vm.createContext(context);vm.runInContext(source.slice(source.indexOf('function dashboardDriveKey'),source.indexOf('function missingDriveTile')),context);
+const layout=()=>JSON.parse(JSON.stringify(vm.runInContext('configuredDashboardCells()',context)));
+const original=layout();assert.equal(original.cells.length,5);
+state.settings.drive_preferences={'n:DVD4':{enabled:false,visible:false},'n:DVD2':{enabled:true,visible:false}};
+assert.deepEqual(layout(),{columns:1,rows:3,cells:['n:DVD5','n:DVD3','n:DVD1']});
+assert.equal(state.settings.dashboard_tiles.length,5,'saved layout must survive hiding');
+state.settings.drive_preferences['n:DVD4'].visible=true;assert.equal(layout().cells.length,4,'disabled drives can still be shown');
+state.settings.drive_preferences['n:DVD2'].visible=true;assert.deepEqual(layout(),original,'show restores original positions');
+state.settings.dashboard_tiles=[];state.settings.drive_preferences['n:DVD4'].visible=false;assert.equal(layout().cells.length,4,'automatic layouts respect visibility');
+state.settings.dashboard_columns=3;state.settings.dashboard_rows=2;state.settings.drive_preferences['n:DVD2'].visible=false;assert.deepEqual(layout(),{columns:3,rows:1,cells:['n:DVD5','n:DVD3','n:DVD1']});
+state.settings.dashboard_tiles=['n:DVD5',null,'n:DVD4','n:MISSING'];state.settings.drive_preferences['n:MISSING']={visible:false};assert.deepEqual(layout().cells,['n:DVD5'],'hidden missing-drive assignments must disappear');
+state.settings.dashboard_tiles=['n:DVD5',null,'n:DVD3','n:DVD4'];assert.deepEqual(layout().cells,['n:DVD5',null,'n:DVD3'],'intentional internal empty cells remain');
+state.settings.dashboard_tiles=['n:DVD4'];assert.deepEqual(layout(),{columns:1,rows:1,cells:[]});
+console.log('Drive visibility: saved/automatic layouts, independent enabled state, compaction, gaps, missing and all-hidden drives passed');

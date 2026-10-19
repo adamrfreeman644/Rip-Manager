@@ -395,7 +395,14 @@ function configuredDashboardCells() {
     State.drives.slice(0,count).forEach((drive,index)=>{ saved[index]=dashboardDriveKey(drive); });
   }
   while (saved.length<count) saved.push(null);
-  return {columns,rows,cells:saved};
+  const visible = key => !key || settings.drive_preferences?.[key]?.visible !== false;
+  const compact = saved.some(key => !visible(key));
+  if (!compact) return {columns,rows,cells:saved};
+  const cells = saved.filter(visible);
+  // Remove padding left by hidden drives, preserving internal intentional gaps.
+  while (cells.length && !cells[cells.length-1]) cells.pop();
+  const fittedColumns = Math.max(1,Math.min(columns,cells.length));
+  return {columns:fittedColumns,rows:Math.max(1,Math.ceil(cells.length/fittedColumns)),cells};
 }
 function missingDriveTile(key,index) {
   const bare=String(key||"").split(":").pop()||"Drive";
@@ -414,12 +421,12 @@ function renderGrid() {
   const spacingPercent=Math.max(50,Math.min(300,Number(State.settings?.dashboard_spacing_percent || 100)));
   grid.style.setProperty("--dashboard-gap-scale",String(spacingPercent/100));
   const byKey=new Map(State.drives.map(d=>[dashboardDriveKey(d),d]));
-  const markup=layout.cells.map((key,cellIndex)=>{
+  const markup=layout.cells.length?layout.cells.map((key,cellIndex)=>{
     if(!key)return emptyDashboardTile(cellIndex);
     const drive=byKey.get(key);
     if(!drive)return missingDriveTile(key,cellIndex);
     return tileMarkup(drive,State.drives.indexOf(drive));
-  }).join("");
+  }).join(""):'<div class="empty-grid"><strong>All dashboard drives are hidden</strong><span>Open Settings → Nodes & drives to show them again.</span></div>';
   const signature=`${layout.columns}x${layout.rows}:${markup}`;
   if(signature===State.gridSignature)return;
   State.gridSignature=signature;
@@ -1310,6 +1317,7 @@ function drivePreference(id) {
   }
   const preference = State.draft.drive_preferences[id];
   if (preference.enabled === undefined) preference.enabled = true;
+  if (preference.visible === undefined) preference.visible = true;
   if (preference.open_tray === undefined) preference.open_tray = true;
   if (preference.close_tray === undefined) preference.close_tray = true;
   return preference;
@@ -1318,7 +1326,7 @@ function drivePreference(id) {
 
 function availableLayoutDrives() {
   return State.drives.map(drive=>({
-    key:dashboardDriveKey(drive), name:drive.name,
+    key:dashboardDriveKey(drive), name:drive.name+(State.draft?.drive_preferences?.[dashboardDriveKey(drive)]?.visible===false?" (hidden)":""),
     node:drive.node_name||drive.node_id, exists:drive.exists!==false
   }));
 }
@@ -1695,7 +1703,8 @@ async function loadDriveMapping(nodeId=null) {
         <div class="drive-map-detail"><span>Current device</span><code>${esc(m.device || m.configured_device || "—")}</code></div>
         ${m.id_path ? `<div class="drive-map-detail"><span>USB / udev path</span><code>${esc(m.id_path)}</code></div>` : ""}
         <div class="drive-capability-settings">
-          ${toggleRow("Use this drive","Switch off to mark this drive Do not use. It remains visible and tray controls remain available.",capability.enabled,`data-drive-id="${esc(driveId)}" data-drive-key="enabled"`)}
+          ${toggleRow("Use this drive","Switch off to prevent ripping with this drive. Dashboard visibility is controlled separately.",capability.enabled,`data-drive-id="${esc(driveId)}" data-drive-key="enabled"`)}
+          ${toggleRow("Show on dashboard","Switch off to hide this tile and give the remaining drives more space. The drive stays in Settings and keeps its existing ripping and tray settings.",capability.visible,`data-drive-id="${esc(driveId)}" data-drive-key="visible"`)}
           ${toggleRow("Supports Open / Eject","Show Open or Eject and allow Prepare Drive to open this tray",capability.open_tray,`data-drive-id="${esc(driveId)}" data-drive-key="open_tray"`)}
           ${toggleRow("Supports Close","Show the Close tray button for this drive",capability.close_tray,`data-drive-id="${esc(driveId)}" data-drive-key="close_tray"`)}
         </div>
