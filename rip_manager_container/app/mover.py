@@ -59,7 +59,10 @@ def _resolve_paths(job: dict) -> tuple[Path, Path]:
     destination_parent = (destination_root / media_folder).resolve()
     if not _under(destination_parent, destination_root):
         raise ValueError("Unsafe destination folder setting")
-    return source, destination_parent / source.name
+    destination=(destination_parent/source.name).resolve()
+    if not _under(destination,destination_root) or _under(destination,source) or _under(source,destination):
+        raise ValueError("Source and destination must be separate, non-overlapping folders")
+    return source, destination
 
 
 def enqueue(manager_job_id: str) -> bool:
@@ -145,8 +148,13 @@ def _verify_source(source: Path, snapshot: dict, digests: dict) -> None:
         raise IOError(f"Source changed or could not be verified; source retained: {exc}") from exc
 
 
-def _verify_destination(destination: Path, digests: dict) -> None:
+def _verify_destination(destination: Path, digests: dict, owner=None) -> None:
     files = _inventory(destination)
+    if owner is not None:
+        marker=destination/".rip-manager-owner.json"
+        if marker.is_symlink() or json.loads(marker.read_text())!=owner:
+            raise IOError("Verification failed: partial ownership changed")
+        files=[item for item in files if item[1].as_posix()!=".rip-manager-owner.json"]
     if {relative for _, relative, _ in files} != set(digests):
         raise IOError("Verification failed: destination inventory changed")
     for path, relative, _ in files:
@@ -157,7 +165,11 @@ def _verify_destination(destination: Path, digests: dict) -> None:
 def _copy_transfer(transfer: dict, job: dict) -> None:
     transfer_id = transfer["id"]
     source, destination = _resolve_paths(job)
-    partial = destination.with_name(f".{destination.name}.partial")
+    partial = destination.with_name(f".{destination.name}.partial-{transfer_id}")
+    marker_name=".rip-manager-owner.json"
+    owner={"transfer_id":transfer_id,"job":job["manager_job_id"],"source":str(source),"destination":str(destination)}
+    if (source/marker_name).exists():
+        raise ValueError("Source contains a reserved Mover ownership file; source retained")
     if destination.exists():
         raise FileExistsError(f"Destination already exists: {destination}")
     # The generated text sidecar is the completion marker for preparation.
@@ -178,9 +190,20 @@ def _copy_transfer(transfer: dict, job: dict) -> None:
     digests = {}
     total = sum(item[2] for item in files)
     destination.parent.mkdir(parents=True, exist_ok=True)
+    if partial.is_symlink():
+        raise ValueError("Partial destination is a symbolic link; source retained")
     if partial.exists():
+        marker=partial/marker_name
+        try:
+            owned=not marker.is_symlink() and json.loads(marker.read_text())==owner
+        except (OSError,ValueError):
+            owned=False
+        if not owned:
+            raise FileExistsError("Unowned partial destination exists; it was not deleted; source retained")
+        _inventory(partial)  # Reject links before removing only this job's owned copy.
         shutil.rmtree(partial)
     partial.mkdir()
+    (partial/marker_name).write_text(json.dumps(owner))
     _set(transfer_id, state="copying", source_dir=str(source), destination_dir=str(destination),
          bytes_total=total, bytes_copied=0, files_total=len(files), files_copied=0,
          error=None, started_at=time.time())
@@ -208,9 +231,10 @@ def _copy_transfer(transfer: dict, job: dict) -> None:
     _set(transfer_id, state="verifying")
     # Re-read the complete destination and source, including files copied early.
     # A per-file check alone cannot detect later changes or newly added extras.
-    _verify_destination(partial, digests)
+    _verify_destination(partial, digests, owner)
     _verify_source(source, snapshot, digests)
     os.replace(partial, destination)
+    (destination/marker_name).unlink()
     warning = None
     try:
         archive.set_final_dir(job["manager_job_id"], destination)
@@ -271,7 +295,7 @@ def list_transfers() -> list[dict]:
         item["status_group"]=("attention" if item["state"]=="failed" or item.get("error") and item["state"]=="complete"
                               else "waiting" if item["state"] in {"queued","copying","verifying"} else "history")
         error=(item.get("error") or "").lower()
-        item["attention_kind"]=("collision" if "already exists" in error else "verification" if "verification" in error or "source changed" in error else "unavailable" if "unavailable" in error or "no such file" in error else "transfer") if item["status_group"]=="attention" else None
+        item["attention_kind"]=("collision" if "already exists" in error or "unowned partial" in error else "verification" if "verification" in error or "source changed" in error else "unavailable" if "unavailable" in error or "no such file" in error else "transfer") if item["status_group"]=="attention" else None
         result.append(item)
     return result
 

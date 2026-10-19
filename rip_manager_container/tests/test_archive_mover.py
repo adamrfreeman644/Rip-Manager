@@ -279,7 +279,7 @@ def test_media_prep_requires_completion_marker(tmp_path):
     except ValueError as exc:
         assert "marker" in str(exc).lower()
 
-def test_media_prep_removes_high_confidence_tv_play_all(tmp_path, monkeypatch):
+def test_media_prep_skips_but_preserves_high_confidence_tv_play_all(tmp_path, monkeypatch):
     import media_prep
     source=tmp_path/"rip";source.mkdir()
     files=[]
@@ -290,7 +290,10 @@ def test_media_prep_removes_high_confidence_tv_play_all(tmp_path, monkeypatch):
     monkeypatch.setattr(media_prep,"_duration",lambda p:durations[p])
     result=media_prep.prepare_completed_rip(source,{"state":"complete","media_type":"tv","title":"Show","season":1,"disc":1})
     assert result["play_all_removed"]==1
-    assert not files[0].exists()
+    assert not files[0].exists()  # Removed from the episode sequence, never destroyed.
+    assert result["play_all_preserved"]==1
+    assert len(list(source.rglob("*.mkv")))==3
+    assert (source/"extras"/"Show S01 D01 Play All.mkv").read_bytes()==b"x"
 
 
 def test_tv_media_labels_include_series_without_rescanning(tmp_path, monkeypatch):
