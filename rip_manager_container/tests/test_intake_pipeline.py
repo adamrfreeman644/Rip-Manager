@@ -111,3 +111,57 @@ def test_failed_transfer_explicit_queue_retries_existing_job(tmp_path,monkeypatc
     assert retry["retried"]
     assert retry["manager_job_id"]==first["manager_job_id"]
     assert db.query_one("SELECT state FROM transfer_queue")["state"]=="queued"
+
+
+def test_identical_later_import_gets_new_transfer_and_preserves_old_history(tmp_path,monkeypatch):
+    import mover,jobs
+    db,media,intake,folder=stage(tmp_path,monkeypatch)
+    first=intake.queue_folder(folder,'movie')
+    transfer=dict(db.query_one('SELECT * FROM transfer_queue'))
+    job=jobs.row_to_dict(db.query_one('SELECT * FROM jobs_history WHERE manager_job_id=?',(first['manager_job_id'],)))
+    mover._copy_transfer(transfer,job)
+    assert not folder.exists()
+    # Owner relocates the previous destination before staging the same bytes.
+    destination=media/'1 ~ Movies'/folder.name
+    destination.rename(media/'previous-import')
+    folder.mkdir();(folder/'media.mkv').write_bytes(b'media')
+    second=intake.queue_folder(folder,'movie')
+    assert second['queued'] and second['manager_job_id']!=first['manager_job_id']
+    assert intake.queue_folder(folder,'movie')['manager_job_id']==second['manager_job_id']
+    assert len(db.query('SELECT * FROM transfer_queue'))==2
+    assert db.query_one('SELECT state FROM transfer_queue WHERE manager_job_id=?',(first['manager_job_id'],))['state']=='complete'
+    assert (media/'previous-import'/'media.mkv').read_bytes()==b'media'
+    assert (folder/'media.mkv').read_bytes()==b'media'
+
+
+def test_completed_adoption_marker_is_renewed_when_destination_is_missing(tmp_path,monkeypatch):
+    db,media,intake,folder=stage(tmp_path,monkeypatch)
+    first=intake.queue_folder(folder,'movie')
+    with db.write() as con: con.execute("UPDATE transfer_queue SET state='complete'")
+    second=intake.queue_folder(folder,'movie')
+    assert second['queued'] and second['manager_job_id']!=first['manager_job_id']
+    assert intake.queue_folder(folder,'movie')['manager_job_id']==second['manager_job_id']
+
+
+def test_intake_adoption_generation_survives_reload_and_sidecar_refresh(tmp_path,monkeypatch):
+    import importlib,archive
+    db,media,intake,folder=stage(tmp_path,monkeypatch)
+    first=intake.queue_folder(folder,'movie')
+    archive.sync_sidecars(first['manager_job_id'],folder)
+    importlib.reload(intake)
+    second=intake.queue_folder(folder,'movie')
+    assert second['manager_job_id']==first['manager_job_id']
+    assert len(db.query('SELECT * FROM transfer_queue'))==1
+
+
+def test_intake_migrates_failed_legacy_content_identity_without_duplicate(tmp_path,monkeypatch):
+    db,media,intake,folder=stage(tmp_path,monkeypatch)
+    intake.prepare(intake.scan()['items'][0]['id'])
+    identity=intake._content_fingerprint(folder,'movie')
+    legacy='intake:'+identity
+    with db.write() as con:
+        con.execute("INSERT INTO jobs_history(manager_job_id,node_id,node_job_id,drive,state,title,media_type,output_dir,updated_at) VALUES (?,'Media-Intake',?,'INTAKE','complete','Example','movie',?,1)",(legacy,identity,str(folder)))
+        con.execute("INSERT INTO transfer_queue(manager_job_id,state,created_at,updated_at) VALUES (?,'failed',1,1)",(legacy,))
+    result=intake.queue_folder(folder,'movie')
+    assert result['manager_job_id']==legacy and result['retried']
+    assert len(db.query('SELECT * FROM jobs_history'))==1
