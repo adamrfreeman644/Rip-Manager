@@ -22,9 +22,9 @@ jobs:
       PYTHONPATH: rip_manager_container/app:rip_manager_container
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: pip
@@ -32,7 +32,7 @@ jobs:
             rip_manager_container/requirements.txt
             rip_manager_container/requirements-dev.txt
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
       - name: Prepare container-style test mounts
