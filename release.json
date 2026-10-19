@@ -1,8 +1,8 @@
 {
-  "version": "0.25.2",
+  "version": "0.25.3",
   "notes": [
-    "Recovery now distinguishes new generations of reused source folders while keeping repeated adoption idempotent.",
-    "Distinct source folders retain separate Recovery jobs, even when file metadata matches.",
-    "Adds regression coverage for recovery identity; all transfers continue through the verified Mover."
+    "Mover re-verifies the complete staged destination and unchanged source before publishing transferred media.",
+    "Source additions, removals, replacements and content changes stop unsafe cleanup; changes during archive finalization retain the source with a visible warning.",
+    "Adds regression tests for concurrent source changes and late destination corruption; existing transfer, Recovery and intake behavior is preserved."
   ]
 }

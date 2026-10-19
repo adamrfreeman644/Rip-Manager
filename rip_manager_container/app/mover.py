@@ -115,6 +115,45 @@ def _inventory(source: Path) -> list[tuple[Path, Path, int]]:
     return files
 
 
+def _source_snapshot(source: Path) -> dict:
+    """Include directory identity so replacements and new entries fail closed."""
+    snapshot = {}
+    for path in [source, *sorted(source.rglob("*"))]:
+        if path.is_symlink():
+            raise ValueError(f"Symbolic links are not moved: {path.name}")
+        stat = path.stat()
+        snapshot[path.relative_to(source).as_posix()] = (
+            stat.st_mode, stat.st_dev, stat.st_ino, stat.st_size,
+            stat.st_mtime_ns, stat.st_ctime_ns,
+        )
+    return snapshot
+
+
+def _verify_source(source: Path, snapshot: dict, digests: dict) -> None:
+    try:
+        if _source_snapshot(source) != snapshot:
+            raise IOError("Source changed during transfer; source retained")
+        files = _inventory(source)
+        if {relative for _, relative, _ in files} != set(digests):
+            raise IOError("Source changed during transfer; source retained")
+        for path, relative, _ in files:
+            if _hash(path) != digests[relative]:
+                raise IOError(f"Source changed during transfer: {relative}; source retained")
+        if _source_snapshot(source) != snapshot:
+            raise IOError("Source changed during verification; source retained")
+    except (OSError, ValueError) as exc:
+        raise IOError(f"Source changed or could not be verified; source retained: {exc}") from exc
+
+
+def _verify_destination(destination: Path, digests: dict) -> None:
+    files = _inventory(destination)
+    if {relative for _, relative, _ in files} != set(digests):
+        raise IOError("Verification failed: destination inventory changed")
+    for path, relative, _ in files:
+        if _hash(path) != digests[relative]:
+            raise IOError(f"Verification failed for {relative}")
+
+
 def _copy_transfer(transfer: dict, job: dict) -> None:
     transfer_id = transfer["id"]
     source, destination = _resolve_paths(job)
@@ -135,6 +174,8 @@ def _copy_transfer(transfer: dict, job: dict) -> None:
     prep = ({"ok": True, "prepared": 0, "structure_preserved": True} if job.get("drive") in {"INTAKE", "RECOVERY"} else media_prep.prepare_completed_rip(source, job))
     log.info("Prepared %s before mover transfer: %s", job["manager_job_id"], prep)
     files = _inventory(source)
+    snapshot = _source_snapshot(source)
+    digests = {}
     total = sum(item[2] for item in files)
     destination.parent.mkdir(parents=True, exist_ok=True)
     if partial.exists():
@@ -162,8 +203,13 @@ def _copy_transfer(transfer: dict, job: dict) -> None:
         shutil.copystat(source_file, target)
         if target.stat().st_size != size or _hash(target) != source_hash.hexdigest():
             raise IOError(f"Verification failed for {relative}")
+        digests[relative] = source_hash.hexdigest()
         _set(transfer_id, files_copied=number)
     _set(transfer_id, state="verifying")
+    # Re-read the complete destination and source, including files copied early.
+    # A per-file check alone cannot detect later changes or newly added extras.
+    _verify_destination(partial, digests)
+    _verify_source(source, snapshot, digests)
     os.replace(partial, destination)
     warning = None
     try:
@@ -171,6 +217,12 @@ def _copy_transfer(transfer: dict, job: dict) -> None:
     except OSError as exc:
         warning = f"Media copied and verified, but archive sidecars need attention: {exc}"
     source_removed = False
+    if not warning and db.get_setting_bool("mover_delete_source", True):
+        try:
+            # Archive finalization may take time; recheck immediately before cleanup.
+            _verify_source(source, snapshot, digests)
+        except OSError as exc:
+            warning = str(exc)
     if not warning and db.get_setting_bool("mover_delete_source", True):
         try:
             shutil.rmtree(source)
