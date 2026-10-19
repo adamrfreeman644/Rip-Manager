@@ -1,6 +1,6 @@
 (()=>{const q=s=>document.querySelector(s);const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));const page=q("#libraryOverlay"),grid=q("#driveGrid"),archive=q("#archiveOverlay");
 let pendingBarcode=null,itemsById=new Map(),querySequence=0,searchController=null,t,searchBusy=false;
-function busy(value){searchBusy=value;q("#libraryResults").setAttribute("aria-busy",String(value));q("#libraryProgress").hidden=!value;if(value)q("#libraryProgress").removeAttribute("value")}
+function busy(value){searchBusy=value;q("#libraryResults").inert=value;q("#libraryResults").setAttribute("aria-busy",String(value));q("#libraryProgress").hidden=!value;if(value)q("#libraryProgress").removeAttribute("value")}
 function cancelSearch(){clearTimeout(t);++querySequence;searchController?.abort();searchController=null}
 function prepareSearch(){cancelSearch();busy(true);q("#libraryStatus").textContent=q("#librarySearch").value.trim()?"Searching library…":"Loading collection…"}
 q(".app").appendChild(page);

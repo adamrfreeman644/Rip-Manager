@@ -77,6 +77,7 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
    assert(!(await page.locator('#libraryProgress').isVisible()));
    await page.click('#libraryMore');await page.click('#libraryCheck');await page.waitForFunction(()=>document.querySelector('#libraryToolState').textContent.includes('30 manifests checked'));
    await page.keyboard.press('Escape');assert(await page.locator('#libraryMoreModal').evaluate(el=>el.classList.contains('hidden')));
+   await page.waitForFunction(()=>document.querySelector('#libraryResults').getAttribute('aria-busy')==='false');
    await page.click('[data-library-id="1"]');await page.waitForSelector('#archiveDetail.active');
    const chooser=page.waitForEvent('filechooser');await page.click('[data-add="extra"][data-index="0"]');await (await chooser).setFiles({name:'new.png',mimeType:'image/png',buffer:Buffer.from('photo')});
    await page.waitForFunction(()=>document.querySelector('#toast').textContent==='Photo saved');
