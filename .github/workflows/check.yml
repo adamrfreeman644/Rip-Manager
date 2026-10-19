@@ -47,6 +47,9 @@ jobs:
         run: |
           node --check rip_manager_container/app/static/navigation.js
           node rip_manager_container/tests/test_navigation.cjs
+          node --check rip_manager_container/app/static/actions.js
+          node --check rip_manager_container/app/static/dialogs.js
+          node rip_manager_container/tests/test_actions.cjs
           node --check rip_manager_container/app/static/ui.js
           node rip_manager_container/tests/test_confirmation.cjs
           node --check rip_manager_container/app/static/settings.js

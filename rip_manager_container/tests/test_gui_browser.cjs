@@ -21,7 +21,7 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  try{
   browser=await chromium.launch({headless:true});
   for(const viewport of [{width:360,height:740},{width:692,height:720},{width:390,height:844},{width:844,height:390},{width:1280,height:800}]){
-   const page=await browser.newPage({viewport});activePage=page;const errors=[],requests=[];let previewCount=0,downloadCount=0,transferReads=0,slowTransfers=false;
+   const page=await browser.newPage({viewport});activePage=page;const errors=[],requests=[];let previewCount=0,downloadCount=0,transferReads=0,slowTransfers=false,retryFail=true,retryCalls=0,slowUpdates=false;
    page.on('pageerror',e=>errors.push(e.message));page.on('dialog',dialog=>{activeDialog=dialog});
    await page.addInitScript(()=>window.addEventListener('unhandledrejection',e=>{throw e.reason}));
    await page.route('**/*',async route=>{
@@ -32,6 +32,7 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     if(p==='/auth/status')data={authenticated:true};
     else if(p==='/api/info')data={version:'test'};
     else if(p==='/settings')data=settings;
+    else if(p==='/updates/status'&&slowUpdates){await wait(350);return route.fulfill({status:503,json:{detail:'Release service unavailable'}})}
     else if(p==='/updates/status')data={manager:{installed:'test'},nodes:[],host_updater:{},rollback_backups:[]};
     else if(p.endsWith('/drive-mapping'))data={mappings:drives.map((d,i)=>({name:d.name,device:'/dev/sr'+i,exists:true})),available:[]};
     else if(p==='/drives')data=drives;
@@ -42,6 +43,7 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     else if(p==='/archive/media')data=[physical];
     else if(p.endsWith('/text')&&req.method()==='PUT')return route.fulfill({status:422,json:{detail:'Storage disconnected'}});
     else if(p.endsWith('/text'))data={text:'Disc notes'};
+    else if(p==='/archive/mover/transfers/1/retry'){retryCalls++;await wait(350);if(retryFail)return route.fulfill({status:503,json:{detail:'Storage offline'}});data={ok:true}}
     else if(p==='/archive/mover/transfers'){transferReads++;if(slowTransfers)await wait(500);data=[{id:1,title:long,state:'failed',error:long,destination_dir:'/media/'+long}]}
     else if(p==='/archive/mover/intake')data={root:'/media/Intake',items:[{id:'a',name:long,media_type:'movie',destination:'/media/'+long}]};
     else if(p==='/archive/mover/recovery')data=[{node_id:'node',folder:'Artist/Album/Disc 1',media_type:'music',files:2,bytes:100,destination:'/media/Music/'+long}];
@@ -75,14 +77,15 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
    assert.equal(await page.locator('[data-library-id]').count(),30,'retain collection during loading');
    await page.waitForFunction(()=>document.querySelector('#libraryResults').getAttribute('aria-busy')==='false');
    assert(!(await page.locator('#libraryProgress').isVisible()));
-   await page.click('#libraryMore');await page.click('#libraryCheck');await page.waitForFunction(()=>document.querySelector('#libraryToolState').textContent.includes('30 manifests checked'));
+   await page.click('#libraryMore');await page.waitForFunction(()=>document.querySelector('#libraryMoreModal').contains(document.activeElement));assert(await page.locator('.app').evaluate(el=>el.inert),'background is inert while a popup is open');await page.locator('#libraryMoreClose').focus();await page.keyboard.press('Shift+Tab');assert(await page.locator('#libraryMoreModal').evaluate(el=>el.contains(document.activeElement)),'Tab stays in Library tools');await page.click('#libraryCheck');await page.waitForFunction(()=>document.querySelector('#libraryToolState').textContent.includes('30 manifests checked'));
    await page.keyboard.press('Escape');assert(await page.locator('#libraryMoreModal').evaluate(el=>el.classList.contains('hidden')));
    await page.waitForFunction(()=>document.querySelector('#libraryResults').getAttribute('aria-busy')==='false');
    await page.click('[data-library-id="1"]');await page.waitForSelector('#archiveDetail.active');
    const chooser=page.waitForEvent('filechooser');await page.click('[data-add="extra"][data-index="0"]');await (await chooser).setFiles({name:'new.png',mimeType:'image/png',buffer:Buffer.from('photo')});
    await page.waitForFunction(()=>document.querySelector('#toast').textContent==='Photo saved');
    assert(requests.some(r=>r.path==='/archive/node%3Aolder/images/extra'&&r.method==='PUT'&&r.query==='index=2'),'replace must target the actual photo owner');
-   await page.click('[data-detail-panel="archiveText"]');await page.waitForFunction(()=>document.querySelector('#archiveTextArea').value==='Disc notes');await page.click('#archiveSaveText');await page.waitForFunction(()=>document.querySelector('#toast').textContent==='Storage disconnected');
+   await page.click('[data-detail-panel="archiveText"]');await page.waitForFunction(()=>document.querySelector('#archiveTextArea').value==='Disc notes');await page.click('#archiveSaveText');await page.waitForFunction(()=>document.querySelector('#toast').textContent==='Storage disconnected');assert((await page.textContent('#archiveTextState')).includes('Notes were not saved'));assert.equal(await page.locator('#archiveTextState').getAttribute('role'),'alert');assert(await page.locator('#archiveSaveText').isEnabled());
+   await page.locator('[data-detail-panel="archiveText"]').focus();await page.keyboard.press('ArrowRight');assert.equal(await page.locator('[data-detail-panel="archiveManifest"]').getAttribute('aria-selected'),'true');await page.keyboard.press('ArrowLeft');assert.equal(await page.locator('[data-detail-panel="archiveText"]').getAttribute('aria-selected'),'true');
    for(const theme of ['light','dark']){
     await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
     assert(await page.locator('#archiveTextArea').evaluate(el=>{const probe=document.createElement('span');probe.style.background='var(--field)';document.body.append(probe);const matches=getComputedStyle(probe).backgroundColor===getComputedStyle(el).backgroundColor;probe.remove();return matches}),'disc notes use the theme field colour');
@@ -100,17 +103,21 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
    assert.equal(await page.inputValue('#librarySearch'),'progress check');assert.equal(await page.inputValue('#libraryMediaType'),'movie');assert.equal(await page.locator('#libraryResults').evaluate(el=>el.scrollTop),libraryScroll,'Back restores result scroll');
 
    await navigate('mover');await page.waitForSelector('[data-recovery-analyse]');
+   await page.locator('[data-retry="1"]').evaluate(button=>{button.click();button.click()});
+   await page.waitForSelector('#moverActionState[data-phase="error"]');assert((await page.textContent('#moverActionState')).includes('Storage offline'));assert.equal(retryCalls,1,'duplicate retry queues only one request');assert(await page.locator('[data-retry="1"]').isEnabled());
+   retryFail=false;await page.click('[data-retry="1"]');await page.waitForSelector('#moverActionState[data-phase="success"]');assert.equal(retryCalls,2);assert((await page.textContent('#moverActionState')).includes('queued for retry'));
    const intakeHelp=page.getByRole('button',{name:'About Where to put imported media'});await intakeHelp.click();await page.waitForSelector('#infoModal:not(.hidden)');assert((await page.textContent('#infoBody')).includes('/media/0 ~ Intake/Movies'));
    await page.keyboard.press('Tab');assert.equal(await page.locator('#infoClose').evaluate(el=>el===document.activeElement),true,'info popup must contain keyboard focus');
    await page.keyboard.press('Escape');assert(await page.locator('#infoModal').evaluate(el=>el.classList.contains('hidden')));assert(await intakeHelp.evaluate(el=>el===document.activeElement),'closing help returns focus to its icon');assert(await page.locator('#archiveTransfers').isVisible());
 await page.click('[data-recovery-analyse]');await page.waitForSelector('#confirmRecoveryMove');assert.equal(requests.findLast(r=>r.path.endsWith('/recovery/analyse')).body.media_type,'music');await page.keyboard.press('Escape');
    // Leaving while Mover startup is pending must not restart its poll timer.
-   slowTransfers=true;await navigate('dashboard');await navigate('mover');await navigate('library');await wait(700);const reads=transferReads;await wait(2200);assert.equal(transferReads,reads,'hidden Mover must stop polling');slowTransfers=false;
+   slowTransfers=true;await navigate('dashboard');await navigate('mover');await navigate('library');await wait(700);const reads=transferReads;await wait(2200);assert.equal(transferReads,reads,'hidden Mover must stop polling');slowTransfers=false,retryFail=true,retryCalls=0,slowUpdates=false;
    await navigate('downloads');await page.waitForSelector('[data-download-intake="1"]');
    await page.fill('[name=url]','https://example.com/old');await page.click('#previewDownload');await page.fill('[name=url]','https://example.com/new');await wait(450);assert(await page.locator('#downloadPreview').evaluate(el=>el.hidden),'outdated preview must stay discarded');
    await page.locator('#downloadForm').evaluate(form=>{form.requestSubmit();form.requestSubmit()});await wait(400);assert.equal(downloadCount,1,'duplicate form submission must queue once');
    for(const theme of ['dark','light','system']){
     await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+    assert(await page.locator('#confirmationAccept').evaluate(el=>{const style=getComputedStyle(el),luma=color=>{const values=color.match(/[\d.]+/g).slice(0,3).map(Number).map(n=>n/255).map(n=>n<=.04045?n/12.92:((n+.055)/1.055)**2.4);return values[0]*.2126+values[1]*.7152+values[2]*.0722},a=luma(style.color),b=luma(style.backgroundColor);return (Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=4.5}),'primary button text must have normal-text contrast');
     for(const name of ['library','mover','downloads','stats','dashboard']){
      await navigate(name);await wait(50);
      assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${name} ${theme} must not overflow ${viewport.width}px`);
@@ -144,6 +151,7 @@ await page.click('[data-recovery-analyse]');await page.waitForSelector('#confirm
    await page.keyboard.press('Escape');await page.waitForFunction(()=>window.confirmationResult===false);assert(await page.locator('#overlay').isVisible(),'Escape only cancels top confirmation');
    await page.evaluate(()=>{window.confirmationResult=null;window.confirmAction('Continue operation?').then(result=>window.confirmationResult=result)});await page.click('#confirmationAccept');await page.waitForFunction(()=>window.confirmationResult===true);
    await page.evaluate(()=>window.uiHelp.copyPath('\\\\Byte-Me\\media'));await page.waitForSelector('#infoModal:not(.hidden)');assert.equal(await page.locator('.copy-path-field').inputValue(),'\\\\Byte-Me\\media');await page.keyboard.press('Escape');assert(await page.locator('#overlay').isVisible());
+   await chooseCategory('updates');await page.waitForSelector('#checkUpdates');slowUpdates=true;await page.click('#checkUpdates');assert.equal(await page.locator('#checkUpdates').getAttribute('aria-busy'),'true');await page.waitForSelector('#updateActionState[data-phase="error"]');assert((await page.textContent('#updateActionState')).includes('Release service unavailable'));assert(await page.locator('#checkUpdates').isEnabled());slowUpdates=false;await page.click('#checkUpdates');await page.waitForSelector('#updateActionState[data-phase="success"]');
    await chooseCategory('dashboard');const cleanDraft=await page.evaluate(()=>JSON.stringify(State.draft));
    await page.getByRole('button',{name:'About Drive placement',exact:true}).click();assert.equal(await page.locator('#infoModal .modal').evaluate(el=>getComputedStyle(el).borderTopLeftRadius),'12px');await page.waitForSelector('#infoModal:not(.hidden)');assert((await page.textContent('#infoBody')).includes('A drive can only be assigned once'));await page.click('#infoClose');assert.equal(await page.evaluate(()=>JSON.stringify(State.draft)),cleanDraft,'help must not mutate settings');
    // Marked live messages and warnings are protected even if marked in error.
@@ -170,6 +178,7 @@ await page.click('[data-recovery-analyse]');await page.waitForSelector('#confirm
    fs.mkdirSync('gui-test-artifacts',{recursive:true});await page.screenshot({path:`gui-test-artifacts/settings-${viewport.width}x${viewport.height}.png`});
    await page.evaluate(()=>openModal('Help','<p>Settings help</p>'));await page.keyboard.press('Escape');assert(await page.locator('#genericModal').evaluate(el=>el.classList.contains('hidden')));assert(await page.locator('#overlay').evaluate(el=>!el.classList.contains('hidden')),'Escape closes help before Settings');await page.keyboard.press('Escape');assert(await page.locator('#overlay').isVisible(),'Escape does not close a page');await navigate('dashboard');
    await navigate('settings');await page.waitForURL('**/preferences');assert.equal(new URL(page.url()).pathname,'/preferences');await page.reload();await page.waitForSelector('#overlay:not(.hidden)');assert(await page.locator('#mobileNavToggle').isVisible(),'menu survives direct settings reload');await navigate('dashboard');
+   if(viewport.width===390){await navigate('settings');await page.waitForSelector('#overlay:not(.hidden)');const largeText=await page.addStyleTag({content:'.settings-main button,.settings-main input,.settings-main select,.settings-main label,.modal button,.modal input,.modal label{font-size:20px!important;line-height:1.5!important}'});await chooseCategory('ripping');assert(await page.locator('.settings-main').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'enlarged text reflows in Settings');await page.evaluate(()=>openModal('Keyboard accessibility','<label for="largeTextField">A readable field label</label><input id="largeTextField" value="Readable text"><button type="button">Another action</button>'));await page.waitForFunction(()=>document.querySelector('#genericModal').contains(document.activeElement));await page.keyboard.press('Tab');assert(await page.locator('#genericModal').evaluate(el=>el.contains(document.activeElement)));assert(await page.locator('#genericModal .modal').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'enlarged text reflows in popups');fs.mkdirSync('gui-test-artifacts',{recursive:true});await page.screenshot({path:'gui-test-artifacts/accessibility-large-text.png'});await page.keyboard.press('Escape');await largeText.evaluate(el=>el.remove());await navigate('dashboard');}
    assert.deepEqual(errors,[],`Uncaught errors at ${viewport.width}x${viewport.height}`);
    fs.mkdirSync('gui-test-artifacts',{recursive:true});await page.screenshot({path:`gui-test-artifacts/dashboard-${viewport.width}x${viewport.height}.png`});
    await page.close();
