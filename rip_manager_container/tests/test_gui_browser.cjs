@@ -17,12 +17,12 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   try{const body=fs.readFileSync(target);res.setHeader('Content-Type',target.endsWith('.js')?'text/javascript':target.endsWith('.css')?'text/css':target.endsWith('.png')?'image/png':'text/html');res.end(body)}catch{res.writeHead(404);res.end()}
  });
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
- let browser,activePage;
+ let browser,activePage,activeDialog;
  try{
   browser=await chromium.launch({headless:true});
   for(const viewport of [{width:360,height:740},{width:692,height:720},{width:390,height:844},{width:844,height:390},{width:1280,height:800}]){
    const page=await browser.newPage({viewport});activePage=page;const errors=[],requests=[];let previewCount=0,downloadCount=0,transferReads=0,slowTransfers=false;
-   page.on('pageerror',e=>errors.push(e.message));
+   page.on('pageerror',e=>errors.push(e.message));page.on('dialog',dialog=>{activeDialog=dialog});
    await page.addInitScript(()=>window.addEventListener('unhandledrejection',e=>{throw e.reason}));
    await page.route('**/*',async route=>{
     const req=route.request(),url=new URL(req.url()),p=url.pathname;
@@ -125,5 +125,5 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
    await page.close();
   }
   console.log('GUI browser regressions passed: 5 viewports, 3 themes, all pages, navigation, recovery, photos, errors and download races');
- }catch(error){if(activePage&&!activePage.isClosed()){fs.mkdirSync('gui-test-artifacts',{recursive:true});await activePage.screenshot({path:'gui-test-artifacts/failure.png',fullPage:true});console.error(await activePage.locator('body').innerText())}throw error}finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve))}
+ }catch(error){console.error('Original GUI failure:',error);if(activeDialog)await activeDialog.dismiss().catch(()=>{});if(activePage&&!activePage.isClosed()){fs.mkdirSync('gui-test-artifacts',{recursive:true});await activePage.screenshot({path:'gui-test-artifacts/failure.png',fullPage:true,timeout:5000}).catch(e=>console.error('Screenshot failed:',e.message));console.error(await activePage.locator('body').innerText())}throw error}finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve))}
 })().catch(e=>{console.error(e);process.exitCode=1});
