@@ -111,3 +111,22 @@ body:has(#overlay:not(.hidden)) .toast{bottom:calc(110px + env(safe-area-inset-b
 .archive-tabs button.active{color:var(--panel)}
 .archive-ok{color:var(--ok)}.archive-missing{color:var(--bad)}
 .archive-slot:not(.has){background:var(--panel2)}
+/* Durable action feedback is announced without moving keyboard focus. */
+.action-state{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:6px;line-height:1.5;overflow-wrap:anywhere;background:var(--panel)}
+.action-state[hidden]{display:none}.action-state[data-phase="pending"]{border-left:3px solid var(--accent)}
+[data-phase="error"]{color:var(--bad)!important}[data-phase="success"]{color:var(--ok)}
+button[aria-busy="true"]{cursor:progress}
+/* Use contrasting ink on semantic button surfaces in all three themes. */
+:root{--accent-ink:#0d1117}html[data-theme="light"]{--accent-ink:#fff}
+@media(prefers-color-scheme:light){html[data-theme="system"]{--accent-ink:#fff}}
+.primary,.close-tray-btn{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.cancel-btn,.danger{background:var(--bad);border-color:var(--bad);color:var(--accent-ink)}
+.retry-btn{background:var(--ok);border-color:var(--ok);color:var(--accent-ink)}
+.eject-btn{background:var(--warn);border-color:var(--warn);color:var(--accent-ink)}
+html[data-theme] .drive.ripping .progress-pct,html[data-theme] .drive.complete .progress-pct{color:var(--text)!important}
+.archive-detail-tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Keep an action's outcome visible even when the transfer list is long. */
+#archiveTransfers>div:first-child:has(#moverActionState:not([hidden])){position:sticky;top:0;z-index:2;background:var(--bg);padding:6px 0}
+#moverActionState,#downloadActionState{max-height:24dvh;overflow:auto}
+#downloadActionState:not([hidden]){position:sticky;top:0;z-index:2}
+.action-state:focus-visible{outline:2px solid var(--accent);outline-offset:2px}

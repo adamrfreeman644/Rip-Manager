@@ -13,3 +13,6 @@ assert(html.includes('&lt;script&gt;'));
 assert(!html.includes('<script>'));
 assert(view.render([]).includes('History (0)'));
 console.log('Transfer view regression tests passed');
+
+const unknown=view.render([{id:90,title:'Unknown length',state:'verifying',bytes_total:0}]);assert(!unknown.includes('aria-valuenow='),'unknown lengths must not announce a measured percentage');assert(unknown.includes('Verifying complete destination'));
+const invalid=view.render([{id:91,title:'Negative progress',state:'copying',bytes_total:10,bytes_copied:-50}]);assert(invalid.includes('aria-valuenow="0"'));

@@ -1,9 +1,9 @@
 {
-  "version": "0.25.25",
+  "version": "0.25.26",
   "notes": [
-    "Reduce repeated Library disk reads with a bounded cache of search fields keyed by file identity, size and nanosecond modification/change times. Changed, replaced, deleted and restored manifests invalidate correctly; transient failures are retried. Full detail and verification reads are uncached.",
-    "Unify main-page navigation and browser history. Retain Library searches, media filters and scroll positions, restore Settings categories, reject stale navigation completions and restore history when unsaved changes prevent leaving.",
-    "Preserve draft disc notes across tab switches and failed saves. Confirm before leaving unsaved notes; protect in-progress saves and ignore late note responses for another disc.",
-    "Remove 48 superseded modal and theme-palette rules and give shared popup surfaces one canonical definition. Preserve theme switching, responsive layouts, warnings and complete-destination-verification safeguards."
+    "Provide persistent inline progress, success and failure feedback for Library tools, Mover scans/retries/intake/recovery, disc-note saves, download actions and Manager/node update requests. Busy states prevent duplicate requests and controls recover after failures.",
+    "Contain keyboard focus in application popups, make the background inert while they are open, and restore focus when they close. Native confirmations keep their own keyboard behaviour.",
+    "Add keyboard arrow/Home/End navigation and accessible selected states to media-detail tabs; label fields and live status messages. Improve semantic button contrast across light, dark and system themes.",
+    "Give transfer progress meaningful per-title labels and distinguish unknown size from measured progress. Preserve warnings and complete destination verification before source cleanup."
   ]
 }

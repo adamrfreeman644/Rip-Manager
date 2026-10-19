@@ -2214,7 +2214,7 @@ function securityPage() {
 function updatesPage() {
   drawer("Updates", `${backBar()}
     <div class="settings-group"><div class="update-share-heading">${groupHeading("Manager and Node Updates","updates")}</div>
-      <div id="updateStatus" class="update-status"><span>Checking GitHub…</span></div>
+      <div id="updateActionState" class="action-state" role="status" aria-live="polite" hidden></div><div id="updateStatus" class="update-status" role="status" aria-live="polite"><span>Checking GitHub…</span></div>
       <div class="update-actions">
         <button id="checkUpdates" class="secondary" type="button">Check now</button>
         <button id="installManager" class="primary" type="button" disabled>Install update</button>
@@ -2224,7 +2224,7 @@ function updatesPage() {
     <div class="settings-group">${groupHeading("Rollback","rollback")}<div class="note compact-note" data-help-note="Verified rollback">Restore Manager application code while preserving settings, PIN, nodes and history.</div><div id="rollbackStatus"><span>Loading verified backups…</span></div></div>
     `);
 
-  $("#checkUpdates").onclick = () => loadUpdates(true);
+  $("#checkUpdates").onclick = () => window.uiActions.run($("#checkUpdates"),{state:$("#updateActionState"),pending:"Checking releases…",failure:"Update check failed",success:"Available releases checked"},()=>loadUpdates(false,true));
   $("#installManager").onclick = installManagerUpdate;
   $("#pushNodes").onclick = pushNodeUpdates;
   loadUpdates();
@@ -2357,7 +2357,7 @@ function updateLine(label, installed, available, state = "", nodeId = null) {
     : `<div class="update-line">${inner}</div>`;
 }
 
-async function loadUpdates(announce = false) {
+async function loadUpdates(announce = false, propagate = false) {
   const box = $("#updateStatus");
   const install = $("#installManager");
   const pushNodes = $("#pushNodes");
@@ -2396,7 +2396,7 @@ async function loadUpdates(announce = false) {
     if (announce) toast("GitHub releases checked");
   } catch (error) {
     box.innerHTML = `<div class="update-result error">${esc(error.message)}</div>`;
-    if (announce) toast("Update check failed");
+    if (announce) toast("Update check failed");if(propagate)throw error;
   }
 }
 
@@ -2435,24 +2435,13 @@ async function requestRollback(filename,version) {
 
 async function installManagerUpdate() {
   if (!await window.confirmAction("Install the available Rip Manager update? The web page will briefly go offline.")) return;
-  try {
-    const result = await api("/updates/install-manager", { method: "POST" });
-    toast(result.message || "Update requested");
-    $("#installManager").disabled = true;
-  } catch (error) {
-    toast(error.message);
-  }
+  await window.uiActions.run($("#installManager"),{key:"manager-update",state:$("#updateActionState"),pending:"Requesting update…",failure:"Update request failed",success:result=>result.message||"Update requested. Manager may briefly go offline.",keepDisabled:true},()=>api("/updates/install-manager",{method:"POST"}));
 }
 
 async function pushNodeUpdates() {
   if (!await window.confirmAction("Install the newest Rip Node release on configured nodes? Busy nodes will wait until their rips finish.")) return;
-  try {
-    const result = await api("/updates/push-nodes", { method: "POST" });
-    toast(result.message || "Node update queued");
-    await loadUpdates();
-  } catch (error) {
-    toast(error.message);
-  }
+  const result=await window.uiActions.run($("#pushNodes"),{key:"node-update",state:$("#updateActionState"),pending:"Requesting node update…",failure:"Node update request failed",success:value=>value.message||"Node update queued. Busy nodes wait until their rips finish."},()=>api("/updates/push-nodes",{method:"POST"}));
+  if(result.ok)await loadUpdates();
 }
 
 async function cancelNodeUpdate() {
