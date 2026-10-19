@@ -179,8 +179,8 @@ def test_app_health_route_starts(tmp_path, monkeypatch):
         assert response.json()["ok"] is True
 
 
-def test_recovery_same_path_new_generation_gets_new_job(tmp_path):
-    db, _, _, recovery = fresh_database(tmp_path)
+def test_recovery_same_path_new_generation_gets_new_job(tmp_path, monkeypatch):
+    db, _, _, recovery = fresh_database(tmp_path, monkeypatch)
     mount, destination = configure(db, tmp_path)
     source = mount / "Movies" / "Reusable Movie"
     source.mkdir(parents=True)
