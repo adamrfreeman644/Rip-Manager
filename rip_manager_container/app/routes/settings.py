@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, Response
 import auth
 from config import DEFAULT_ACTIVE_POLL, DEFAULT_IDLE_POLL
 import db
-import intake
+import disc_intake
 import mover
 from models import SettingsUpdate
 import poller
@@ -153,7 +153,7 @@ def update_settings(req: SettingsUpdate, response: Response):
         for drive_id, preference in req.drive_preferences.items():
             if preference.get("enabled", True) is False and ":" in drive_id:
                 node_id, drive = drive_id.split(":", 1)
-                intake.clear(node_id, drive.upper())
+                disc_intake.clear(node_id, drive.upper())
 
     if req.new_pin:
         db.set_setting("pin_hash", auth.hash_pin(req.new_pin))

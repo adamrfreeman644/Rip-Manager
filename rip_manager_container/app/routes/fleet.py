@@ -8,7 +8,7 @@ import sqlite3
 from fastapi import APIRouter, HTTPException, Query
 
 import db
-import intake
+import disc_intake
 import jobs as job_history
 from models import NodeCreate, NodeDeleteRequest, NodeUpdate
 import poller
@@ -130,7 +130,7 @@ def overview():
             "stats": _decode(cached["stats_json"], {}) if cached else {},
             "fetched_at": cached["fetched_at"] if cached else None,
         })
-    return {"nodes": payload, "settings": current_settings(), "pending_intake": intake.all_pending()}
+    return {"nodes": payload, "settings": current_settings(), "pending_intake": disc_intake.all_pending()}
 
 
 @router.get("/drives")
@@ -141,7 +141,7 @@ def drives():
         row["node_id"]: row
         for row in db.query("SELECT node_id,drives_json,fetched_at FROM node_cache")
     }
-    waiting = {(row["node_id"], row["drive"]): intake.to_dict(row) for row in db.query("SELECT * FROM pending_intake")}
+    waiting = {(row["node_id"], row["drive"]): disc_intake.to_dict(row) for row in db.query("SELECT * FROM pending_intake")}
 
     out = []
     for node in nodes:
@@ -164,7 +164,7 @@ def drives():
 
 @router.get("/intake")
 def pending_intake():
-    return intake.all_pending()
+    return disc_intake.all_pending()
 
 
 @router.get("/jobs")
