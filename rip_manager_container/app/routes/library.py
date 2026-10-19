@@ -5,6 +5,7 @@ import archive
 import upc
 import recovery
 import media_intake
+import library_maintenance
 
 router=APIRouter(prefix="/api/collection",tags=["library"])
 
@@ -59,6 +60,34 @@ def manifest_backfill_create():
     library.check_manifests()
     return result
 
+@router.get("/health-scan")
+def health_scan():
+    return library_maintenance.health()
+
+
+@router.post("/health-repair")
+def health_repair():
+    return library_maintenance.repair()
+
+
+class MaintenanceRequest(BaseModel):
+    kind: str
+
+
+@router.post("/maintenance")
+def start_maintenance(req: MaintenanceRequest):
+    from fastapi import HTTPException
+    try:
+        return library_maintenance.start(req.kind)
+    except ValueError as exc:
+        raise HTTPException(422,str(exc)) from exc
+
+
+@router.get("/maintenance")
+def maintenance_status():
+    return library_maintenance.status()
+
+
 @router.post("/{item_id}/physical")
 def attach_physical(item_id: str):
     from fastapi import HTTPException
@@ -87,29 +116,3 @@ def library_item(item_id: str):
         from fastapi import HTTPException
         raise HTTPException(status_code=404,detail="Library item not found")
     return item
-
-@router.get("/health-scan")
-def health_scan():
-    manifests = archive.backfill_missing_manifests(preview=True)
-    intake = media_intake.scan()
-    try:
-        stranded = recovery.discover()
-    except (OSError, ValueError):
-        stranded = {"items": []}
-    items = stranded.get("items", stranded if isinstance(stranded, list) else [])
-    return {
-        "ok": True,
-        "healthy": manifests["manifests_existing"],
-        "missing_json": manifests["manifests_missing"],
-        "invalid_json": manifests["manifests_invalid"],
-        "waiting_intake": intake["count"],
-        "stranded_rips": len(items),
-        "inaccessible_roots": manifests["inaccessible_roots"],
-        "safe_repairs": manifests["manifests_missing"],
-    }
-
-@router.post("/health-repair")
-def health_repair():
-    result = archive.backfill_missing_manifests(preview=False)
-    library.check_manifests()
-    return result

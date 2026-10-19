@@ -83,7 +83,8 @@ def _not_found(exc: Exception):
 
 @router.get("/media")
 def media_list():
-    return archive.list_media()
+    import library
+    return library.physical_media()
 
 
 @router.post("/scan")
@@ -131,7 +132,7 @@ async def verify_storage_and_build_library(req: MoverConfig):
         "mover_destination_folders": json.dumps(req.destination_folders, separators=(",", ":")),
     })
     destination = _check_path(req.destination_root, write=True)
-    scan = archive.scan_existing() if destination["readable"] else {"ok": False, "folders_seen": 0, "imported": 0}
+    scan = await __import__("asyncio").to_thread(archive.scan_existing) if destination["readable"] else {"ok": False, "folders_seen": 0, "imported": 0}
     ready = destination["exists"] and destination["readable"] and destination["writable"]
     ready = ready and all(item["mount"]["exists"] and item["mount"]["readable"] for item in node_results)
     mover.wake()

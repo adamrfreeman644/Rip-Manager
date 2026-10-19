@@ -667,11 +667,11 @@ def write_existing_manifest(manager_job_id: str, folder: Path) -> str:
     return "updated" if previous else "created"
 
 
-def scan_existing() -> dict:
+def _scan_existing_records(progress=None) -> dict:
     """Index every configured existing-media folder and maintain JSON manifests."""
     root = Path(db.get_setting("mover_destination_root", "/media")).resolve()
     folders = db.get_setting_json("mover_destination_folders", {})
-    extensions = {".mkv", ".mp4", ".m4v", ".avi", ".flac", ".mp3", ".m4a", ".aac"}
+    extensions = {".mkv", ".mp4", ".m4v", ".avi", ".mov", ".wmv", ".webm", ".flac", ".mp3", ".m4a", ".m4b", ".aac", ".wav", ".ogg", ".opus"}
     imported = 0
     seen_folders: dict[Path, str] = {}
     now = time.time()
@@ -729,7 +729,8 @@ def scan_existing() -> dict:
             records.setdefault(resolved, row["manager_job_id"])
 
     created = updated = unchanged = skipped = 0
-    for folder, manager_job_id in sorted(records.items()):
+    for number, (folder, manager_job_id) in enumerate(sorted(records.items()),1):
+        if progress: progress(number-1,len(records),str(folder))
         result = write_existing_manifest(manager_job_id, folder)
         if result == "created":
             created += 1
@@ -751,6 +752,12 @@ def scan_existing() -> dict:
     }
 
 
+def scan_existing(progress=None) -> dict:
+    """Compatibility entry point for the shared catalog refresh service."""
+    import library
+    return library.refresh_catalog(progress=progress)["archive"]
+
+
 def _guess_media_type(path: Path, root: Path, folders: dict) -> Optional[str]:
     try:
         relative = path.resolve().relative_to(root.resolve())
@@ -763,21 +770,25 @@ def _guess_media_type(path: Path, root: Path, folders: dict) -> Optional[str]:
     return None
 
 
-def backfill_missing_manifests(preview: bool = True) -> dict:
+def backfill_missing_manifests(preview: bool = True, repair_invalid: bool = False, progress=None) -> dict:
     """Scan Byte-Me plus every configured Rip Node mount and create only missing manifests."""
     destinations = Path(db.get_setting("mover_destination_root", "/media")).resolve()
     destination_folders = db.get_setting_json("mover_destination_folders", {})
     node_mounts = db.get_setting_json("mover_node_mounts", {})
     extensions = {".mkv", ".mp4", ".m4v", ".avi", ".mov", ".wmv", ".ts", ".m2ts", ".webm",
-                  ".flac", ".mp3", ".m4a", ".aac", ".wav", ".ogg", ".opus"}
+                  ".flac", ".mp3", ".m4a", ".m4b", ".aac", ".wav", ".ogg", ".opus"}
     roots = [("Byte-Me", destinations, destination_folders)]
-    node_folders = {"movie": "Movies", "tv": "TV", "music": "Music", "audiobook": "AudioBooks"}
-    for node_id, mount in node_mounts.items():
-        root = Path(mount).resolve()
-        # Configurations may mount /mnt/ripping itself or its Rips child.
-        if (root / "Rips").is_dir():
-            root = (root / "Rips").resolve()
-        roots.append((node_id, root, node_folders))
+    import recovery
+    for node_id in node_mounts:
+        for media_type in recovery.MEDIA_ROOTS:
+            try:
+                for base in recovery._media_roots(node_id,media_type):
+                    roots.append((node_id,base.parent,{media_type:base.name}))
+            except (OSError,ValueError):
+                continue
+        mount=Path(node_mounts[node_id])
+        if not mount.is_dir():
+            roots.append((node_id,mount,{}))
 
     candidates = {}
     inaccessible = []
@@ -799,31 +810,55 @@ def backfill_missing_manifests(preview: bool = True) -> dict:
                     # parent as the manifest unit, matching the existing library scanner.
                     candidates.setdefault(path.parent.resolve(), (source, media_type))
 
-    missing=[]; existing=0; invalid=0
-    for folder,(source,media_type) in sorted(candidates.items(), key=lambda x: str(x[0]).casefold()):
+    missing=[]; invalid_items=[]; existing=0; invalid=0
+    for number,(folder,(source,media_type)) in enumerate(sorted(candidates.items(), key=lambda x: str(x[0]).casefold()),1):
+        if progress: progress(number-1,len(candidates),str(folder))
         target=folder/"disc-info.json"
         if target.is_file():
             if _read_manifest_file(target) is None:
                 invalid += 1
+                invalid_items.append((folder,source,media_type))
             else:
                 existing += 1
             continue
         missing.append((folder,source,media_type))
 
-    created=failed=0; errors=[]
+    created=failed=repaired=0; errors=[]
     if not preview:
-        for folder,source,media_type in missing:
+        work=missing+(invalid_items if repair_invalid else [])
+        import uuid
+        for number,(folder,source,media_type) in enumerate(work,1):
+            backup=None
+            target=folder/"disc-info.json"
             try:
+                if progress: progress(number-1,len(work),str(folder))
+                # Never repair a symlink or an escaped filesystem candidate.
+                if target.is_symlink() or not any(folder.is_relative_to(root.resolve()) for _,root,_ in roots):
+                    raise ValueError("Unsafe manifest location")
+                if target.exists() and _read_manifest_file(target) is None:
+                    if not repair_invalid: continue
+                    backup=folder/f"disc-info.invalid-{uuid.uuid4().hex}.json.bak"
+                    target.replace(backup)
                 write_recovery_manifest(folder, media_type=media_type, node_id=source)
-                created += 1
+                if backup:
+                    payload=json.loads(target.read_text())
+                    payload["repair"]={"reason":"invalid_manifest","original_backup":backup.name,"historical_details_recovered":False}
+                    temp=folder/".disc-info.repair.tmp"
+                    temp.write_text(json.dumps(payload,indent=2)+"\n")
+                    temp.replace(target)
+                    repaired+=1
+                else:
+                    created+=1
             except (OSError, ValueError) as exc:
+                if backup and backup.exists() and not target.exists():
+                    backup.replace(target)
                 failed += 1
                 errors.append({"folder": str(folder), "error": str(exc)})
 
     return {
         "ok": True, "preview": preview, "folders_scanned": len(candidates),
         "manifests_existing": existing, "manifests_missing": len(missing),
-        "manifests_invalid": invalid, "manifests_created": created,
+        "manifests_invalid": invalid, "manifests_created": created, "manifests_repaired":repaired,
         "failed": failed, "inaccessible_roots": inaccessible,
         "missing": [{"folder": str(folder), "source": source, "media_type": media_type}
                     for folder,source,media_type in missing[:250]],
