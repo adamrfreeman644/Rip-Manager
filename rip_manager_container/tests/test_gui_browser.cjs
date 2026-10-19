@@ -124,8 +124,10 @@ await page.click('[data-recovery-analyse]');await page.waitForSelector('#confirm
    await page.evaluate(()=>{window.confirmationResult=null;window.confirmAction('Confirm '+('long title and path /media/ '.repeat(20))).then(result=>window.confirmationResult=result)});
    await page.waitForSelector('#confirmationDialog[open]');
    const confirmBox=await page.locator('#confirmationDialog').boundingBox();assert(confirmBox.x>=0&&confirmBox.y>=0&&confirmBox.x+confirmBox.width<=viewport.width+1&&confirmBox.y+confirmBox.height<=viewport.height+1,'confirmation fits viewport');
+   if(viewport.width===390){fs.mkdirSync('gui-test-artifacts',{recursive:true});await page.screenshot({path:'gui-test-artifacts/polished-confirmation.png'});}
    await page.keyboard.press('Escape');await page.waitForFunction(()=>window.confirmationResult===false);assert(await page.locator('#overlay').isVisible(),'Escape only cancels top confirmation');
    await page.evaluate(()=>{window.confirmationResult=null;window.confirmAction('Continue operation?').then(result=>window.confirmationResult=result)});await page.click('#confirmationAccept');await page.waitForFunction(()=>window.confirmationResult===true);
+   await page.evaluate(()=>window.uiHelp.copyPath('\\\\Byte-Me\\media'));await page.waitForSelector('#infoModal:not(.hidden)');assert.equal(await page.locator('.copy-path-field').inputValue(),'\\\\Byte-Me\\media');await page.keyboard.press('Escape');assert(await page.locator('#overlay').isVisible());
    await chooseCategory('dashboard');const cleanDraft=await page.evaluate(()=>JSON.stringify(State.draft));
    await page.getByRole('button',{name:'About Drive placement',exact:true}).click();await page.waitForSelector('#infoModal:not(.hidden)');assert((await page.textContent('#infoBody')).includes('A drive can only be assigned once'));await page.click('#infoClose');assert.equal(await page.evaluate(()=>JSON.stringify(State.draft)),cleanDraft,'help must not mutate settings');
    // Marked live messages and warnings are protected even if marked in error.
@@ -151,7 +153,7 @@ await page.click('[data-recovery-analyse]');await page.waitForSelector('#confirm
    await page.selectOption('[data-setting-input="theme"]','dark');await chooseCategory('home');
    fs.mkdirSync('gui-test-artifacts',{recursive:true});await page.screenshot({path:`gui-test-artifacts/settings-${viewport.width}x${viewport.height}.png`});
    await page.evaluate(()=>openModal('Help','<p>Settings help</p>'));await page.keyboard.press('Escape');assert(await page.locator('#genericModal').evaluate(el=>el.classList.contains('hidden')));assert(await page.locator('#overlay').evaluate(el=>!el.classList.contains('hidden')),'Escape closes help before Settings');await page.keyboard.press('Escape');assert(await page.locator('#overlay').isVisible(),'Escape does not close a page');await navigate('dashboard');
-   await navigate('settings');assert.equal(new URL(page.url()).pathname,'/preferences');await page.reload();await page.waitForSelector('#overlay:not(.hidden)');assert(await page.locator('#mobileNavToggle').isVisible(),'menu survives direct settings reload');await navigate('dashboard');
+   await navigate('settings');await page.waitForURL('**/preferences');assert.equal(new URL(page.url()).pathname,'/preferences');await page.reload();await page.waitForSelector('#overlay:not(.hidden)');assert(await page.locator('#mobileNavToggle').isVisible(),'menu survives direct settings reload');await navigate('dashboard');
    assert.deepEqual(errors,[],`Uncaught errors at ${viewport.width}x${viewport.height}`);
    fs.mkdirSync('gui-test-artifacts',{recursive:true});await page.screenshot({path:`gui-test-artifacts/dashboard-${viewport.width}x${viewport.height}.png`});
    await page.close();

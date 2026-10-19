@@ -58,5 +58,10 @@
  upgrade(document.body);
  const observer=new MutationObserver(records=>{for(const record of records)for(const node of record.addedNodes)upgrade(node)});
  observer.observe(document.body,{childList:true,subtree:true});
- window.uiHelp={upgrade};
+ window.uiHelp={upgrade,copyPath(value){
+  returnFocus=document.activeElement;heading.textContent='Copy share path';
+  const instruction=document.createElement('p');instruction.textContent='Select and copy this path into File Explorer or your device’s Files app.';
+  const input=document.createElement('input');input.type='text';input.readOnly=true;input.value=String(value);input.setAttribute('aria-label','Share path');input.className='copy-path-field';
+  body.replaceChildren(instruction,input);modal.classList.remove('hidden');input.focus({preventScroll:true});input.select();
+ }};
 })();

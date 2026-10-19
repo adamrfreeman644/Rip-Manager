@@ -99,3 +99,5 @@ body:has(#overlay:not(.hidden)) .toast{bottom:calc(110px + env(safe-area-inset-b
 .app>#overlay .settings-window{height:100%;min-height:0}
 .mobile-nav-menu button.current-page{background:var(--panel2);color:var(--accent);box-shadow:inset 3px 0 var(--accent)}
 .app>#overlay .settings-window-head{background:transparent}
+
+.copy-path-field{width:100%;font-family:ui-monospace,Consolas,monospace!important}

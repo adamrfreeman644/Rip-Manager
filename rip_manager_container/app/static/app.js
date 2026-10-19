@@ -1034,7 +1034,7 @@ async function copyShare(value) {
     await navigator.clipboard.writeText(value);
     toast("Share path copied");
   } catch {
-    prompt("Copy this share path:", value);
+    window.uiHelp.copyPath(value);
   }
 }
 
