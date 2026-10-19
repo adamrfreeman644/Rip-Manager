@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#000000">
   <title>Rip Remote</title>
   <link rel="manifest" href="/static/site.webmanifest">
-  <link rel="stylesheet" href="/static/styles.css?v=0.25.18">
-  <link rel="stylesheet" href="/static/archive.css?v=0.25.18">
+  <link rel="stylesheet" href="/static/styles.css?v=0.25.19">
+  <link rel="stylesheet" href="/static/archive.css?v=0.25.19">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32x32.png?v=0.10.6">
   <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16x16.png?v=0.10.6">
   <link rel="apple-touch-icon" sizes="512x512" href="/static/icons/remote-ripper-512.png?v=0.10.6">
@@ -183,13 +183,13 @@
 <section id="libraryOverlay" class="archive-overlay hidden" aria-label="Library">
   <header class="archive-head"><div><h2>Library</h2><small>Do I own this?</small></div><div class="archive-spacer"></div><button id="libraryHome" class="archive-button">Home</button></header>
   <main class="archive-body library-page">
-    <div class="library-search-row"><input id="librarySearch" inputmode="search" autocomplete="off" placeholder="Search by title or scan UPC / EAN"><select id="libraryMediaType" aria-label="Media type"><option value="">All</option><option value="movie">Movies</option><option value="tv">TV</option><option value="music">Music</option><option value="audiobook">Audiobooks</option></select><button id="libraryMore" class="archive-button" type="button">More ⋯</button></div>
+    <div class="library-search-row"><input id="librarySearch" aria-label="Search library by title or barcode" inputmode="search" autocomplete="off" placeholder="Search by title or scan UPC / EAN"><select id="libraryMediaType" aria-label="Media type"><option value="">All</option><option value="movie">Movies</option><option value="tv">TV</option><option value="music">Music</option><option value="audiobook">Audiobooks</option></select><button id="libraryMore" class="archive-button" type="button">More ⋯</button></div>
     <div id="libraryStatus" class="archive-summary"></div>
     <div id="libraryResults" class="library-title-list"></div>
   </main>
 </section>
-<div id="libraryMoreModal" class="modal-backdrop hidden"><div class="modal library-more-modal" role="dialog" aria-modal="true"><div class="modal-head"><div class="modal-title">Library tools</div><button class="close-btn" id="libraryMoreClose">Close</button></div><button id="libraryHealthScan" class="primary library-tool-full">Scan & Repair Library</button><button id="libraryBulkToggle" class="secondary library-tool-full">Mass add UPCs</button><div id="libraryBulk" class="library-bulk hidden"><textarea id="libraryBulkText" placeholder="Paste UPC / EAN list — one per line"></textarea><button id="libraryBulkAdd" class="primary library-tool-full">Add to collection</button><span id="libraryBulkState"></span></div><div id="libraryToolState" class="note hidden"></div></div></div>
-<div id="libraryDetailModal" class="modal-backdrop hidden"><div class="modal library-detail-modal" role="dialog" aria-modal="true"><div class="modal-head"><div class="modal-title" id="libraryDetailTitle">Media details</div><button class="close-btn" id="libraryDetailClose">Close</button></div><div id="libraryDetailBody"></div></div></div>
+<div id="libraryMoreModal" class="modal-backdrop hidden"><div class="modal library-more-modal" role="dialog" aria-modal="true" aria-label="Library tools"><div class="modal-head"><div class="modal-title">Library tools</div><button class="close-btn" id="libraryMoreClose">Close</button></div><button id="libraryCheck" class="secondary library-tool-full" type="button">Check manifests</button><button id="libraryHealthScan" class="primary library-tool-full">Scan & Repair Library</button><button id="libraryBulkToggle" class="secondary library-tool-full">Mass add UPCs</button><div id="libraryBulk" class="library-bulk hidden"><textarea id="libraryBulkText" placeholder="Paste UPC / EAN list — one per line"></textarea><button id="libraryBulkAdd" class="primary library-tool-full">Add to collection</button><span id="libraryBulkState"></span></div><div id="libraryToolState" class="note hidden"></div></div></div>
+<div id="libraryDetailModal" class="modal-backdrop hidden"><div class="modal library-detail-modal" role="dialog" aria-modal="true" aria-labelledby="libraryDetailTitle"><div class="modal-head"><div class="modal-title" id="libraryDetailTitle">Media details</div><button class="close-btn" id="libraryDetailClose">Close</button></div><div id="libraryDetailBody"></div></div></div>
 
 <section id="archiveOverlay" class="archive-overlay hidden" aria-label="Rip Manager secondary page">
   <header class="archive-head"><div><h2 id="archiveHeading">Physical media</h2><small id="archiveSubheading">Photos and disc details</small></div><div class="archive-spacer"></div></header>
@@ -244,10 +244,10 @@
 </section>
 <input id="archiveFile" class="archive-file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" capture="environment">
 
-<script src="/static/app.js?v=0.25.18"></script>
-<script src="/static/downloads.js?v=0.25.18"></script>
-<script src="/static/transfer_view.js"></script>
-<script src="/static/archive.js?v=0.25.18"></script>
-<script src="/static/library.js?v=0.25.18"></script>
+<script src="/static/app.js?v=0.25.19"></script>
+<script src="/static/downloads.js?v=0.25.19"></script>
+<script src="/static/transfer_view.js?v=0.25.19"></script>
+<script src="/static/archive.js?v=0.25.19"></script>
+<script src="/static/library.js?v=0.25.19"></script>
 </body>
 </html>

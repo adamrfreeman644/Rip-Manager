@@ -1,9 +1,10 @@
 {
-  "version": "0.25.18",
+  "version": "0.25.19",
   "notes": [
-    "Completes the follow-up fixes across v0.25.14\u2013v0.25.18: stable Recovery retries, distinct Intake generations, safe partial download continuation, background first-load indexing and retryable download provenance.",
-    "Persist download completion metadata before writing manifests. Retry Intake repairs source URLs, titles, processing outcomes, timestamps and playlist-member history without downloading again.",
-    "Keep history repair idempotent and block enqueue if repair fails. Support legacy records without inventing timestamps, repair plain Downloads without moving them, and avoid source changes during active Mover verification.",
-    "Regression coverage includes failed manifest/event writes, repeated retries, playlists, legacy records, disabled Mover and active verification. Full local reliability suite: 139 passed with warnings treated as errors; both JavaScript regression checks passed."
+    "Fix dashboard overflow and clipped text: bound the configured grid to the visible screen and size tile text relative to each card, including five-drive phone layouts.",
+    "Keep Library below shared navigation, make long result lists scroll, restore Check manifests, and improve small-screen search, Mover scrolling, long paths and light-theme notes.",
+    "Preserve Recovery media type, stop hidden-page polling, reject stale download previews and queue responses, prevent duplicate submissions, show action errors, and close the top dialog first with Escape.",
+    "Extra photo replacement now updates the selected original owner and slot. New photos cannot overwrite surviving extras after deletion, and failed replacements retain the original image.",
+    "Add Chromium GUI regression coverage for five viewports and dark/light/system themes alongside photo-preservation regression tests. Source-media cleanup remains gated by complete destination verification."
   ]
 }

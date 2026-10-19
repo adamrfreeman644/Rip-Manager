@@ -6,7 +6,7 @@ async function scenario(responses){
  const elements=new Map(),statuses=[];let calls=0;
  const element=selector=>{
   if(!elements.has(selector)){
-   let text='';const value={value:selector==='#librarySearch'?'Film':'',innerHTML:'',classList:{add(){},remove(){},toggle(){}},focus(){}};
+   let text='';const value={value:selector==='#librarySearch'?'Film':'',innerHTML:'',classList:{add(){},remove(){},toggle(){}},focus(){},appendChild(){}};
    Object.defineProperty(value,'textContent',{get:()=>text,set:v=>{text=v;if(selector==='#libraryStatus')statuses.push(v)}});
    elements.set(selector,value);
   }return elements.get(selector);

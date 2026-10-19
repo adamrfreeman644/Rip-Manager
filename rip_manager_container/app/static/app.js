@@ -2489,6 +2489,7 @@ function anythingBusy() {
 /** Follow the same cadence the server polls its nodes with. */
 function scheduleRefresh() {
   clearTimeout(State.refreshTimer);
+  if(document.hidden||!$("#loginModal").classList.contains("hidden"))return;
   const settings = State.settings || {};
   const seconds = anythingBusy()
     ? Number(settings.active_poll_seconds || 2)
@@ -2677,7 +2678,7 @@ mobileNavMenu.onclick = (event) => {
     stats: () => window.openStats(),
     settings: openSettings,
   };
-  actions[button.dataset.mobileAction]?.();
+  Promise.resolve().then(()=>actions[button.dataset.mobileAction]?.()).catch(error=>toast(error.message));
 };
 
 document.addEventListener("click", (event) => {
@@ -2863,8 +2864,11 @@ $("#loginPin").addEventListener("pointerdown",event=>{
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
   if (mobileNavToggle.getAttribute("aria-expanded") === "true") { setMobileNav(false); mobileNavToggle.focus(); return; }
+  if (!$("#loginModal").classList.contains("hidden")) return;
+  for (const id of ["genericModal", "libraryDetailModal", "libraryMoreModal", "intakeModal"]) {
+    if (!$("#"+id).classList.contains("hidden")) { closeModal(id); return; }
+  }
   if (!$("#overlay").classList.contains("hidden")) { cancelSettings(); return; }
-  if (!$("#genericModal").classList.contains("hidden")) { closeModal("genericModal"); return; }
   if (!$("#intakeModal").classList.contains("hidden")) closeModal("intakeModal");
 });
 
