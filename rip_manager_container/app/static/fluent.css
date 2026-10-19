@@ -56,3 +56,46 @@ body:has(#overlay:not(.hidden)) .toast{bottom:calc(110px + env(safe-area-inset-b
 #libraryProgress{display:block;width:100%;height:4px;accent-color:var(--accent,#2563eb);border:0;border-radius:4px}
 #libraryProgress[hidden]{display:none}
 #libraryResults[aria-busy="true"]{opacity:.65;cursor:progress}
+
+/* Shared finish: controls, quieter typography and predictable spacing everywhere. */
+:root{--ui-control-height:40px;--ui-body-size:14px;--ui-shadow:0 12px 40px #0003}
+:where(.archive-overlay,.modal,.settings-window,.confirmation-dialog){font-size:var(--ui-body-size);line-height:1.5}
+:where(.modal,.archive-body) :where(h3,h4){font-weight:600;line-height:1.4;margin:0 0 12px}
+:where(.modal,.archive-body) :where(p,small,label,strong){overflow-wrap:anywhere}
+:where(.primary,.secondary,.close-btn,.archive-button,.eject-btn,.close-tray-btn,.cancel-btn,.retry-btn){min-height:var(--ui-control-height);padding:9px 14px;font-size:14px;font-weight:600!important;line-height:1.4;white-space:normal}
+:where(.modal,.archive-overlay) :where(input:not([type=checkbox]):not([type=radio]):not([type=hidden]),select,textarea){min-width:0;max-width:100%;padding:10px 12px;border:1px solid var(--line);background:var(--field);color:var(--text);font:inherit;line-height:1.5}
+:where(.modal,.archive-overlay) :where(input:not([type=checkbox]):not([type=radio]):not([type=hidden]),select){min-height:var(--ui-control-height)}
+:where(input,textarea)::placeholder{color:var(--muted);opacity:1}
+:where(input[type=checkbox],input[type=radio],progress){accent-color:var(--accent)}
+:where(button,a.archive-button):disabled{opacity:.5;cursor:not-allowed}
+@media(hover:hover){:where(.secondary,.close-btn,.archive-button):not(:disabled):hover{background:var(--panel2);border-color:var(--muted)}}
+:where(.modal-actions,.actions,.tray-pair,.upc-row,.update-actions,.archive-save-row){gap:12px!important}
+:where(.modal-head,.archive-detail-title)>:first-child{min-width:0;overflow-wrap:anywhere}
+:where(.modal-head,.archive-detail-title)>.close-btn{flex:none}
+.modal-backdrop{padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))!important;background:rgba(0,0,0,.42)!important}
+.modal{max-height:calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom))!important;scrollbar-gutter:stable;overscroll-behavior:contain;box-shadow:var(--ui-shadow)!important}
+.modal-head{align-items:flex-start;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.modal-title{font-size:18px!important;letter-spacing:-.015em}
+.modal .intake-section{margin-top:16px}.modal .intake-section label{margin:12px 0 6px;font-size:13px;font-weight:500}
+.modal .intake-section .row{gap:12px}.modal .intake-section .row>div{min-width:0}
+.modal .detail .k,.modal .kpi .k{font-size:12px;line-height:1.5;font-weight:400}.modal .detail .v,.modal .kpi .v{margin-top:6px;font-weight:600;line-height:1.45}
+.library-more-modal{display:flex;flex-direction:column;gap:12px}.library-more-modal .modal-head{margin-bottom:0!important}.library-bulk{display:grid;gap:12px}.library-bulk textarea{width:100%;min-height:120px;resize:vertical}
+#loginForm{display:grid;gap:12px;margin-top:16px}.auth-modal .modal-title{margin-bottom:12px}.pin-keypad{gap:12px}.pin-keypad button{font-weight:500}
+.disc-label-info,.node-refresh,.update-result{padding:12px;line-height:1.5;border-radius:8px}.node-refresh{gap:6px}.node-refresh strong,.update-badge,.update-system-version{font-weight:600}
+.stats-grid>*,.stats-overview,.stats-card,.kpis{min-width:0}.stats-grid .node-card,.stats-overview{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:16px}.stats-grid .kpi .k,.stats-overview .kpi .k{font-size:12px;line-height:1.5}.stats-grid .kpi .v,.stats-overview .kpi .v{font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+.download-preview{padding:14px;border-radius:8px;background:var(--panel2)}.download-preview-entries{gap:8px;padding-top:12px}.download-preview-entries label{padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+.download-job-head,.download-job-foot{flex-wrap:wrap}.download-job-actions{flex-wrap:wrap}.download-state-completed{color:var(--ok)}.download-state-failed{color:var(--bad)}
+.archive-info-note,.scan-status,.archive-save-state{line-height:1.5}.archive-textarea{border:1px solid var(--line);border-radius:8px;padding:14px;font:inherit;line-height:1.6}
+/* Confirmations use the same surface, with a separate, evenly spaced action area. */
+.confirmation-dialog{width:min(480px,calc(100% - 24px));max-height:calc(100dvh - 24px);padding:0;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--text);box-shadow:var(--ui-shadow);overflow:auto;overscroll-behavior:contain}
+.confirmation-dialog::backdrop{background:rgba(0,0,0,.42)}
+.confirmation-content{padding:24px}.confirmation-content h2{margin:0 0 12px;font-size:20px;font-weight:600;line-height:1.4}.confirmation-content p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}
+.confirmation-actions{display:flex;justify-content:flex-end;gap:12px;padding:16px 24px;border-top:1px solid var(--line);background:var(--panel2)}.confirmation-actions button{flex:1;min-width:0}
+@media(max-width:480px){.confirmation-content{padding:20px}.confirmation-actions{padding:16px 20px}.modal .detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.download-job-foot{align-items:flex-start}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important;animation-iteration-count:1!important}}
+
+/* Every main-menu destination lives inside the shared application frame. */
+.app>#overlay{position:relative;inset:auto;z-index:auto;flex:1;min-height:0;overflow:hidden;border:0}
+.app>#overlay .settings-window{height:100%;min-height:0}
+.mobile-nav-menu button.current-page{background:var(--panel2);color:var(--accent);box-shadow:inset 3px 0 var(--accent)}
+.app>#overlay .settings-window-head{background:transparent}

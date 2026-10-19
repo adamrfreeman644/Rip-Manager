@@ -1,8 +1,9 @@
 {
-  "version": "0.25.23",
+  "version": "0.25.24",
   "notes": [
-    "Show immediate Library search feedback with a slim loading bar, accessible busy state, and measured indexing progress. Keep existing results visible while searching.",
-    "Cancel superseded searches and prevent stale responses from replacing current results. Enter searches immediately; leaving Library cancels pending searches.",
-    "Read local metadata and artwork only for matching search results, and load covers lazily. Preserve full metadata and artwork in results and details. Source cleanup remains gated by complete destination verification."
+    "Carry the shared Windows 11-inspired finish through popups, drive forms, Library tools, login, statistics, playlist previews and action rows. Unify typography, control spacing, readable text and theme-aware status colours.",
+    "Replace browser confirmations with matching accessible app dialogs. Cancel is focused by default; Escape cancels without dismissing the underlying popup. Confirmation requests are queued and complete before actions run.",
+    "Improve small-screen popup sizing, long-title wrapping and reduced-motion support. Preserve all warnings, confirmation wording and destination-verification safeguards.",
+    "Make every main-menu section a page under the persistent header, including Settings at /preferences. Remove page-level Home/Close controls, retain popup Close buttons, and protect unsaved settings when switching pages. Saving and discarding keep Settings open."
   ]
 }
