@@ -45,6 +45,8 @@ jobs:
         run: python -m pytest -q -W error rip_manager_container/tests
       - name: Check JavaScript syntax
         run: |
+          node --check rip_manager_container/app/static/navigation.js
+          node rip_manager_container/tests/test_navigation.cjs
           node --check rip_manager_container/app/static/ui.js
           node rip_manager_container/tests/test_confirmation.cjs
           node --check rip_manager_container/app/static/settings.js

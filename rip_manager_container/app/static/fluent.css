@@ -1,6 +1,14 @@
+/* Canonical popup surfaces. Legacy modal and theme-palette overrides are removed. */
+.modal-backdrop{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));background:rgba(0,0,0,.42)}
+.modal-backdrop.hidden{display:none!important}
+.modal{width:min(620px,100%);max-height:calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow:auto;border:1px solid var(--line);border-radius:12px;padding:20px;background:var(--panel);color:var(--text);box-shadow:var(--ui-shadow,0 12px 40px #0003);scrollbar-gutter:stable;overscroll-behavior:contain}
+.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.modal-title{font-size:18px;font-weight:600;line-height:1.4;letter-spacing:-.015em}
+@media(max-width:480px){.modal{padding:16px}.modal-head{gap:12px}}
+@media(max-height:480px){.modal-backdrop{align-items:flex-start}}
 /* Shared Windows 11-inspired surfaces and spacing, after legacy styles. */
 :root{--ui-gap:12px;--ui-card-pad:16px;--ui-radius:8px;--radius-control:6px;--radius-panel:8px;--radius-cell:6px}
-body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;line-height:1.45}
+body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;line-height:1.45}
 button,input,select,textarea{font-family:inherit}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 button:not(.drive):not(.toggle):not(.info-button):not(.context-help-button):not(.v02-brand),input,select,textarea{border-radius:6px!important}
@@ -17,7 +25,7 @@ button{font-weight:600}
 .transfer-list{gap:12px}.transfer-card{display:grid;gap:10px;padding:16px;border-radius:8px;background:var(--panel)}.transfer-card .transfer-track{margin:0}.transfer-card .transfer-top{gap:12px}.transfer-card strong{font-weight:600;line-height:1.45}.transfer-card small{line-height:1.5}.transfer-card p{margin:0;line-height:1.5}.transfer-card>.archive-button{justify-self:start}.transfer-top small{margin-top:6px}
 #transferList>section{display:grid;gap:12px}#transferList>section>h3{margin:8px 0 0;font-size:16px;font-weight:600}.archive-library-summary{gap:12px;line-height:1.5}.share-actions{gap:10px}.share-card,.node-card{padding:16px!important;border-radius:8px!important}.share-path{line-height:1.5}.stats-grid{gap:12px!important}.kpis{gap:12px!important}.kpi{padding:12px!important}.manager-refresh{gap:12px;flex-wrap:wrap}.manager-refresh strong{line-height:1.45}
 .archive-detail-title{gap:12px}.archive-detail-title strong{font-weight:600}.archive-tabs{gap:10px;overflow-x:auto;flex-shrink:0}.archive-tabs button{font-weight:600;white-space:nowrap}.archive-photo-section h3{font-weight:600;letter-spacing:.05em}.archive-slot{border-radius:8px}.archive-save-row{gap:12px}.archive-image-actions{gap:8px}
-.modal{border-radius:12px!important;padding:20px!important;background:var(--panel);box-shadow:0 12px 48px #0004}.modal-head{gap:16px;margin-bottom:16px!important}.modal-title{font-weight:600!important;line-height:1.4}.modal p{line-height:1.6}.modal h2{margin:0;font-size:20px;font-weight:600}.modal .note{margin:0!important}.modal .note+.note{margin-top:12px!important}#genericModalBody{display:grid;gap:14px}.detail-grid,.drive-popup-info{gap:12px!important}.detail{padding:12px!important}.drive-popup-actions{gap:12px!important}.popup-secondary-actions{gap:12px!important}
+.modal p{line-height:1.6}.modal h2{margin:0;font-size:20px;font-weight:600}.modal .note{margin:0!important}.modal .note+.note{margin-top:12px!important}#genericModalBody{display:grid;gap:14px}.detail-grid,.drive-popup-info{gap:12px!important}.detail{padding:12px!important}.drive-popup-actions{gap:12px!important}.popup-secondary-actions{gap:12px!important}
 /* Dynamic error/state boxes keep their content and remain visible. */
 .note{padding:12px!important;border-radius:8px!important;line-height:1.55!important;overflow-wrap:anywhere}.note.bad,.warning-box{border-left:3px solid var(--bad)!important}
 /* Resolve the legacy zero horizontal padding visible in navigation cards. */
@@ -40,7 +48,7 @@ html[data-theme] .drive.error{background:color-mix(in srgb,var(--bad) 12%,var(--
 .context-help{display:flex;align-items:center;gap:8px;min-width:0;color:var(--muted);font-size:12px;line-height:1.5}.context-help>span{min-width:0;overflow-wrap:anywhere}.context-help-button{display:inline-grid;place-items:center;flex:0 0 28px;width:28px;height:28px;min-width:28px;min-height:28px;padding:0;border:0!important;border-radius:50%!important;background:transparent;color:var(--accent);font-size:20px;line-height:1;cursor:pointer}.context-help-button:hover{background:var(--panel2)}
 #settingsContent button.context-help-button{min-width:28px!important;min-height:28px!important;width:28px!important;height:28px!important;padding:0!important;font-size:20px!important}
 #infoModal{z-index:2400}.info-modal{width:min(560px,100%)}#infoBody{line-height:1.65;overflow-wrap:anywhere}#infoBody p{margin:0 0 12px}#infoBody code{white-space:normal;overflow-wrap:anywhere}
-@media(max-width:480px){.archive-head{padding:8px 10px}.archive-body{padding:8px 10px 12px}.modal{padding:16px!important}.modal-head{gap:12px}.recovery-section,#archiveTransfers>.intake-section,.mover-shares-section{padding:12px}.transfer-card,.download-job{padding:14px}#settingsContent .settings-nav-row{padding:14px!important}.library-title-row{padding:12px 14px}}
+@media(max-width:480px){.archive-head{padding:8px 10px}.archive-body{padding:8px 10px 12px}.recovery-section,#archiveTransfers>.intake-section,.mover-shares-section{padding:12px}.transfer-card,.download-job{padding:14px}#settingsContent .settings-nav-row{padding:14px!important}.library-title-row{padding:12px 14px}}
 @media(max-height:480px){.archive-head{padding-top:4px;padding-bottom:4px}.archive-body{padding-top:4px;padding-bottom:6px}.v02-header{padding-top:2px;padding-bottom:2px}}
 /* Secondary copy should read as regular text, rather than inheriting button weight. */
 #settingsContent .setting-desc,.settings-home-card small,.library-title-row small{font-weight:400!important}
@@ -72,10 +80,7 @@ body:has(#overlay:not(.hidden)) .toast{bottom:calc(110px + env(safe-area-inset-b
 :where(.modal-actions,.actions,.tray-pair,.upc-row,.update-actions,.archive-save-row){gap:12px!important}
 :where(.modal-head,.archive-detail-title)>:first-child{min-width:0;overflow-wrap:anywhere}
 :where(.modal-head,.archive-detail-title)>.close-btn{flex:none}
-.modal-backdrop{padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))!important;background:rgba(0,0,0,.42)!important}
-.modal{max-height:calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom))!important;scrollbar-gutter:stable;overscroll-behavior:contain;box-shadow:var(--ui-shadow)!important}
-.modal-head{align-items:flex-start;padding-bottom:12px;border-bottom:1px solid var(--line)}
-.modal-title{font-size:18px!important;letter-spacing:-.015em}
+
 .modal .intake-section{margin-top:16px}.modal .intake-section label{margin:12px 0 6px;font-size:13px;font-weight:500}
 .modal .intake-section .row{gap:12px}.modal .intake-section .row>div{min-width:0}
 .modal .detail .k,.modal .kpi .k{font-size:12px;line-height:1.5;font-weight:400}.modal .detail .v,.modal .kpi .v{margin-top:6px;font-weight:600;line-height:1.45}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 import json, re, time
 from difflib import SequenceMatcher
+from functools import lru_cache
 from pathlib import Path
 import db
 
@@ -16,6 +17,29 @@ def _manifest_upc(payload):
 def _read_manifest(path: Path):
     import archive
     return archive._read_manifest_file(path)
+
+
+class _ManifestUnavailable(Exception):
+    pass
+
+
+@lru_cache(maxsize=2048)
+def _cached_lookup_manifest(path: str, signature: tuple) -> dict:
+    """Cache only small search fields; detail/verification reads stay authoritative."""
+    payload = _read_manifest(Path(path))
+    if payload is None:
+        # A transient read failure must never become a cached empty record.
+        raise _ManifestUnavailable
+    return {key: payload.get(key) for key in ("title", "year", "media_type", "manager_job_id")}
+
+
+def _lookup_manifest(path: Path) -> dict:
+    try:
+        stat = path.stat()
+        signature = (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+        return dict(_cached_lookup_manifest(str(path.absolute()), signature))
+    except (OSError, _ManifestUnavailable):
+        return {}
 
 
 def physical_media():
@@ -133,7 +157,7 @@ def _collection() -> list[dict]:
     for row in db.query("SELECT id,title,barcode,manifest_path FROM library_items"):
         item = dict(row)
         path = Path(item["manifest_path"])
-        manifest = _read_manifest(path) or {}
+        manifest = _lookup_manifest(path)
         physical_item = by_folder.get(str(path.parent.resolve())) or by_job.get(manifest.get("manager_job_id"))
         if physical_item:
             used.add(physical_item["manager_job_id"])

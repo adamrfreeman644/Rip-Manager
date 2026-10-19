@@ -2,6 +2,11 @@
 (()=>{
 const q=s=>document.querySelector(s), E=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let media=[],current=null,slot=null,refreshTimer=null,fromLibrary=false,routeSequence=0;
+let notesJob=null,notesBaseline="",notesLoaded=false,notesSaving=false,notesSequence=0;
+function notesDirty(){return notesLoaded&&q("#archiveTextArea").value!==notesBaseline}
+function resetNotes(){++notesSequence;notesJob=null;notesLoaded=false;notesBaseline="";q("#archiveTextArea").value="";q("#archiveSaveText").disabled=true}
+window.leaveMediaNotes=async()=>{if(notesSaving){toast("Wait for disc notes to finish saving");return false}if(notesDirty()&&!await window.confirmAction("Discard unsaved disc notes?"))return false;resetNotes();return true};
+window.addEventListener("beforeunload",event=>{if(notesDirty()||notesSaving){event.preventDefault();event.returnValue=""}});
 const overlay=q("#archiveOverlay"), list=q("#archiveList"), file=q("#archiveFile");
 q(".app").appendChild(overlay);
 function request(path,options={}){return api(path,options)}
@@ -25,11 +30,21 @@ function empty(label){return `<span><span class="archive-plus">+</span><b>Tap to
 function image(src,kind,index=""){return `<img src="${E(src)}?v=${Date.now()}" alt="${kind}"><span class="archive-image-actions"><button data-remove="${kind}" data-index="${index}">Delete</button><button data-add="${kind}" data-index="${index}">Replace</button></span>`}
 function renderDetail(){const x=current,front=q("#archiveFront"),rear=q("#archiveRear");q("#archiveDetailName").textContent=title(x);q("#archiveDetailMeta").textContent=`${x.media_type||"disc"} · ${x.state||""} · UPC ${x.barcode||"not recorded"}${x.attempt_count>1?` · ${x.attempt_count} attempts`:""}`;q("#archiveBarcode").value=x.barcode||"";q("#archiveBarcodeState").textContent=x.barcode?"Recorded":"Not recorded";front.className=`archive-slot${x.front_url?" has":""}`;front.innerHTML=x.front_url?image(x.front_url,"front"):empty("front");front.toggleAttribute("data-add",!x.front_url);if(!x.front_url)front.dataset.add="front";rear.className=`archive-slot${x.rear_url?" has":""}`;rear.innerHTML=x.rear_url?image(x.rear_url,"rear"):empty("rear");rear.toggleAttribute("data-add",!x.rear_url);if(!x.rear_url)rear.dataset.add="rear";[front,rear].forEach(el=>{const adding=el.hasAttribute("data-add");el.toggleAttribute("tabindex",adding);if(adding)el.tabIndex=0;if(adding)el.setAttribute("role","button");else el.removeAttribute("role");el.setAttribute("aria-label",`${adding?"Add":""} ${el===front?"front":"rear"} photo`.trim())});q("#archiveExtras").innerHTML=`<button class="archive-slot" data-add="extra">${empty("extra")}</button>`+(x.extra_urls||[]).map((src,i)=>`<span class="archive-slot has">${image(src,"extra",i)}</span>`).join("")}
 overlay.addEventListener("keydown",e=>{const target=e.target.closest("[data-add]");if(target&&target===e.target&&(e.key==="Enter"||e.key===" ")&&target.tagName!=="BUTTON"){e.preventDefault();choose(target.dataset.add)}});
-async function openDetail(index){current=media[index];renderDetail();q("#archiveLibrary").classList.remove("active");q("#archiveDetail").classList.add("active");activateDetail("archivePhotos")}
+async function openDetail(index){if(!await window.leaveMediaNotes())return;current=media[index];renderDetail();q("#archiveLibrary").classList.remove("active");q("#archiveDetail").classList.add("active");activateDetail("archivePhotos")}
 function activateDetail(id){overlay.querySelectorAll(".archive-detail-panel,.archive-detail-tab").forEach(x=>x.classList.remove("active"));q("#"+id).classList.add("active");overlay.querySelector(`[data-detail-panel="${id}"]`)?.classList.add("active");if(id==="archiveText")safe(loadText)();if(id==="archiveManifest")window.renderLibraryManifest?.(current,q("#archiveManifest"))}
-async function loadText(){const data=await request(`/archive/${encodeURIComponent(current.manager_job_id)}/text`);q("#archiveTextArea").value=data.text;q("#archiveTextState").textContent="No unsaved changes"}
+async function loadText(){
+ const job=current.manager_job_id;if(notesLoaded&&notesJob===job)return;
+ const ticket=++notesSequence;q("#archiveSaveText").disabled=true;q("#archiveTextArea").disabled=true;q("#archiveTextState").textContent="Loading disc notes…";
+ try{const data=await request(`/archive/${encodeURIComponent(job)}/text`);if(ticket!==notesSequence||current?.manager_job_id!==job)return;notesJob=job;notesLoaded=true;notesBaseline=data.text;q("#archiveTextArea").value=data.text;q("#archiveTextState").textContent="No unsaved changes"}
+ finally{if(ticket===notesSequence){q("#archiveTextArea").disabled=false;q("#archiveSaveText").disabled=!notesLoaded}}
+}
 async function saveBarcode(){const input=q("#archiveBarcode");const value=input.value.trim();if(value&&!/^\d+$/.test(value)){toast("UPC / EAN must contain digits only");input.focus();return}const data=await request(`/archive/${encodeURIComponent(current.manager_job_id)}/barcode`,{method:"PUT",body:JSON.stringify({barcode:value||null})});current.barcode=data.barcode;const row=media.find(x=>x.manager_job_id===current.manager_job_id);if(row)row.barcode=data.barcode;q("#archiveBarcodeState").textContent=data.barcode?"Saved":"Cleared";q("#archiveDetailMeta").textContent=`${current.media_type||"disc"} · ${current.state||""} · UPC ${current.barcode||"not recorded"}`;toast(data.barcode?"UPC saved":"UPC cleared")}
-async function saveText(){const text=q("#archiveTextArea").value;const data=await request(`/archive/${encodeURIComponent(current.manager_job_id)}/text`,{method:"PUT",body:JSON.stringify({text})});q("#archiveTextArea").value=data.text;q("#archiveTextState").textContent="Saved to disc-info.txt";toast("Disc information saved")}
+async function saveText(){
+ if(!notesLoaded||notesSaving)return;
+ const job=notesJob,text=q("#archiveTextArea").value;notesSaving=true;q("#archiveSaveText").disabled=true;
+ try{const data=await request(`/archive/${encodeURIComponent(job)}/text`,{method:"PUT",body:JSON.stringify({text})});if(notesJob!==job)return;notesBaseline=data.text;if(q("#archiveTextArea").value===text)q("#archiveTextArea").value=data.text;q("#archiveTextState").textContent=notesDirty()?"Unsaved changes":"Saved to disc-info.txt";toast("Disc information saved")}
+ finally{notesSaving=false;q("#archiveSaveText").disabled=!notesLoaded}
+}
 function choose(kind,index){const source=kind==="extra"&&index!==undefined?current.extra_sources?.[index]:null;slot={kind,index:source?.index??index,jobId:source?.manager_job_id||current.manager_job_id};file.value="";file.click()}
 file.onchange=()=>{const selected=file.files[0];if(!selected||!current||!slot)return;if(selected.size>20*1024*1024){toast("Photo must be 20 MB or smaller");return}const selectedSlot={...slot},selectedId=current.manager_job_id;const reader=new FileReader();reader.onerror=()=>toast("Could not read photo");reader.onload=async()=>{try{await request(`/archive/${encodeURIComponent(selectedSlot.jobId)}/images/${selectedSlot.kind}${selectedSlot.index!==undefined?"?index="+selectedSlot.index:""}`,{method:"PUT",body:JSON.stringify({data_url:reader.result})});await loadMedia();if(current?.manager_job_id===selectedId){current={...current,...media.find(x=>x.manager_job_id===selectedId)};renderDetail()}toast("Photo saved")}catch(e){toast(e.message)}};reader.readAsDataURL(selected)};
 async function remove(kind,index){
@@ -86,8 +101,6 @@ async function analyseRecovery(nodeId,folder,mediaType){
 async function loadTransfers(){const rows=await request("/archive/mover/transfers");q("#transferList").innerHTML=transferView.render(rows)}
 function markRoute(route){document.querySelectorAll("[data-app-route]").forEach(x=>x.classList.toggle("current-page",x.dataset.appRoute===route))}
 async function renderRoute(route){
-  if(route==="settings"){if(State.authenticated===false)return;await openSettings(false);return}
-  if(window.leaveSettings&&!await window.leaveSettings()){history.replaceState({route:"settings"},"","/preferences");return}
   window.stopArchiveRefresh();const ticket=routeSequence;fromLibrary=false;if(route==="library"||route==="physical-media"){window.openLibraryLookup?.(false);return}window.hideLibraryLookup?.();markRoute(route);
   if(route==="dashboard"){overlay.classList.add("hidden");q("#driveGrid").classList.remove("hidden");document.title="Rip Remote";return}
   q("#driveGrid").classList.add("hidden");overlay.classList.remove("hidden");
@@ -96,19 +109,19 @@ async function renderRoute(route){
   if(route==="stats"){q("#archiveHeading").textContent="Stats";q("#archiveSubheading").textContent="Live system health and drive performance";document.title="Stats · Rip Remote";showPanel("archiveStats");renderStatsPage();return}
   q("#archiveHeading").textContent="Physical media";q("#archiveSubheading").textContent="Photos and disc details";document.title="Physical Media · Rip Remote";showPanel("archiveLibrary");await loadMedia()
 }
-function routeFromPath(){return location.pathname==="/preferences"?"settings":location.pathname==="/downloads"?"downloads":location.pathname==="/mover"?"mover":location.pathname==="/physical-media"?"physical-media":location.pathname==="/stats"?"stats":location.pathname==="/library"?"library":"dashboard"}
-async function navigate(route,push=true){if(window.leaveSettings&&!await window.leaveSettings())return;if(route==="library"||route==="physical-media"){window.openLibraryLookup?.(push);return}const path=route==="downloads"?"/downloads":route==="mover"?"/mover":route==="physical-media"?"/physical-media":route==="stats"?"/stats":"/";if(push&&location.pathname!==path)history.pushState({route},"",path);await renderRoute(route)}
+async function navigate(route,push=true){return window.appNavigation.go(route,{push})}
+for(const route of ["dashboard","downloads","mover","stats"])window.appNavigation.register(route,()=>renderRoute(route));
 window.openDashboard=()=>navigate("dashboard");
 window.openArchive=()=>window.openLibraryLookup?.();
-window.openLibraryPhysical=async item=>{window.stopArchiveRefresh();fromLibrary=true;current=item;window.hideLibraryLookup?.();overlay.classList.remove("hidden");q("#archiveHeading").textContent="Library";q("#archiveSubheading").textContent="Photos and media details";showPanel("archiveDetail");renderDetail();activateDetail("archivePhotos")};
+window.openLibraryPhysical=async item=>{if(!await window.leaveMediaNotes())return;window.stopArchiveRefresh();fromLibrary=true;current=item;window.hideLibraryLookup?.();overlay.classList.remove("hidden");q("#archiveHeading").textContent="Library";q("#archiveSubheading").textContent="Photos and media details";showPanel("archiveDetail");renderDetail();activateDetail("archivePhotos")};
 window.openMover=()=>navigate("mover");
 window.openDownloads=()=>navigate("downloads");
 window.openStats=()=>navigate("stats");
-window.addEventListener("popstate",()=>safe(renderRoute)(routeFromPath()));
+
 q("#archiveSearch").addEventListener("input",renderList);
-q("#archiveBack").onclick=()=>{if(fromLibrary){fromLibrary=false;window.openLibraryLookup?.(false);return}q("#archiveDetail").classList.remove("active");q("#archiveLibrary").classList.add("active");current=null};q("#archiveSaveBarcode").onclick=safe(saveBarcode);q("#archiveBarcode").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();safe(saveBarcode)()}});q("#archiveSaveText").onclick=safe(saveText);q("#archiveTextArea").oninput=()=>q("#archiveTextState").textContent="Unsaved changes";
+q("#archiveBack").onclick=safe(async()=>{if(!await window.leaveMediaNotes())return;if(fromLibrary){fromLibrary=false;window.openLibraryLookup?.(false);return}q("#archiveDetail").classList.remove("active");q("#archiveLibrary").classList.add("active");current=null});q("#archiveSaveBarcode").onclick=safe(saveBarcode);q("#archiveBarcode").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();safe(saveBarcode)()}});q("#archiveSaveText").onclick=safe(saveText);q("#archiveTextArea").oninput=()=>q("#archiveTextState").textContent=notesDirty()?"Unsaved changes":"No unsaved changes";
 q("#archiveScan").onclick=async()=>{try{const result=await window.runLibraryMaintenance("scan",q("#archiveCount"));await loadMedia();toast(`Scan complete · ${result.folders_seen} discovered · ${result.imported} imported · ${result.manifests_created||0} manifests created · ${result.manifests_updated||0} updated`)}catch(e){toast(e.message)}};
 q("#recoveryScan").onclick=loadRecovery;q("#intakeScan").onclick=loadIntake;const intakeAll=q("#intakeQueue");if(intakeAll)intakeAll.hidden=true;
 overlay.onclick=safe(async e=>{const intake=e.target.closest("[data-intake-queue]");if(intake){intake.disabled=true;try{await request(`/archive/mover/intake/${encodeURIComponent(intake.dataset.intakeQueue)}/queue`,{method:"POST"});toast("Intake item queued");await loadIntake();await loadTransfers()}catch(err){toast(err.message)}finally{intake.disabled=false}return}const recovery=e.target.closest("[data-recovery-analyse]");if(recovery){await analyseRecovery(recovery.dataset.node,recovery.dataset.folder,recovery.dataset.mediaType);return}const m=e.target.closest("[data-media]");if(m){openDetail(Number(m.dataset.media));return}const del=e.target.closest("[data-remove]");if(del){await remove(del.dataset.remove,Number(del.dataset.index));return}const add=e.target.closest("[data-add]");if(add){choose(add.dataset.add,add.dataset.index!==""&&add.dataset.index!==undefined?Number(add.dataset.index):undefined);return}const tab=e.target.closest("[data-detail-panel]");if(tab){activateDetail(tab.dataset.detailPanel);return}const top=e.target.closest("[data-archive-panel]");if(top){showPanel(top.dataset.archivePanel);if(top.dataset.archivePanel==="archiveTransfers")loadTransfers();return}const retry=e.target.closest("[data-retry]");if(retry){await request(`/archive/mover/transfers/${retry.dataset.retry}/retry`,{method:"POST"});await loadTransfers();return}const cancel=e.target.closest("[data-cancel]");if(cancel){await request(`/archive/mover/transfers/${cancel.dataset.cancel}/cancel`,{method:"POST"});await loadTransfers()}});
-if(routeFromPath()==="settings")window.addEventListener("rip-manager-ready",()=>safe(renderRoute)("settings"),{once:true});else safe(renderRoute)(routeFromPath());
+
 })();

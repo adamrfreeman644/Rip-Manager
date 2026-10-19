@@ -74,36 +74,9 @@ button{cursor:pointer}
 .drive.disc-detected{background:#0f4f59;border-color:#39c5cf}
 .drive.waiting{background:#2b3d52;border-color:#6e8fb3}
 .drive.error{background:#6b1f24;border-color:#f85149}
-html[data-theme="light"] .drive.empty,
-html[data-theme="system"] .drive.empty{ }
-@media(prefers-color-scheme:light){
-  html[data-theme="system"] .drive.empty{background:#DCEFFF;border-color:#9FD4FF;color:#17476C}
-  html[data-theme="system"] .drive.ripping{background:#FFE8C7;border-color:#FFC978;color:#6A3B08}
-  html[data-theme="system"] .drive.complete{background:#DDF7E5;border-color:#99E7AE;color:#245C35}
-  html[data-theme="system"] .drive.disc-detected{background:#D5F8F5;border-color:#8BE8E1;color:#155B57}
-  html[data-theme="system"] .drive.waiting{background:#EDE4FF;border-color:#C8B0FF;color:#513A78}
-  html[data-theme="system"] .drive.error{background:#FFE0E3;border-color:#FFA2A9;color:#7A2730}
-}
-html[data-theme="light"] .drive.empty{background:#DCEFFF;border-color:#9FD4FF;color:#17476C}
-html[data-theme="light"] .drive.ripping{background:#FFE8C7;border-color:#FFC978;color:#6A3B08}
-html[data-theme="light"] .drive.complete{background:#DDF7E5;border-color:#99E7AE;color:#245C35}
-html[data-theme="light"] .drive.disc-detected{background:#D5F8F5;border-color:#8BE8E1;color:#155B57}
-html[data-theme="light"] .drive.waiting{background:#EDE4FF;border-color:#C8B0FF;color:#513A78}
-html[data-theme="light"] .drive.error{background:#FFE0E3;border-color:#FFA2A9;color:#7A2730}
-
 
 /* v3.4.2: centred popup system restored for drives, Shares and Stats */
-.modal-backdrop{
-  position:fixed;inset:0;z-index:1800;background:rgba(0,0,0,.66);
-  display:flex;align-items:center;justify-content:center;padding:10px
-}
-.modal{
-  width:min(620px,100%);max-height:calc(100dvh - 20px);overflow:auto;
-  background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px;
-  box-shadow:0 22px 70px rgba(0,0,0,.46)
-}
-.modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
-.modal-title{font-weight:950;font-size:1.05rem}
+
 .modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 .modal-actions .full{grid-column:1/-1}
 .eject-btn{background:#d29922;color:#111;border:1px solid #e3b341;border-radius:10px;padding:11px 12px;font-weight:850}
@@ -113,7 +86,6 @@ html[data-theme="light"] .drive.error{background:#FFE0E3;border-color:#FFA2A9;co
 .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .detail{background:var(--notice);border:1px solid var(--line);border-radius:10px;padding:9px}
 .detail .k{color:var(--muted);font-size:.66rem}.detail .v{font-weight:800;font-size:.82rem;margin-top:2px;overflow-wrap:anywhere}
-@media(max-height:500px){.modal-backdrop{align-items:flex-start;overflow:auto}}
 
 .overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.62);display:flex;justify-content:flex-end}
 .drawer{
@@ -285,32 +257,9 @@ html[data-theme="light"] .drive.error{background:#FFE0E3;border-color:#FFA2A9;co
   hyphens:none !important;
 }
 
-/* Bright solid V3.3.2 dark status palette */
+/* Progress accents; drive surfaces are owned by fluent.css. */
 @media (prefers-color-scheme: dark){
-  html[data-theme="system"] .drive.empty,
-  html[data-theme="dark"] .drive.empty{
-    background:#67B7FF !important;border-color:#A6D8FF !important;color:#09233A !important;
-  }
-  html[data-theme="system"] .drive.disc-detected,
-  html[data-theme="dark"] .drive.disc-detected{
-    background:#3DE1D6 !important;border-color:#8AF6EF !important;color:#073A38 !important;
-  }
-  html[data-theme="system"] .drive.waiting,
-  html[data-theme="dark"] .drive.waiting{
-    background:#B995FF !important;border-color:#D8C4FF !important;color:#2C1553 !important;
-  }
-  html[data-theme="system"] .drive.ripping,
-  html[data-theme="dark"] .drive.ripping{
-    background:#FFB347 !important;border-color:#FFD28A !important;color:#402400 !important;
-  }
-  html[data-theme="system"] .drive.complete,
-  html[data-theme="dark"] .drive.complete{
-    background:#54D879 !important;border-color:#8CF0A7 !important;color:#0B3518 !important;
-  }
-  html[data-theme="system"] .drive.error,
-  html[data-theme="dark"] .drive.error{
-    background:#FF626C !important;border-color:#FF9AA1 !important;color:#45080D !important;
-  }
+
   html[data-theme="system"] .drive.ripping .progress-fill{background:#A94F00 !important}
   html[data-theme="system"] .drive.ripping .progress-pct{color:#4B2500 !important}
   html[data-theme="system"] .drive.complete .progress-fill{background:#167D34 !important}
@@ -321,38 +270,8 @@ html[data-theme="light"] .drive.error{background:#FFE0E3;border-color:#FFA2A9;co
   html[data-theme="dark"] .drive.complete .progress-pct{color:#0C4E20 !important}
 }
 
-/* Forced-dark must match the system-dark palette too */
-html[data-theme="dark"] .drive.empty{background:#67B7FF !important;border-color:#A6D8FF !important;color:#09233A !important}
-html[data-theme="dark"] .drive.disc-detected{background:#3DE1D6 !important;border-color:#8AF6EF !important;color:#073A38 !important}
-html[data-theme="dark"] .drive.waiting{background:#B995FF !important;border-color:#D8C4FF !important;color:#2C1553 !important}
-html[data-theme="dark"] .drive.ripping{background:#FFB347 !important;border-color:#FFD28A !important;color:#402400 !important}
-html[data-theme="dark"] .drive.complete{background:#54D879 !important;border-color:#8CF0A7 !important;color:#0B3518 !important}
-html[data-theme="dark"] .drive.error{background:#FF626C !important;border-color:#FF9AA1 !important;color:#45080D !important}
+/* Popup surfaces are owned by fluent.css. */
 
-/* Original centred modal treatment */
-.modal-backdrop{
-  position:fixed !important;
-  inset:0 !important;
-  z-index:1000 !important;
-  background:rgba(0,0,0,.66) !important;
-  display:flex !important;
-  align-items:center !important;
-  justify-content:center !important;
-  padding:10px !important;
-}
-.modal-backdrop.hidden{display:none !important}
-.modal{
-  width:min(620px,100%) !important;
-  max-height:calc(100dvh - 20px) !important;
-  overflow:auto !important;
-  background:var(--panel) !important;
-  border:1px solid var(--line) !important;
-  border-radius:18px !important;
-  padding:14px !important;
-  box-shadow:0 22px 70px rgba(0,0,0,.46) !important;
-}
-.modal-head{margin-bottom:12px !important}
-.modal-title{font-weight:950 !important;font-size:1.05rem !important}
 .note{
   background:var(--notice) !important;
   border:1px solid var(--line) !important;
@@ -457,7 +376,7 @@ html[data-theme="dark"] .drive.error{background:#FF626C !important;border-color:
   .header-with-actions{gap:4px !important}
   .header-action-btn{min-height:31px !important;padding:5px 6px !important}
   .drive-grid{gap:11px !important}
-  .modal-backdrop{align-items:flex-start !important;overflow:auto !important}
+
 }
 /* One shared component language for every drive popup */
 .drive-popup-info{
@@ -679,15 +598,10 @@ html[data-theme="dark"] .drive.error{background:#FF626C !important;border-color:
  * the grid gets a state of its own for it. Amber matches the tray controls.
  * ------------------------------------------------------------------ */
 .drive.tray-open{background:#5a4212;border-color:#d29922}
-html[data-theme="light"] .drive.tray-open{background:#FFF2C8;border-color:#FFD978;color:#665016}
-@media(prefers-color-scheme:light){
-  html[data-theme="system"] .drive.tray-open{background:#FFF2C8;border-color:#FFD978;color:#665016}
-}
-html[data-theme="dark"] .drive.tray-open{background:#FFC94A !important;border-color:#FFE1A0 !important;color:#3A2A05 !important}
 
 /* A drive holding a queued rip should read as patient rather than idle. */
 .drive.waiting .drive-sub{opacity:.92}
-.drive.waiting .drive-state::after{content:" \25CF";animation:waiting-pulse 1.8s ease-in-out infinite}
+.drive.waiting .drive-state::after{content:" ●";animation:waiting-pulse 1.8s ease-in-out infinite}
 @keyframes waiting-pulse{0%,100%{opacity:.25}50%{opacity:1}}
 @media(prefers-reduced-motion:reduce){
   .drive.waiting .drive-state::after{animation:none;opacity:.6}
@@ -698,7 +612,6 @@ html[data-theme="dark"] .drive.tray-open{background:#FFC94A !important;border-co
 #intakeActions button{min-height:46px;width:100%}
 .intake-utility-row{display:flex;justify-content:flex-start;margin-top:10px}
 .intake-utility-row .secondary{min-height:36px;padding:8px 10px}
-
 
 /* v0.9.9 — MakeMKV-style current-file + entire-disc progress and ETA */
 .drive.has-rip-progress .drive-main{bottom:clamp(72px,13vh,94px)}
@@ -726,8 +639,6 @@ html[data-theme="dark"] .drive.tray-open{background:#FFC94A !important;border-co
 .compact-note{margin-top:10px;font-size:.72rem;line-height:1.45}
 .muted-inline{color:var(--muted);font-weight:400}
 .settings-group code{font-size:.92em;word-break:break-word}
-
-
 
 /* v0.10.4: theme-aware Rip Remote brand lockup */
 .v02-brand{
@@ -1059,7 +970,6 @@ html[data-theme="light"] .stepper-btn{background:#cfe7fb;color:#17476c;border-co
 .spacing-control input[type="range"]{width:100%;min-height:42px}
 .spacing-scale{display:flex;justify-content:space-between;color:var(--muted);font-size:.64rem}
 
-
 /* v0.15.5 — global geometry consistency
    One radius system and one spacing rhythm for cards, fields and information cells. */
 :root{
@@ -1284,7 +1194,6 @@ select option{
   text-decoration:none;
 }
 .hardware-actions .node-terminal-link{grid-column:1/-1}
-
 
 .dependency-list {
   display: grid;

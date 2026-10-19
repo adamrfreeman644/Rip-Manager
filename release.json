@@ -1,9 +1,9 @@
 {
-  "version": "0.25.24",
+  "version": "0.25.25",
   "notes": [
-    "Carry the shared Windows 11-inspired finish through popups, drive forms, Library tools, login, statistics, playlist previews and action rows. Unify typography, control spacing, readable text and theme-aware status colours.",
-    "Replace browser confirmations with matching accessible app dialogs. Cancel is focused by default; Escape cancels without dismissing the underlying popup. Confirmation requests are queued and complete before actions run.",
-    "Improve small-screen popup sizing, long-title wrapping and reduced-motion support. Preserve all warnings, confirmation wording and destination-verification safeguards.",
-    "Make every main-menu section a page under the persistent header, including Settings at /preferences. Remove page-level Home/Close controls, retain popup Close buttons, and protect unsaved settings when switching pages. Saving and discarding keep Settings open."
+    "Reduce repeated Library disk reads with a bounded cache of search fields keyed by file identity, size and nanosecond modification/change times. Changed, replaced, deleted and restored manifests invalidate correctly; transient failures are retried. Full detail and verification reads are uncached.",
+    "Unify main-page navigation and browser history. Retain Library searches, media filters and scroll positions, restore Settings categories, reject stale navigation completions and restore history when unsaved changes prevent leaving.",
+    "Preserve draft disc notes across tab switches and failed saves. Confirm before leaving unsaved notes; protect in-progress saves and ignore late note responses for another disc.",
+    "Remove 48 superseded modal and theme-palette rules and give shared popup surfaces one canonical definition. Preserve theme switching, responsive layouts, warnings and complete-destination-verification safeguards."
   ]
 }

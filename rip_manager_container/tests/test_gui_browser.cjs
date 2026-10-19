@@ -87,7 +87,18 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
     assert(await page.locator('#archiveTextArea').evaluate(el=>{const probe=document.createElement('span');probe.style.background='var(--field)';document.body.append(probe);const matches=getComputedStyle(probe).backgroundColor===getComputedStyle(el).backgroundColor;probe.remove();return matches}),'disc notes use the theme field colour');
    }
-   await page.click('#archiveBack');await page.waitForSelector('[data-library-id]');
+   await page.fill('#archiveTextArea','Unsaved regression notes');
+   const readsBeforeTabs=requests.filter(r=>r.path.endsWith('/text')&&r.method==='GET').length;
+   await page.click('[data-detail-panel="archivePhotos"]');await page.click('[data-detail-panel="archiveText"]');
+   assert.equal(await page.inputValue('#archiveTextArea'),'Unsaved regression notes','switching tabs preserves draft notes');
+   assert.equal(requests.filter(r=>r.path.endsWith('/text')&&r.method==='GET').length,readsBeforeTabs,'switching tabs must not reread over the draft');
+   await navigate('stats');await page.waitForSelector('#confirmationDialog[open]');await page.click('#confirmationCancel');assert(await page.locator('#archiveText.active').isVisible());assert.equal(await page.inputValue('#archiveTextArea'),'Unsaved regression notes');
+   await page.click('#archiveBack');await page.waitForSelector('#confirmationDialog[open]');await page.click('#confirmationAccept');await page.waitForSelector('[data-library-id]');
+   await page.selectOption('#libraryMediaType','movie');await page.waitForFunction(()=>document.querySelector('#libraryResults').getAttribute('aria-busy')==='false');
+   await page.locator('#libraryResults').evaluate(el=>el.scrollTop=200);const libraryScroll=await page.locator('#libraryResults').evaluate(el=>el.scrollTop);
+   await navigate('stats');await page.waitForURL('**/stats');await page.goBack();await page.waitForSelector('#libraryOverlay:not(.hidden)');await page.waitForFunction(()=>document.querySelector('#libraryResults').getAttribute('aria-busy')==='false');
+   assert.equal(await page.inputValue('#librarySearch'),'progress check');assert.equal(await page.inputValue('#libraryMediaType'),'movie');assert.equal(await page.locator('#libraryResults').evaluate(el=>el.scrollTop),libraryScroll,'Back restores result scroll');
+
    await navigate('mover');await page.waitForSelector('[data-recovery-analyse]');
    const intakeHelp=page.getByRole('button',{name:'About Where to put imported media'});await intakeHelp.click();await page.waitForSelector('#infoModal:not(.hidden)');assert((await page.textContent('#infoBody')).includes('/media/0 ~ Intake/Movies'));
    await page.keyboard.press('Tab');assert.equal(await page.locator('#infoClose').evaluate(el=>el===document.activeElement),true,'info popup must contain keyboard focus');
@@ -134,7 +145,7 @@ await page.click('[data-recovery-analyse]');await page.waitForSelector('#confirm
    await page.evaluate(()=>{window.confirmationResult=null;window.confirmAction('Continue operation?').then(result=>window.confirmationResult=result)});await page.click('#confirmationAccept');await page.waitForFunction(()=>window.confirmationResult===true);
    await page.evaluate(()=>window.uiHelp.copyPath('\\\\Byte-Me\\media'));await page.waitForSelector('#infoModal:not(.hidden)');assert.equal(await page.locator('.copy-path-field').inputValue(),'\\\\Byte-Me\\media');await page.keyboard.press('Escape');assert(await page.locator('#overlay').isVisible());
    await chooseCategory('dashboard');const cleanDraft=await page.evaluate(()=>JSON.stringify(State.draft));
-   await page.getByRole('button',{name:'About Drive placement',exact:true}).click();await page.waitForSelector('#infoModal:not(.hidden)');assert((await page.textContent('#infoBody')).includes('A drive can only be assigned once'));await page.click('#infoClose');assert.equal(await page.evaluate(()=>JSON.stringify(State.draft)),cleanDraft,'help must not mutate settings');
+   await page.getByRole('button',{name:'About Drive placement',exact:true}).click();assert.equal(await page.locator('#infoModal .modal').evaluate(el=>getComputedStyle(el).borderTopLeftRadius),'12px');await page.waitForSelector('#infoModal:not(.hidden)');assert((await page.textContent('#infoBody')).includes('A drive can only be assigned once'));await page.click('#infoClose');assert.equal(await page.evaluate(()=>JSON.stringify(State.draft)),cleanDraft,'help must not mutate settings');
    // Marked live messages and warnings are protected even if marked in error.
    await page.evaluate(()=>openModal('Help regression','<div data-help-note="Nested guide">Original <code>folder/path</code> guidance.</div><div id="liveHelpState" class="note" data-help-note="Live state">Scanning media…</div><div class="note bad" data-help-note="Warning">Verification failed: source retained.</div><div role="alert" data-help-note="Alert">Destination collision.</div>'));
    await page.getByRole('button',{name:'About Nested guide',exact:true}).click();assert((await page.textContent('#infoBody')).includes('folder/path'));await page.keyboard.press('Escape');assert(await page.locator('#genericModal').isVisible(),'help must not replace or dismiss the underlying dialog');assert(await page.locator('#liveHelpState').isVisible());assert(await page.getByText('Verification failed: source retained.',{exact:true}).isVisible());assert(await page.getByRole('alert').isVisible());await page.keyboard.press('Escape');

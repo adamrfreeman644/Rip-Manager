@@ -1249,16 +1249,16 @@ function drawer(title, html) {
   window.settingsShell?.render(title);
 }
 
-async function openSettings(push=true) {
+async function openSettings(push=true,isCurrent=()=>true) {
   if(!$("#overlay").classList.contains("hidden"))return;
   try {
-    State.settings = await api("/settings");
+    const settings=await api("/settings");if(!isCurrent())return;State.settings=settings;
     State.draft = structuredClone(State.settings);
     State.settingsPinDraft = {};
     State.draft.drive_preferences ||= {};
     normaliseDraftLayout();
     State.drives.forEach(drive=>drivePreference(dashboardDriveKey(drive)));
-    State.settingsNav = [{page:"home",args:[]}];
+    State.settingsNav ||= [{page:"home",args:[]}];
     markSettingsClean();
     window.settingsShell?.begin();
     window.stopArchiveRefresh?.();window.hideLibraryLookup?.();
@@ -1266,7 +1266,7 @@ async function openSettings(push=true) {
     document.querySelectorAll('[data-app-route]').forEach(el=>el.classList.toggle('current-page',el.dataset.appRoute==='settings'));
     if(push&&location.pathname!=="/preferences")history.pushState({route:"settings"},"","/preferences");
     document.title="Settings · Rip Remote";
-    renderSettingsHome();
+    const last=State.settingsNav.at(-1);renderSettingsRoute(last?.page||"home",...(last?.args||[]));
   } catch (error) { toast(error.message); }
 }
 
@@ -1975,7 +1975,7 @@ async function pairExistingNode() {
       id: fields.node_id, name: fields.name, url: fields.node_url, enabled: true, token,
     }) });
     toast(`${fields.name} adopted`);
-    State.settings = await api("/settings");
+    const settings=await api("/settings");if(!isCurrent())return;State.settings=settings;
     State.draft = structuredClone(State.settings);
     hardwarePage();
   } catch (error) { toast(error.message); }
@@ -2696,7 +2696,7 @@ mobileNavMenu.onclick = (event) => {
     mover: () => window.openMover(),
     downloads: () => window.openDownloads(),
     stats: () => window.openStats(),
-    settings: openSettings,
+    settings: () => window.appNavigation.go("settings"),
   };
   Promise.resolve().then(()=>actions[button.dataset.mobileAction]?.()).catch(error=>toast(error.message));
 };
@@ -2916,3 +2916,5 @@ setInterval(updateRelativeTimes, 1000);
 
 setRipManagerBrowserTheme();
 installLookupEnhancementStyles();
+
+window.appNavigation.register("settings",isCurrent=>openSettings(false,isCurrent));
