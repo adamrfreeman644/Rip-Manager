@@ -51,6 +51,7 @@ jobs:
           node --check rip_manager_container/app/static/downloads.js
           node --check rip_manager_container/app/static/transfer_view.js
           node rip_manager_container/tests/test_transfer_view.cjs
+          node rip_manager_container/tests/test_library_first_load.cjs
       - name: Check HTML and CSS
         run: |
           python - <<'PY'

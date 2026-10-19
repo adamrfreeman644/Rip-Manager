@@ -80,7 +80,7 @@ def test_unresolved_upc_returns_collection_for_manual_title_search(tmp_path,monk
     assert [item["title"] for item in result["matches"]]==["Film"]
 
 
-def test_collection_http_route_populates_empty_index_and_searches(tmp_path, monkeypatch):
+def test_collection_http_route_indexes_in_background_and_searches(tmp_path, monkeypatch):
     db = fresh(tmp_path, monkeypatch)
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -94,6 +94,9 @@ def test_collection_http_route_populates_empty_index_and_searches(tmp_path, monk
     app = FastAPI()
     app.include_router(router)
     with TestClient(app) as client:
+        initial=client.get("/api/collection").json()
+        import library_maintenance
+        library_maintenance._future.result(timeout=10)
         for params in ({}, {"q": "Alien"}, {"q": "Alien", "media_type": "movie", "extras": "", "sort": "title"}):
             response = client.get("/api/collection", params=params)
             assert response.status_code == 200
@@ -134,6 +137,7 @@ def test_manifest_and_physical_record_join_without_title_deduplication(tmp_path,
     with db.write() as conn:
         conn.execute("INSERT INTO physical_media(manager_job_id,final_dir,created_at,updated_at) VALUES ('film',?,1,1)", (str(folder),))
     (folder / 'disc-info.json').write_text(json.dumps({'title': 'Film', 'media_type': 'movie', 'manager_job_id': 'film'}))
+    library.check_manifests()
     rows = library.search()
     assert len(rows) == 2
     merged = next(x for x in rows if x['ownership'] == 'manifest')
@@ -151,6 +155,7 @@ def test_local_nfo_and_artwork_are_separate_from_disc_photos(tmp_path, monkeypat
     (folder / 'disc-info.json').write_text(json.dumps({'title': 'Film'}))
     (folder / 'movie.nfo').write_text('<movie><title>Matched title</title><plot>Synopsis</plot><genre>Action</genre></movie>')
     (folder / 'poster.jpg').write_bytes(b'poster')
+    library.check_manifests()
     item = library.search()[0]
     assert item['local_metadata']['overview'] == 'Synopsis'
     assert item['local_metadata']['genres'] == ['Action']
@@ -173,6 +178,7 @@ def test_manifest_only_entry_can_open_photo_editor_without_duplicate(tmp_path, m
     manifest = folder / 'disc-info.json'
     original = json.dumps({'title': 'Film', 'year': 1999})
     manifest.write_text(original)
+    library.check_manifests()
     item = library.search()[0]
     assert not item.get('manager_job_id')
     attached = library.ensure_physical(item['id'])

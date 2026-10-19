@@ -52,6 +52,17 @@ def status():
     return state
 
 
+def ensure_initial_index():
+    """Start initial indexing once; report failures instead of spinning on GETs."""
+    signature=library.index_signature()
+    if db.get_setting("library_index_signature")==signature:
+        return None
+    previous=status()
+    if previous.get("kind")=="index" and previous.get("signature")==signature and previous.get("status") in {"failed","interrupted"}:
+        return previous
+    return start("index")
+
+
 def start(kind):
     global _future
     if kind not in {"health","repair","index","scan","backfill"}:
@@ -60,6 +71,7 @@ def start(kind):
         if _future is not None and not _future.done():
             return status()
         state={"id":uuid.uuid4().hex,"kind":kind,"status":"running","done":0,"total":0,"current":"Starting","started_at":time.time()}
+        if kind=="index": state["signature"]=library.index_signature()
         db.set_setting("library_maintenance_job",json.dumps(state))
         _future=_executor.submit(_run,state)
         return dict(state)
