@@ -1,9 +1,9 @@
 {
-  "version": "0.25.21",
+  "version": "0.25.22",
   "notes": [
-    "Overhaul Settings with a Windows-inspired full-screen layout, persistent desktop categories, phone category navigation, breadcrumbs and Back. All existing configuration and maintenance tools remain available.",
-    "Add Find a setting search with individual controls, aliases and node-specific destinations. Search opens and highlights the relevant control without sending requests or changing settings while typing.",
-    "Keep Save and Cancel visible on every page, retain unsaved values across navigation, make toggles accessible by name, and preserve PIN drafts until saved or discarded.",
-    "Regression coverage checks category navigation, search, unsaved changes, PIN drafts, drive visibility and responsive Settings across five viewports and dark/light/system themes. Source cleanup remains gated by complete destination verification."
+    "Extend the Windows 11-inspired design throughout Rip Manager: calmer drive colours, shared card surfaces, consistent typography, form padding and gaps across Library, Mover, Downloads, Stats, dialogs and Settings.",
+    "Fix Settings navigation cards whose text touched their borders. Keep separate cards and controls evenly spaced on desktop and phone layouts.",
+    "Replace explicitly marked explanatory note boxes with accessible info icons and separate help dialogs. Notes retain their complete text and formatting; Escape, keyboard focus containment and return focus are supported.",
+    "Keep live state, errors, collisions, progress and safety/verification messages visible. Help never changes settings or replaces an underlying dialog. Regression coverage exercises spacing, help, focus and live-message preservation across five viewports and three themes. Complete destination verification still gates source-media cleanup."
   ]
 }
