@@ -128,6 +128,7 @@ import shlex
 import signal
 import shutil
 import socket
+from contextlib import asynccontextmanager
 import subprocess
 import threading
 import time
@@ -278,10 +279,24 @@ FINISHED_STATES = {"complete", "failed", "verification_failed", "cancelled"}
 # APP / MODELS
 # ---------------------------------------------------------------------------
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global maintenance_thread
+    maintenance_stop.clear()
+    maintenance_thread = threading.Thread(target=maintenance_loop, daemon=True)
+    maintenance_thread.start()
+    try:
+        yield
+    finally:
+        maintenance_stop.set()
+        maintenance_wakeup.set()
+
+
 app = FastAPI(
     title="Rip Node API",
     version="0.2.12",
     description=f"Backend API for {NODE_NAME}",
+    lifespan=lifespan,
 )
 
 
@@ -1738,20 +1753,6 @@ def maintenance_loop():
                                  next_check=time.time() + 3600)
         maintenance_wakeup.wait(60)
         maintenance_wakeup.clear()
-
-
-@app.on_event("startup")
-def start_maintenance():
-    global maintenance_thread
-    maintenance_stop.clear()
-    maintenance_thread = threading.Thread(target=maintenance_loop, daemon=True)
-    maintenance_thread.start()
-
-
-@app.on_event("shutdown")
-def stop_maintenance():
-    maintenance_stop.set()
-    maintenance_wakeup.set()
 
 
 class MaintenanceSettings(BaseModel):
