@@ -101,3 +101,8 @@ body:has(#overlay:not(.hidden)) .toast{bottom:calc(110px + env(safe-area-inset-b
 .app>#overlay .settings-window-head{background:transparent}
 
 .copy-path-field{width:100%;font-family:ui-monospace,Consolas,monospace!important}
+/* Media detail editing and status colours follow the selected theme too. */
+.archive-textarea{background:var(--field);color:var(--text)}
+.archive-tabs button.active{color:var(--panel)}
+.archive-ok{color:var(--ok)}.archive-missing{color:var(--bad)}
+.archive-slot:not(.has){background:var(--panel2)}

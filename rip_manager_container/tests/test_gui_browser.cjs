@@ -83,6 +83,10 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
    await page.waitForFunction(()=>document.querySelector('#toast').textContent==='Photo saved');
    assert(requests.some(r=>r.path==='/archive/node%3Aolder/images/extra'&&r.method==='PUT'&&r.query==='index=2'),'replace must target the actual photo owner');
    await page.click('[data-detail-panel="archiveText"]');await page.waitForFunction(()=>document.querySelector('#archiveTextArea').value==='Disc notes');await page.click('#archiveSaveText');await page.waitForFunction(()=>document.querySelector('#toast').textContent==='Storage disconnected');
+   for(const theme of ['light','dark']){
+    await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+    assert(await page.locator('#archiveTextArea').evaluate(el=>{const probe=document.createElement('span');probe.style.background='var(--field)';document.body.append(probe);const matches=getComputedStyle(probe).backgroundColor===getComputedStyle(el).backgroundColor;probe.remove();return matches}),'disc notes use the theme field colour');
+   }
    await page.click('#archiveBack');await page.waitForSelector('[data-library-id]');
    await navigate('mover');await page.waitForSelector('[data-recovery-analyse]');
    const intakeHelp=page.getByRole('button',{name:'About Where to put imported media'});await intakeHelp.click();await page.waitForSelector('#infoModal:not(.hidden)');assert((await page.textContent('#infoBody')).includes('/media/0 ~ Intake/Movies'));
