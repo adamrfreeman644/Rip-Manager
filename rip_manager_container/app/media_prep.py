@@ -44,6 +44,23 @@ def _play_all(files, durations):
     return longest if total > 0 and abs(durations[longest] - total) <= max(20.0, total * .02) else None
 
 
+def _cut_label(path):
+    name = path.stem.lower()
+    for pattern, label in ((r"theatrical", "Theatrical"), (r"director[’']?s?[-_ ]*cut", "Directors Cut"),
+                           (r"extended", "Extended"), (r"final[-_ ]*cut", "Final Cut"),
+                           (r"uncut", "Uncut"), (r"unrated", "Unrated")):
+        if re.search(pattern, name):
+            return label
+    return None
+
+
+def _movie_main(files, durations):
+    # Prefer explicitly labelled theatrical releases, then longest/size/path.
+    # Duration ties and unknown durations never depend on enumeration order.
+    return min(files, key=lambda p: (_cut_label(p) != "Theatrical", -durations.get(p, 0),
+                                     -p.stat().st_size, p.as_posix()))
+
+
 def prepare_completed_rip(source, job):
     source = Path(source)
     marker = source / "disc-info.txt"
@@ -71,19 +88,32 @@ def prepare_completed_rip(source, job):
             durations.pop(play_all, None)
 
     extras = set()
+    main = _movie_main(files, durations) if media_type == "movie" else None
+    main_cut = _cut_label(main) if main else None
+    if main:
+        try:
+            previous = json.loads((source / "rip-manager-prep.json").read_text())
+            previous_main = source / previous["main_feature"]
+            if previous_main in files:
+                main, main_cut = previous_main, previous.get("main_cut")
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
     longest = max((durations.get(path, 0) for path in files), default=0)
     if longest > 0:
         if media_type == "movie":
-            main = max(files, key=lambda path: durations.get(path, 0))
-            extras = {path for path in files if path != main and durations.get(path, 0) < longest * .75}
+            extras = {path for path in files if path != main and not _cut_label(path)
+                      and durations.get(path, 0) > 0 and durations.get(path, 0) < longest * .75}
         else:
             extras = {path for path in files if durations.get(path, 0) > 0 and durations[path] < longest * .70}
 
     extras_dir, prepared = source / "extras", 0
-    for number, path in enumerate(list(files), 1):
+    # Free an old canonical name before assigning it to the selected feature.
+    canonical = source / f"{title}{main.suffix.lower()}" if main else None
+    ordered = sorted(files, key=lambda p: (0 if canonical and p == canonical and p != main else 1 if p == main else 2, p.as_posix()))
+    for number, path in enumerate(ordered, 1):
         suffix = path.suffix.lower()
         stem = (f"{title} S{season:02d} D{disc:02d}F{number:02d}" if media_type == "tv" else
-                (title if path not in extras and number == 1 else f"{title} D{disc:02d}F{number:02d}"))
+                (title if path == main else f"{title} [{_cut_label(path) or ('Extra' if path in extras else 'Alternate Feature')} D{disc:02d}F{number:02d}]"))
         target_dir = extras_dir if path in extras else source
         target_dir.mkdir(parents=True, exist_ok=True)
         target, duplicate = target_dir / f"{stem}{suffix}", 2
@@ -103,6 +133,8 @@ def prepare_completed_rip(source, job):
             pass
     report = {"ok": True, "prepared": prepared, "extras": len(extras),
               "play_all_removed": sum(item["action"] == "deleted_play_all" for item in changes),
+              "main_feature": f"{title}{main.suffix.lower()}" if main else None,
+              "main_cut": main_cut,
               "media_type": media_type, "season": season if media_type == "tv" else None, "disc": disc}
     (source / "rip-manager-prep.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     if changes:
