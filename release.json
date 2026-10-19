@@ -1,10 +1,8 @@
 {
-  "version": "0.25.13",
+  "version": "0.25.14",
   "notes": [
-    "Completes the v0.25.4-v0.25.13 cleanup batch: Recovery audiobook aliases and audio grouping, deterministic movie features/cuts, read-only and retry-safe Intake, grouped downloads with provenance, clearer Mover status, shared background library maintenance, optical intake naming, live node deployment checks and warning-free compatible dependencies.",
-    "TV Play All titles are skipped from episode numbering but preserved in extras; failed transfer verification leaves their original bytes intact, and repeated preparation keeps the same structure.",
-    "Mover rejects overlapping source/destination folders and only recreates partial copies carrying the exact transfer ownership record. Unowned partial folders and symbolic links are left untouched.",
-    "Configured real nodes that report a simulator API remain unverified rather than being exempted from deployment checks.",
-    "Adds regression coverage for source retention, unowned/linked partial copies, overlapping paths, repeated TV preparation and simulator deployment mismatches. Local complete suite: 113 passed with zero warnings, with all warnings treated as errors."
+    "Recovery generation identity excludes generated disc-info.txt, disc-info.json and rip-manager-prep.json so sidecar creation/refresh does not create duplicate recovery jobs.",
+    "Re-adopting failed or cancelled Recovery transfers explicitly retries the existing queue entry, and does not override a disabled Mover.",
+    "Adds regressions for failed, cancelled and already-queued transfers after generated sidecar creation, plus disabled retry behavior. Complete local suite: 117 passed with warnings treated as errors."
   ]
 }

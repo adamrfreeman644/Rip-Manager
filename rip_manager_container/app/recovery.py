@@ -124,8 +124,9 @@ def _content_identity(source,node_id,media_type):
     """Identify this generation of a recovery folder from its complete contents."""
     entries=[]
     for path in sorted((p for p in source.rglob("*") if p.is_file()),key=lambda p:p.relative_to(source).as_posix()):
-        # The generated manifest is metadata about the adoption, not source content.
-        if path.relative_to(source).as_posix() == "disc-info.json":
+        # Generated adoption sidecars can be created or refreshed on every retry.
+        # They describe the source generation; they do not define a new one.
+        if path.relative_to(source).as_posix() in {"disc-info.json", "disc-info.txt", "rip-manager-prep.json"}:
             continue
         stat=path.stat()
         entries.append((path.relative_to(source).as_posix(),stat.st_size,stat.st_mtime_ns))
@@ -155,10 +156,15 @@ def adopt(node_id,folder,media_type="movie"):
            json.dumps({"ok":True,"source":"recovery"}),"{}",0,0,now))
         conn.execute("""INSERT OR IGNORE INTO physical_media(manager_job_id,final_dir,created_at,updated_at)
                        VALUES (?,?,?,?)""",(manager_job_id,str(source),now,now))
-    if not mover.enqueue(manager_job_id):
-        row=db.query_one("SELECT state FROM transfer_queue WHERE manager_job_id=?",(manager_job_id,))
-        if not row:raise ValueError("Mover is disabled; enable it before adopting existing rips")
-    return {"ok":True,"queued":True,"manager_job_id":manager_job_id,**preview}
+    row=db.query_one("SELECT id,state FROM transfer_queue WHERE manager_job_id=?",(manager_job_id,))
+    if row and row["state"] in {"failed","cancelled"}:
+        if not db.get_setting_bool("mover_enabled"):
+            raise ValueError("Mover is disabled; enable it before retrying Recovery")
+        mover.retry(row["id"])
+        return {"ok":True,"queued":True,"retried":True,"manager_job_id":manager_job_id,**preview}
+    if not row and not mover.enqueue(manager_job_id):
+        raise ValueError("Mover is disabled; enable it before adopting existing rips")
+    return {"ok":True,"queued":True,"already_adopted":bool(row),"manager_job_id":manager_job_id,**preview}
 
 # Backward-compatible name for the existing API while the UI migrates.
 def recover(node_id,folder,delete_source=True,media_type="movie"):
