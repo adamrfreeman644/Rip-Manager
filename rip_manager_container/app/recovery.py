@@ -81,13 +81,13 @@ def analyse(node_id,folder,media_type="movie"):
 def _content_identity(source,node_id,media_type):
     """Identify this generation of a recovery folder from its complete contents."""
     entries=[]
-    for path in sorted((p for p in source.rglob("*") if p.is_file()),key=lambda p:p.relative_to(source).as_posix().casefold()):
+    for path in sorted((p for p in source.rglob("*") if p.is_file()),key=lambda p:p.relative_to(source).as_posix()):
         # The generated manifest is metadata about the adoption, not source content.
         if path.relative_to(source).as_posix() == "disc-info.json":
             continue
         stat=path.stat()
         entries.append((path.relative_to(source).as_posix(),stat.st_size,stat.st_mtime_ns))
-    payload=json.dumps({"node":node_id,"media_type":media_type,"files":entries},separators=(",",":"),ensure_ascii=False)
+    payload=json.dumps({"node":node_id,"media_type":media_type,"source":str(source),"files":entries},separators=(",",":"),ensure_ascii=False)
     return hashlib.sha256(payload.encode()).hexdigest()[:24]
 
 def adopt(node_id,folder,media_type="movie"):

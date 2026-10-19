@@ -180,13 +180,15 @@ def test_app_health_route_starts(tmp_path, monkeypatch):
 
 
 def test_recovery_same_path_new_generation_gets_new_job(tmp_path, monkeypatch):
-    db, _, _, recovery = fresh_database(tmp_path, monkeypatch)
-    mount, destination = configure(db, tmp_path)
+    db = fresh_database(tmp_path, monkeypatch)
+    import recovery
+    mount = tmp_path / "node"
+    configure(db, tmp_path, mount)
     source = mount / "Movies" / "Reusable Movie"
     source.mkdir(parents=True)
     first_file = source / "movie.mkv"
     first_file.write_bytes(b"first generation")
-    first = recovery.adopt("Rip-Node-1", "Reusable Movie", "movie")
+    first = recovery.adopt("node-1", "Reusable Movie", "movie")
     first_id = first["manager_job_id"]
 
     # Simulate the completed transfer having removed the source, then a later rip
@@ -196,10 +198,41 @@ def test_recovery_same_path_new_generation_gets_new_job(tmp_path, monkeypatch):
     source.mkdir(parents=True)
     second_file = source / "movie.mkv"
     second_file.write_bytes(b"a genuinely different second generation")
-    second = recovery.adopt("Rip-Node-1", "Reusable Movie", "movie")
+    second = recovery.adopt("node-1", "Reusable Movie", "movie")
 
     assert second["manager_job_id"] != first_id
-    rows = db.query_all("SELECT manager_job_id FROM jobs_history WHERE drive='RECOVERY' ORDER BY manager_job_id")
+    rows = db.query("SELECT manager_job_id FROM jobs_history WHERE drive='RECOVERY' ORDER BY manager_job_id")
     ids = {row["manager_job_id"] for row in rows}
     assert first_id in ids
     assert second["manager_job_id"] in ids
+
+
+def test_recovery_repeated_adoption_keeps_job_identity(tmp_path, monkeypatch):
+    db = fresh_database(tmp_path, monkeypatch)
+    import recovery
+    mount = tmp_path / "node"
+    configure(db, tmp_path, mount)
+    source = mount / "Movies" / "Film"
+    source.mkdir(parents=True)
+    (source / "movie.mkv").write_bytes(b"media")
+    first = recovery.adopt("node-1", source.name)
+    second = recovery.adopt("node-1", source.name)
+    assert first["manager_job_id"] == second["manager_job_id"]
+    assert len(db.query("SELECT * FROM transfer_queue")) == 1
+
+
+def test_recovery_identical_files_in_different_folders_get_distinct_jobs(tmp_path, monkeypatch):
+    db = fresh_database(tmp_path, monkeypatch)
+    import recovery, os
+    mount = tmp_path / "node"
+    configure(db, tmp_path, mount)
+    ids = []
+    for name in ("Film A", "Film B"):
+        source = mount / "Movies" / name
+        source.mkdir(parents=True)
+        media = source / "movie.mkv"
+        media.write_bytes(b"same media")
+        os.utime(media, ns=(1_700_000_000_000_000_000,) * 2)
+        ids.append(recovery.adopt("node-1", name)["manager_job_id"])
+    assert len(set(ids)) == 2
+    assert len(db.query("SELECT * FROM transfer_queue")) == 2
