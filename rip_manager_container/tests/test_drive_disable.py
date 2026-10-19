@@ -36,3 +36,23 @@ def test_do_not_use_drive_is_rejected_by_control_routes(tmp_path, monkeypatch):
         _ensure_drive_enabled("node-1", "DVD1")
     assert error.value.status_code == 403
     assert "Do not use" in error.value.detail
+
+
+def test_dashboard_visibility_persists_without_disabling_drive(tmp_path, monkeypatch):
+    fresh_database(tmp_path, monkeypatch)
+    import nodes, disc_intake
+    from fastapi import Response
+    from models import SettingsUpdate
+    from routes.settings import update_settings, current_settings
+    def no_clear(*args):
+        raise AssertionError('Hiding an enabled drive must not clear pending intake')
+    monkeypatch.setattr(disc_intake, 'clear', no_clear)
+    preferences = {'node-1:DVD1': {'visible': False, 'enabled': True, 'open_tray': True}}
+    result = update_settings(SettingsUpdate(drive_preferences=preferences), Response())
+    assert result['drive_preferences'] == preferences
+    assert current_settings()['drive_preferences']['node-1:DVD1']['visible'] is False
+    assert nodes.drive_preference('node-1', 'DVD1', 'enabled', True)
+    assert nodes.drive_preference('node-1', 'DVD1', 'open_tray', True)
+    preferences['node-1:DVD1']['visible'] = True
+    update_settings(SettingsUpdate(drive_preferences=preferences), Response())
+    assert current_settings()['drive_preferences']['node-1:DVD1']['visible'] is True

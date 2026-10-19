@@ -1,10 +1,8 @@
 {
-  "version": "0.25.19",
+  "version": "0.25.20",
   "notes": [
-    "Fix dashboard overflow and clipped text: bound the configured grid to the visible screen and size tile text relative to each card, including five-drive phone layouts.",
-    "Keep Library below shared navigation, make long result lists scroll, restore Check manifests, and improve small-screen search, Mover scrolling, long paths and light-theme notes.",
-    "Preserve Recovery media type, stop hidden-page polling, reject stale download previews and queue responses, prevent duplicate submissions, show action errors, and close the top dialog first with Escape.",
-    "Extra photo replacement now updates the selected original owner and slot. New photos cannot overwrite surviving extras after deletion, and failed replacements retain the original image.",
-    "Add Chromium GUI regression coverage for five viewports and dark/light/system themes alongside photo-preservation regression tests. Source-media cleanup remains gated by complete destination verification."
+    "Add a separate Show on dashboard control to each drive in Settings \u2192 Nodes & drives \u2192 Manage drive mapping. Hidden drives remain manageable and their enabled/disabled state is preserved.",
+    "Remove hidden tiles and compact the visible grid to give working drives the available screen space. Saved placements are retained and restored when drives are shown again. Hidden missing-drive assignments are respected; all-hidden layouts explain how to restore drives.",
+    "Regression tests cover visibility persistence, independence from disabled state, saved and automatic layouts, missing drives, restoring hidden drives and a five-to-three-drive phone layout. Complete destination verification still gates source-media deletion."
   ]
 }
