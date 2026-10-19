@@ -81,7 +81,7 @@ async function analyseRecovery(nodeId,folder,mediaType){
   }catch(e){toast(e.message)}
 }
 
-async function loadTransfers(){const rows=await request("/archive/mover/transfers");q("#transferList").innerHTML=rows.length?rows.map(x=>{const p=x.bytes_total?Math.min(100,x.bytes_copied/x.bytes_total*100):0;return `<article class="transfer-card"><div class="transfer-top"><div><strong>${E(title(x))}</strong><small>${E(x.node_id)} → Byte-Me</small></div><b>${E(x.state)}</b></div><div class="transfer-track"><div class="transfer-fill" style="width:${p}%"></div></div><small>${formatBytes(x.bytes_copied)} / ${formatBytes(x.bytes_total)} · ${x.files_copied}/${x.files_total} files${x.error?` · ${E(x.error)}`:""}</small>${x.state==="failed"?`<button class="archive-button" data-retry="${x.id}">Retry</button>`:""}${x.state==="queued"?`<button class="archive-button" data-cancel="${x.id}">Remove</button>`:""}</article>`}).join(""):`<div class="note">No transfers queued. Completed rips will appear here when the mover is enabled.</div>`}
+async function loadTransfers(){const rows=await request("/archive/mover/transfers");q("#transferList").innerHTML=transferView.render(rows)}
 function markRoute(route){document.querySelectorAll("[data-app-route]").forEach(x=>x.classList.toggle("current-page",x.dataset.appRoute===route))}
 async function renderRoute(route){
   clearInterval(refreshTimer);refreshTimer=null;if(route==="library"||route==="physical-media"){window.openLibraryLookup?.(false);return}window.hideLibraryLookup?.();markRoute(route);

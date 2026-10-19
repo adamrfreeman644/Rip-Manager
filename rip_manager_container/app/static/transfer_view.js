@@ -1,0 +1,13 @@
+(function(root){
+  const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const group=row=>row.status_group||(row.state==='failed'||row.state==='complete'&&row.error?'attention':['queued','copying','verifying'].includes(row.state)?'waiting':'history');
+  const bytes=value=>{let n=Number(value)||0;const units=['B','KiB','MiB','GiB','TiB'];let i=0;while(n>=1024&&i<units.length-1){n/=1024;i++}return `${n.toFixed(i?1:0)} ${units[i]}`};
+  const labels={queued:'Waiting',copying:'Copying',verifying:'Verifying complete destination',complete:'Complete',cancelled:'Removed from queue',failed:'Needs attention'};
+  function card(row){
+    const percent=row.bytes_total?Math.min(100,100*row.bytes_copied/row.bytes_total):0;
+    const action=row.attention_kind==='collision'?'A destination already exists. Keep both copies and resolve the collision before retrying.':row.attention_kind==='verification'?'Verification did not allow source cleanup. Check the source and destination before retrying.':row.error?'Review the error and storage connection before retrying.':'';
+    return `<article class="transfer-card"><div class="transfer-top"><div><strong>${escape(row.display_title||row.title||'Untitled')}${row.year?' ('+escape(row.year)+')':''}</strong><small>${escape(row.node_id)} → Byte-Me</small></div><b>${escape(group(row)==='attention'?'Needs attention':labels[row.state]||row.state)}</b></div><div class="transfer-track" role="progressbar" aria-label="Transfer progress" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"><div class="transfer-fill" style="width:${percent}%"></div></div><small>${escape(row.files_copied||0)}/${escape(row.files_total||0)} files · ${bytes(row.bytes_copied)} / ${bytes(row.bytes_total)}</small>${row.destination_dir?`<small>Destination: ${escape(row.destination_dir)}</small>`:''}${row.error?`<p role="status">${escape(row.error)}</p><p>${escape(action)}</p>`:''}${['failed','cancelled'].includes(row.state)?`<button class="archive-button" data-retry="${Number(row.id)}">Retry transfer</button>`:''}${row.state==='queued'?`<button class="archive-button" data-cancel="${Number(row.id)}">Remove from queue</button>`:''}</article>`;
+  }
+  function render(rows){return [['waiting','Waiting'],['attention','Needs Attention'],['history','History']].map(([key,label])=>{const items=rows.filter(row=>group(row)===key);return `<section aria-label="${label}"><h3>${label} (${items.length})</h3>${items.length?items.map(card).join(''):'<p class="note">No transfers here.</p>'}</section>`}).join('')}
+  const api={group,render};root.transferView=api;if(typeof module!=='undefined')module.exports=api;
+})(globalThis);

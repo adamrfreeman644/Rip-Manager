@@ -354,3 +354,22 @@ def test_recovery_splits_artist_author_containers_and_keeps_discs(tmp_path, monk
         assert {x["path"] for x in result["files"]} == {"Disc 1/track" + extension, "Disc 2/track" + extension}
     with pytest.raises(ValueError):
         recovery.adopt("node-1", "Creator", kind)
+
+
+def test_transfer_status_groups_include_complete_warnings(tmp_path,monkeypatch):
+    db=fresh_database(tmp_path,monkeypatch)
+    node=tmp_path/"node";source=node/"Movies"/"Film";source.mkdir(parents=True)
+    (source/"film.mkv").write_bytes(b"film")
+    configure(db,tmp_path,node)
+    import recovery,mover
+    recovery.adopt("node-1","Film")
+    assert mover.list_transfers()[0]["status_group"]=="waiting"
+    with db.write() as con:
+        con.execute("UPDATE transfer_queue SET state='failed',error='Destination already exists'")
+    assert mover.list_transfers()[0]["attention_kind"]=="collision"
+    with db.write() as con:
+        con.execute("UPDATE transfer_queue SET state='complete',error='Source changed; source retained'")
+    assert mover.list_transfers()[0]["status_group"]=="attention"
+    with db.write() as con:
+        con.execute("UPDATE transfer_queue SET error=NULL")
+    assert mover.list_transfers()[0]["status_group"]=="history"
