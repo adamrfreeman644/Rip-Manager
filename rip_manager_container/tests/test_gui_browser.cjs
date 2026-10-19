@@ -102,7 +102,7 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     }
    }
    const settingsRequests=()=>requests.filter(r=>r.path.startsWith('/nodes/')||r.path.startsWith('/updates/')).length;
-   const beforeSearch=settingsRequests();await page.fill('#settingsSearch','English subtitles');assert.equal(settingsRequests(),beforeSearch,'typing search must not run settings actions or requests');
+   const beforeSearch=settingsRequests();await page.fill('#settingsSearch','English subtitles');assert.equal(settingsRequests(),beforeSearch,'typing search must not run settings actions or requests');const searchBox=await page.locator('#settingsSearch').boundingBox(),searchPanel=await page.locator('#settingsSearchPanel').boundingBox();assert(searchPanel.y>=searchBox.y+searchBox.height,'search results must appear below the search field');
    await page.keyboard.press('Enter');await page.waitForSelector('[data-toggle-key="prefer_english_subtitles"]');
    assert(await page.locator('[data-toggle-key="prefer_english_subtitles"]').evaluate(el=>el.closest('.setting-row').classList.contains('settings-found')));
    await page.click('[data-toggle-key="prefer_english_subtitles"]');assert(await page.locator('#settingsApply').isEnabled());
