@@ -22,6 +22,7 @@ from config import DB_PATH
 
 router = APIRouter(prefix="/api/downloads", tags=["downloads"])
 _lock = threading.RLock()
+_provenance_lock = threading.RLock()
 _wakeup = threading.Event()
 _stop = threading.Event()
 _worker = None
@@ -45,7 +46,7 @@ def initialize():
         if "custom_name" not in {row[1] for row in con.execute("PRAGMA table_info(download_jobs)")}:
             con.execute("ALTER TABLE download_jobs ADD COLUMN custom_name TEXT")
         columns={row[1] for row in con.execute("PRAGMA table_info(download_jobs)")}
-        for name in ("group_id", "group_title", "playlist_url", "staging_dir", "manager_job_id"):
+        for name in ("group_id", "group_title", "playlist_url", "staging_dir", "manager_job_id", "completion_json"):
             if name not in columns:
                 con.execute(f"ALTER TABLE download_jobs ADD COLUMN {name} TEXT")
         con.execute("UPDATE download_jobs SET status='queued', error='Resuming after restart' WHERE status='running'")
@@ -237,12 +238,51 @@ def retry_intake(job_id: int):
         row=con.execute("SELECT * FROM download_jobs WHERE id=?",(job_id,)).fetchone()
     if not row or row["status"] != "completed" or not row["staging_dir"]:
         raise HTTPException(409,"Only completed staged downloads can retry Intake")
-    _queue_finished_group(dict(row),Path(row["staging_dir"]))
+    row=dict(row)
+    transfer=db.query_one("SELECT state FROM transfer_queue WHERE manager_job_id=?",(row.get("manager_job_id"),))
+    if transfer and transfer["state"] in {"copying","verifying"}:
+        raise HTTPException(409,"Mover is transferring this item; retry history repair after it finishes")
+    target=Path(row["staging_dir"]).resolve()
+    try:
+        if row["destination"]=="downloads":
+            base=destination_path("downloads")
+            if target!=base and not (row.get("group_id") and target.parent==base):
+                raise ValueError("Download staging folder is outside its configured destination")
+            if not target.is_dir(): raise ValueError("Download staging folder is unavailable")
+        else:
+            media_intake.describe(target,row["destination"])
+        _repair_download_history(row,target)
+    except Exception as exc:
+        detail=getattr(exc,"detail",None) or str(exc)
+        update(job_id,error=("Downloaded successfully; history repair needs attention: "+detail)[:500])
+        raise HTTPException(422,"Download history could not be repaired; media remains staged: "+detail) from exc
+    if row["destination"]=="downloads":
+        with _lock,connection() as con:
+            if row.get("group_id"):
+                con.execute("UPDATE download_jobs SET error=NULL WHERE group_id=? AND status='completed'",(row["group_id"],))
+            else:
+                con.execute("UPDATE download_jobs SET error=NULL WHERE id=?",(job_id,))
+        return {"ok":True,"provenance_repaired":True,"queued":False}
+    _queue_finished_group(row,target)
     with connection() as con:
         current=con.execute("SELECT manager_job_id,error FROM download_jobs WHERE id=?",(job_id,)).fetchone()
     if not current["manager_job_id"]:
         raise HTTPException(409,current["error"] or "Playlist members are unfinished; complete or retry them first")
-    return {"ok":True,"manager_job_id":current["manager_job_id"]}
+    return {"ok":True,"provenance_repaired":True,"manager_job_id":current["manager_job_id"]}
+
+
+def _repair_download_history(row,target):
+    if row.get("group_id"):
+        with connection() as con:
+            members=[dict(item) for item in con.execute("SELECT * FROM download_jobs WHERE group_id=? AND status='completed' ORDER BY id",(row["group_id"],))]
+    else:
+        members=[row]
+    for member in members:
+        # New downloads retain their completion metadata before any sidecar write.
+        # Legacy jobs use their stored fields without inventing a completion time.
+        context=json.loads(member["completion_json"]) if member.get("completion_json") else {"title":member.get("title"),"thumbnail":member.get("thumbnail")}
+        if not isinstance(context,dict): raise ValueError("Saved download completion metadata is invalid")
+        _record_download(member,target,context)
 
 
 def update(job_id, **fields):
@@ -305,33 +345,55 @@ def run_job(row):
                "merge_output_format": "mkv", "postprocessors": ([{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "0"}] if row["media_type"] == "audio" else [])}
     with yt_dlp.YoutubeDL(options) as ydl:
         info = ydl.extract_info(row["url"], download=True) or {}
+    completion={"title":row.get("custom_name") or info.get("title") or displayed_title,
+                "thumbnail":info.get("thumbnail"),"completed_at":time.time(),
+                "source_url":row["url"],"playlist_url":row.get("playlist_url"),"group_id":row.get("group_id"),
+                "media_type":row["media_type"],"quality":row["quality"],
+                "subtitles_requested":bool(row["subtitles"]),"outcome":"downloaded_and_processed"}
     update(job_id, title=row.get("custom_name") or info.get("title") or displayed_title,
            thumbnail=info.get("thumbnail"), percent=100, speed=None, eta=None,
-           output=str(target), status="completed", error=None)
+           output=str(target), status="completed", error=None,completion_json=json.dumps(completion))
     try:
-        _record_download(row,target,info)
+        _record_download(row,target,completion)
         _queue_finished_group(row,target)
     except Exception as exc:
         update(job_id,error=("Downloaded successfully; provenance/Intake needs attention: "+str(exc))[:500])
 
 
 def _record_download(row,target,info):
-    """Preserve provenance in media sidecars after the download DB is cleared."""
+    """Restore one durable, idempotent provenance record without downloading."""
+    with _provenance_lock:
+        _write_download_record(row,target,info)
+
+
+def _write_download_record(row,target,info):
     manifest=target/"disc-info.json"
     if not manifest.exists():
         archive.write_recovery_manifest(target,title=row.get("group_title") or info.get("title"),
             media_type=row["destination"] if row["destination"] != "downloads" else ("music" if row["media_type"] == "audio" else "movie"),
             node_id="Media-Intake",provenance="download",source=row.get("playlist_url") or row["url"])
     payload=json.loads(manifest.read_text())
-    entry={"job_id":row["id"],"source_url":row["url"],"playlist_url":row.get("playlist_url"),
-           "group_id":row.get("group_id"),"title":info.get("title") or row.get("title"),
-           "outcome":"downloaded_and_processed","media_type":row["media_type"],
-           "subtitles_requested":bool(row["subtitles"]),"completed_at":time.time()}
-    payload["downloads"]=[x for x in payload.get("downloads",[]) if x.get("job_id")!=row["id"]]+[entry]
-    temp=target/".download-manifest.tmp"
-    temp.write_text(json.dumps(payload,indent=2)+"\n")
-    temp.replace(manifest)
-    archive.record_process_event(target,"download_finished","complete",entry)
+    if not isinstance(payload,dict): raise ValueError("Existing download manifest is invalid")
+    entries=payload.get("downloads",[])
+    if not isinstance(entries,list) or any(not isinstance(x,dict) for x in entries):
+        raise ValueError("Download history in manifest must be a list of records")
+    previous=next((x for x in entries if x.get("job_id")==row["id"]),{})
+    entry={"job_id":row["id"],"source_url":info.get("source_url") or row["url"],
+           "playlist_url":info.get("playlist_url",row.get("playlist_url")),"group_id":info.get("group_id",row.get("group_id")),
+           "title":info.get("title") or row.get("title"),"outcome":info.get("outcome") or "downloaded_and_processed",
+           "media_type":info.get("media_type") or row["media_type"],"quality":info.get("quality") or row["quality"],
+           "subtitles_requested":info.get("subtitles_requested",bool(row["subtitles"])),
+           "completed_at":info.get("completed_at") or previous.get("completed_at")}
+    if previous!=entry:
+        payload["downloads"]=[x for x in entries if x.get("job_id")!=row["id"]]+[entry]
+        temp=target/".download-manifest.tmp"
+        temp.write_text(json.dumps(payload,indent=2)+"\n")
+        temp.replace(manifest)
+    event_exists=any(isinstance(event,dict) and event.get("event")=="download_finished" and
+        isinstance(event.get("details"),dict) and event["details"].get("job_id")==row["id"] and
+        event["details"].get("source_url")==entry["source_url"] for event in payload.get("process_history",[]))
+    if not event_exists and not archive.record_process_event(target,"download_finished","complete",entry):
+        raise IOError("Download processing event could not be recorded")
 
 
 def _queue_finished_group(row,target):
