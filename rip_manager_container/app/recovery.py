@@ -78,12 +78,24 @@ def analyse(node_id,folder,media_type="movie"):
                       "classification":"preserve"} for p in files],
             "ready":not destination.exists()}
 
+def _content_identity(source,node_id,media_type):
+    """Identify this generation of a recovery folder from its complete contents."""
+    entries=[]
+    for path in sorted((p for p in source.rglob("*") if p.is_file()),key=lambda p:p.relative_to(source).as_posix().casefold()):
+        # The generated manifest is metadata about the adoption, not source content.
+        if path.relative_to(source).as_posix() == "disc-info.json":
+            continue
+        stat=path.stat()
+        entries.append((path.relative_to(source).as_posix(),stat.st_size,stat.st_mtime_ns))
+    payload=json.dumps({"node":node_id,"media_type":media_type,"files":entries},separators=(",",":"),ensure_ascii=False)
+    return hashlib.sha256(payload.encode()).hexdigest()[:24]
+
 def adopt(node_id,folder,media_type="movie"):
     preview=analyse(node_id,folder,media_type)
     if preview["destination_exists"]:raise FileExistsError("Destination already exists; recovery stopped")
     source=_source(node_id,folder,media_type)
     archive.write_recovery_manifest(source,media_type=media_type,node_id=node_id)
-    identity=hashlib.sha256(f"{node_id}:{media_type}:{source}".encode()).hexdigest()[:24]
+    identity=_content_identity(source,node_id,media_type)
     manager_job_id="recovery:"+identity; now=time.time()
     # output_dir is the path as seen on the node. Reconstruct it from the configured
     # node source root so the standard Mover resolves it through the mounted share.
