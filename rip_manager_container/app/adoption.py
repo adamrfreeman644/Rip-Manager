@@ -261,7 +261,7 @@ def _dependency_package_script(simulate: bool) -> str:
     return (
         "set -eu; packages=" + shlex.quote(base) + "; "
         "for optional in samba smbclient makemkv-bin makemkv-oss; do "
-        "if dpkg-query -W -f='\${Status}' \"$optional\" 2>/dev/null | grep -q 'install ok installed' "
+        "if dpkg-query -W -f='${Status}' \"$optional\" 2>/dev/null | grep -q 'install ok installed' "
         "|| apt-cache show \"$optional\" >/dev/null 2>&1; then packages=\"$packages $optional\"; fi; done; "
         + action + " $packages"
     )
@@ -293,7 +293,7 @@ def check_node_dependencies(host: str, port: int, username: str, password: str,
                     "detail": line[:500],
                 })
 
-        missing_command = "for p in " + " ".join(NODE_APT_DEPENDENCIES) + "; do dpkg-query -W -f='\${Status}' \"$p\" 2>/dev/null | grep -q 'install ok installed' || echo \"$p\"; done"
+        missing_command = "for p in " + " ".join(NODE_APT_DEPENDENCIES) + "; do dpkg-query -W -f='${Status}' \"$p\" 2>/dev/null | grep -q 'install ok installed' || echo \"$p\"; done"
         _, missing_output, _ = _run(client, missing_command)
         missing = [line.strip() for line in missing_output.splitlines() if line.strip()]
 
@@ -303,7 +303,7 @@ def check_node_dependencies(host: str, port: int, username: str, password: str,
             "if dpkg-query -W \"$optional\" >/dev/null 2>&1 || apt-cache show \"$optional\" >/dev/null 2>&1; "
             "then packages=\"$packages $optional\"; fi; done; "
             "for p in $packages; do "
-            "installed=$(dpkg-query -W -f='\${Version}' \"$p\" 2>/dev/null || printf missing); "
+            "installed=$(dpkg-query -W -f='${Version}' \"$p\" 2>/dev/null || printf missing); "
             "candidate=$(apt-cache policy \"$p\" | awk '/Candidate:/{print $2; exit}'); "
             "printf '%s\\t%s\\t%s\\n' \"$p\" \"$installed\" \"${candidate:-unavailable}\"; done"
         )
