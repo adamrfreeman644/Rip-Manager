@@ -1,0 +1,25 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const events={},elements=new Map();let cursor=0;
+const entries=[{url:'http://app/',state:null}],location={};
+function update(){const u=new URL(entries[cursor].url);Object.assign(location,{href:u.href,pathname:u.pathname,search:u.search})}update();
+const history={get state(){return entries[cursor].state},replaceState(state,_,url){entries[cursor]={state,url:new URL(url,location.href).href};update()},pushState(state,_,url){entries.splice(cursor+1);entries.push({state,url:new URL(url,location.href).href});cursor++;update()},go(delta){cursor+=delta;update();events.popstate({state:history.state})}};
+const element=id=>{if(!elements.has(id))elements.set(id,{scrollTop:0});return elements.get(id)};
+const window={addEventListener:(name,fn)=>events[name]=fn};
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../app/static/navigation.js'),'utf8'),{window,history,location,document:{querySelector:element,querySelectorAll:()=>[]}});
+const nav=window.appNavigation,rendered=[];for(const route of ['dashboard','library','stats','settings'])nav.register(route,async()=>rendered.push(route));
+const tick=async()=>{for(let i=0;i<15;i++)await Promise.resolve()};
+(async()=>{
+ await nav.go('library');element('#libraryResults').scrollTop=420;
+ history.replaceState(history.state,'','/library?q=Film&media_type=movie');nav.rememberURL();
+ await nav.go('stats');assert.equal(location.pathname,'/stats');
+ history.go(-1);await tick();assert.equal(nav.current(),'library');assert.equal(element('#libraryResults').scrollTop,420);assert(location.search.includes('q=Film'));
+ history.go(1);await tick();assert.equal(nav.current(),'stats');
+ await nav.go('library');assert(location.search.includes('q=Film'),'menu return retains search URL');
+ const before=rendered.length;window.leaveMediaNotes=async()=>false;
+ history.go(-1);await tick();assert.equal(nav.current(),'library');assert.equal(location.pathname,'/library');assert.equal(rendered.length,before,'cancelled Back must restore history without rendering another page');
+ window.leaveMediaNotes=async()=>true;await nav.go('stats');assert.equal(nav.current(),'stats');
+ let release;window.leaveSettings=()=>new Promise(resolve=>release=resolve);
+ const old=nav.go('library');await tick();window.leaveSettings=async()=>true;await nav.go('dashboard');release(true);await old;
+ assert.equal(nav.current(),'dashboard','late guard cannot override newer navigation');
+ console.log('Page history, search URL, scroll restoration, rejected Back and navigation races passed');
+})().catch(e=>{console.error(e);process.exitCode=1});
