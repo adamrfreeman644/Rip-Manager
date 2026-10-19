@@ -7,6 +7,7 @@ destroying anything the owner typed.
 
 from __future__ import annotations
 
+import uuid
 import base64
 import hashlib
 import json
@@ -122,7 +123,7 @@ def save_text(manager_job_id: str, text: str) -> str:
     return text_for(manager_job_id)
 
 
-def save_image(manager_job_id: str, slot: str, data_url: str) -> str:
+def save_image(manager_job_id: str, slot: str, data_url: str, index: Optional[int] = None) -> str:
     _ensure_record(manager_job_id)
     match = re.fullmatch(r"data:([^;,]+);base64,(.+)", data_url, re.S)
     if not match or match.group(1).lower() not in IMAGE_TYPES:
@@ -142,15 +143,18 @@ def save_image(manager_job_id: str, slot: str, data_url: str) -> str:
             "SELECT extras_json FROM physical_media WHERE manager_job_id=?", (manager_job_id,)
         )
         extras = json.loads(existing["extras_json"] or "[]")
-        stem = f"physical-extra-{len(extras)+1:02d}"
+        if index is not None and not 0 <= index < len(extras):
+            raise ValueError("Extra photo no longer exists; reopen the media details")
+        stem = Path(extras[index]).stem if index is not None else f"physical-extra-{uuid.uuid4().hex}"
     else:
         raise ValueError("Unknown photo slot")
-    for old in record_dir.glob(stem + ".*"):
-        old.unlink(missing_ok=True)
     target = record_dir / f"{stem}{ext}"
     temp = target.with_suffix(target.suffix + ".tmp")
     temp.write_bytes(payload)
     os.replace(temp, target)
+    for old in record_dir.glob(stem + ".*"):
+        if old != target:
+            old.unlink(missing_ok=True)
     relative = target.name
     with db.write() as conn:
         if slot == "extra":
@@ -158,7 +162,10 @@ def save_image(manager_job_id: str, slot: str, data_url: str) -> str:
                 "SELECT extras_json FROM physical_media WHERE manager_job_id=?", (manager_job_id,)
             ).fetchone()
             extras = json.loads(row["extras_json"] or "[]")
-            extras.append(relative)
+            if index is None:
+                extras.append(relative)
+            else:
+                extras[index] = relative
             conn.execute(
                 "UPDATE physical_media SET extras_json=?,updated_at=? WHERE manager_job_id=?",
                 (json.dumps(extras), time.time(), manager_job_id),

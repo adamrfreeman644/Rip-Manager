@@ -177,9 +177,9 @@ def get_image(manager_job_id: str, filename: str):
 
 
 @router.put("/{manager_job_id}/images/{slot}")
-def put_image(manager_job_id: str, slot: str, req: ImageUpdate):
+def put_image(manager_job_id: str, slot: str, req: ImageUpdate, index: Optional[int] = None):
     try:
-        filename = archive.save_image(manager_job_id, slot, req.data_url)
+        filename = archive.save_image(manager_job_id, slot, req.data_url, index=index)
         return {"ok": True, "filename": filename}
     except KeyError as exc:
         _not_found(exc)

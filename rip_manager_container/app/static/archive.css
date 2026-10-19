@@ -77,3 +77,9 @@
   #archiveList .archive-card{grid-template-columns:minmax(0,1fr)}
   #archiveList .archive-statuses{justify-content:flex-start;gap:18px}
 }
+
+/* One Mover page scroll area keeps Intake, Recovery and history reachable. */
+#archiveTransfers.active{display:flex;flex-direction:column;overflow-y:auto;gap:12px}
+#archiveTransfers>*,#archiveTransfers .transfer-list{flex-shrink:0;overflow:visible}
+.archive-textarea{background:var(--field);color:var(--text)}
+@media(max-height:480px){#archivePhotos.active{grid-template-rows:auto minmax(70px,1fr) minmax(65px,.38fr);overflow:auto}}
