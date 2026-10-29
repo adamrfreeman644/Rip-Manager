@@ -238,15 +238,18 @@ def undo(plan_id):
 def run_weekly():
     """Bounded batch; persist proposals and stop on a disconnected Mac."""
     cfg = config()
-    rows = db.query("SELECT j.manager_job_id FROM jobs_history j JOIN physical_media p USING(manager_job_id) WHERE j.state='complete' AND p.final_dir IS NOT NULL AND j.media_type IN ('movie','tv') ORDER BY j.manager_job_id")
+    rows = db.query("SELECT j.manager_job_id FROM jobs_history j JOIN physical_media p USING(manager_job_id) WHERE j.state='complete' AND p.final_dir IS NOT NULL AND j.media_type IN ('movie','tv') ORDER BY COALESCE(j.started_at,j.updated_at) DESC")
     state = {"started_at": time.time(), "checked": 0, "applied": 0, "errors": []}
+    seen = set()
     for row in rows:
         if _stop.is_set() or state["checked"] >= 20: break
         job_id = row["manager_job_id"]
         try:
             folder, _ = _folder(job_id)
+            if str(folder) in seen: continue
+            seen.add(str(folder))
             fingerprint = _fingerprint(_inventory(folder))
-            if any(p["job_id"] == job_id and (p["fingerprint"] == fingerprint or p.get("after_fingerprint") == fingerprint) and p["status"] != "undone" for p in plans()): continue
+            if any(p["folder"] == str(folder) and (p["fingerprint"] == fingerprint or p.get("after_fingerprint") == fingerprint) and p["status"] != "undone" for p in plans()): continue
             plan = propose(job_id); state["checked"] += 1
             if cfg["auto_apply"] and plan["operations"] and not plan["review"] and all(o["automatic"] for o in plan["operations"]):
                 plan = apply(plan["id"], automatic=True)
