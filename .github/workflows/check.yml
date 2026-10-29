@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   reliability:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       PYTHONPATH: rip_manager_container/app:rip_manager_container
