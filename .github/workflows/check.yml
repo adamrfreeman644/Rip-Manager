@@ -45,6 +45,7 @@ jobs:
         run: python -m pytest -q -W error rip_manager_container/tests
       - name: Check JavaScript syntax
         run: |
+          node --check rip_manager_container/app/static/local-ai.js
           node --check rip_manager_container/app/static/navigation.js
           node rip_manager_container/tests/test_navigation.cjs
           node --check rip_manager_container/app/static/actions.js
@@ -83,6 +84,7 @@ jobs:
           from pathlib import Path
           class Parser(HTMLParser): pass
           Parser().feed(Path("rip_manager_container/app/static/index.html").read_text())
+          Parser().feed(Path("rip_manager_container/app/static/local-ai.html").read_text())
           css = Path("rip_manager_container/app/static/styles.css").read_text()
           css += Path("rip_manager_container/app/static/archive.css").read_text()
           css += Path("rip_manager_container/app/static/settings.css").read_text()

@@ -25,6 +25,7 @@ import nodes as node_client
 import poller
 import mover
 import downloads
+import local_ai
 import simulator_node
 from routes import ROUTERS
 
@@ -45,10 +46,12 @@ async def lifespan(_: FastAPI):
     poller.start()
     mover.start()
     downloads.start()
+    local_ai.start()
     log.info("Rip Manager %s ready", VERSION)
     yield
     await poller.stop()
     downloads.stop()
+    local_ai.stop()
     await mover.stop()
     await node_client.stop_client()
 
@@ -143,3 +146,8 @@ def health():
 for router in ROUTERS:
     app.include_router(router)
 app.include_router(downloads.router)
+
+
+@app.get("/local-ai", include_in_schema=False)
+def local_ai_page():
+    return FileResponse(STATIC_DIR / "local-ai.html", headers={"Cache-Control": "no-store"})

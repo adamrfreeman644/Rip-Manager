@@ -1,4 +1,4 @@
-# Rip Manager v0.22.29
+# Rip Manager v0.25.27
 
 Remote controller for Rip Manager and its Rip Nodes.
 
@@ -167,3 +167,7 @@ docker logs ad53-shared-updater
 The intended deployment is a trusted LAN/controller device, optionally reached through a secured VPN or HTTPS reverse proxy. If exposing the Manager through HTTPS, set `RIP_MANAGER_COOKIE_SECURE=1`. Do not directly expose Rip Node control APIs or the shared updater to the public internet.
 
 See `rip_manager_container/README.md` for the full installation and operation guide.
+
+## Local AI file organisation
+
+Use **Local AI organiser** (`/local-ai`) to connect Ollama on your Mac for archived movie/TV naming and extras organisation. Preview plans, apply validated renames, undo unchanged files, and optionally process new folders every seven days. See [LOCAL_AI.md](LOCAL_AI.md) for setup, scope and recovery.
