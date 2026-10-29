@@ -1,6 +1,7 @@
 {
   "version": "0.25.27",
   "notes": [
+    "Name the organisation feature AI Organisation and introduce a named AI Node connection, defaulting to AI Node 1 \u2014 MacBook M1.",
     "Add a local Ollama media organiser with preview, validated same-folder renames, persistent undo journals and opt-in weekly automation.",
     "Connect to an Apple Silicon Mac without sending video content. Unknown tracks and files with paired sidecars remain in review; the verified Mover is unchanged."
   ]

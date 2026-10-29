@@ -115,3 +115,8 @@ def test_rename_refuses_external_destination_without_overwrite(setup):
     folder=setup[1]; (folder/'a.mkv').write_bytes(b'a'); (folder/'b.mkv').write_bytes(b'b')
     with pytest.raises(FileExistsError): local_ai._move(folder,'a.mkv','b.mkv')
     assert (folder/'a.mkv').read_bytes()==b'a' and (folder/'b.mkv').read_bytes()==b'b'
+
+def test_ai_node_name_is_saved_with_connection(setup):
+    saved=local_ai.save_config({'name':'AI Node 1 — MacBook M1','base_url':'http://192.168.1.167:11434','model':'adam-local:latest','weekly':False,'auto_apply':False})
+    assert saved['name']=='AI Node 1 — MacBook M1'
+    assert local_ai.config()==saved

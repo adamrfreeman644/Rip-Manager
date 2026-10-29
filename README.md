@@ -170,4 +170,4 @@ See `rip_manager_container/README.md` for the full installation and operation gu
 
 ## Local AI file organisation
 
-Use **Local AI organiser** (`/local-ai`) to connect Ollama on your Mac for archived movie/TV naming and extras organisation. Preview plans, apply validated renames, undo unchanged files, and optionally process new folders every seven days. See [LOCAL_AI.md](LOCAL_AI.md) for setup, scope and recovery.
+Use **AI Organisation** (`/local-ai`) to connect Ollama on your Mac for archived movie/TV naming and extras organisation. Preview plans, apply validated renames, undo unchanged files, and optionally process new folders every seven days. See [LOCAL_AI.md](LOCAL_AI.md) for setup, scope and recovery.

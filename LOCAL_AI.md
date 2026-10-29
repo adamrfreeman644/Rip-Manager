@@ -6,7 +6,7 @@ This adds `/local-ai` to Rip Manager. It talks to Ollama at `http://192.168.1.16
 
 1. Use the normal AD53 updater after the change is merged and released. No changes to Rip Nodes are needed.
 2. Keep the Mac awake and Ollama running. Reserve the Mac's IP in UniFi so it stays stable.
-3. Open **Local AI organiser** from Settings or the main menu, or `/local-ai` on the Manager address.
+3. Open **AI Organisation** from Settings or the main menu, or `/local-ai` on the Manager address.
 4. Save the Mac address and model, then press **Test Mac connection**.
 5. Select one archived disc, create a preview, inspect the renames, and apply it. **Undo file changes** reverses the recorded renames if the files have not since changed.
 6. Enable **Check up to 20 unprocessed disc folders every seven days**. The first pass starts within a minute; subsequent passes start no more often than every seven days. Missed passes wait until the Manager is running. This is separate from Librarium's Sunday schedules.
@@ -32,3 +32,7 @@ Source and tests are prepared separately from the live installation. Until the b
 ## Validation
 
 21 new tests cover byte-preserving apply/undo, stale previews, controller authentication, refusal of overwrite/link escapes, subtitle pairing, ambiguous tracks, explicit episode numbering, cut labels, model path injection and weekly idempotence. The full suite on this Mac reports 163 passes and five failures; the untouched base reports 142 passes with the identical five failures (case-insensitive audiobook directory tests and inability to write container mounts). Linux CI passes all 168 Python tests; browser and Compose checks remain the deployment gate. JavaScript syntax and existing confirmation/action tests pass. A synthetic three-file request was exercised on the real Mac model; it misclassified a labelled trailer, which is why explicit filename evidence overrides model role guesses. No live archive files were used.
+
+## AI Node naming
+
+The default AI Node is **AI Node 1 — MacBook M1**. Its editable name, address and model are saved together. Rip Nodes read discs; the AI Node runs inference; Rip Manager validates plans and carries out file changes on Byte-Me. The organisation feature is labelled **AI Organisation**. This release configures one AI Node; it does not add multiple-node routing.

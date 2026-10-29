@@ -7,6 +7,7 @@ import archive, db, local_ai
 router = APIRouter(prefix="/api/local-ai", tags=["local AI organiser"])
 
 class Config(BaseModel):
+    name: str = Field(default="AI Node 1 — MacBook M1", min_length=1, max_length=100)
     base_url: str = Field(max_length=200)
     model: str = Field(min_length=1, max_length=150)
     weekly: bool = False

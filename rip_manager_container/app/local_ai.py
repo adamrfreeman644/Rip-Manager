@@ -14,7 +14,8 @@ _thread = None
 
 
 def config():
-    return {"base_url": db.get_setting("local_ai_url", "http://192.168.1.167:11434"),
+    return {"name": db.get_setting("local_ai_name", "AI Node 1 — MacBook M1"),
+            "base_url": db.get_setting("local_ai_url", "http://192.168.1.167:11434"),
             "model": db.get_setting("local_ai_model", "adam-local:latest"),
             "weekly": db.get_setting_bool("local_ai_weekly"),
             "auto_apply": db.get_setting_bool("local_ai_auto_apply")}
@@ -30,7 +31,9 @@ def save_config(value):
         raise ValueError("Use a private Ollama address without credentials or a path")
     if not isinstance(value["model"], str) or not 1 <= len(value["model"]) <= 150:
         raise ValueError("A model name is required")
-    db.set_settings({"local_ai_url": value["base_url"].rstrip("/"), "local_ai_model": value["model"],
+    name = str(value.get("name", "AI Node 1 — MacBook M1")).strip()
+    if not 1 <= len(name) <= 100: raise ValueError("AI Node name must be 1–100 characters")
+    db.set_settings({"local_ai_name": name, "local_ai_url": value["base_url"].rstrip("/"), "local_ai_model": value["model"],
                      "local_ai_weekly": int(value["weekly"]), "local_ai_auto_apply": int(value["auto_apply"])})
     return config()
 
