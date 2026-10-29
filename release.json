@@ -1,9 +1,8 @@
 {
-  "version": "0.25.26",
+  "version": "0.25.27",
   "notes": [
-    "Provide persistent inline progress, success and failure feedback for Library tools, Mover scans/retries/intake/recovery, disc-note saves, download actions and Manager/node update requests. Busy states prevent duplicate requests and controls recover after failures.",
-    "Contain keyboard focus in application popups, make the background inert while they are open, and restore focus when they close. Native confirmations keep their own keyboard behaviour.",
-    "Add keyboard arrow/Home/End navigation and accessible selected states to media-detail tabs; label fields and live status messages. Improve semantic button contrast across light, dark and system themes.",
-    "Give transfer progress meaningful per-title labels and distinguish unknown size from measured progress. Preserve warnings and complete destination verification before source cleanup."
+    "Name the organisation feature AI Organisation and introduce a named AI Node connection, defaulting to AI Node 1 \u2014 MacBook M1.",
+    "Add a local Ollama media organiser with preview, validated same-folder renames, persistent undo journals and opt-in weekly automation.",
+    "Connect to an Apple Silicon Mac without sending video content. Unknown tracks and files with paired sidecars remain in review; the verified Mover is unchanged."
   ]
 }

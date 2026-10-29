@@ -11,7 +11,10 @@ from routes import updates as update_routes
 from routes import archive as archive_routes
 from routes import library as library_routes
 
+from routes import local_ai as local_ai_routes
+
 ROUTERS = (
+    local_ai_routes.router,
     auth_routes.router,
     adoption_routes.router,
     settings_routes.router,
