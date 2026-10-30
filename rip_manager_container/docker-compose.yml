@@ -41,6 +41,7 @@ services:
       RIP_GITHUB_OWNER: "Adamrfreeman644"
       RIP_GITHUB_MANAGER_REPO: "rip-manager"
       RIP_MANAGER_PROJECT_DIR: "/project"
+      RIP_MANAGER_COMPOSE_PROJECT_NAME: "${RIP_MANAGER_COMPOSE_PROJECT_NAME:-rip_manager_container}"
       RIP_MANAGER_STATE_DIR: "/updates/State"
       RIP_GITHUB_TOKEN_FILE: "/run/secrets/github-token"
     volumes:
