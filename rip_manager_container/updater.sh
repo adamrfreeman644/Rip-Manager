@@ -38,6 +38,10 @@ if [[ -z "$HOST_PROJECT_DIR" ]]; then
   exit 1
 fi
 export HOST_PROJECT_DIR
+COMPOSE_PROJECT_NAME="${RIP_MANAGER_COMPOSE_PROJECT_NAME:-rip_manager_container}"
+export COMPOSE_PROJECT_NAME
+compose(){ docker compose --project-name "$COMPOSE_PROJECT_NAME" "$@"; }
+log "Compose project: $COMPOSE_PROJECT_NAME"
 
 current_version(){
   docker exec rip-manager python -c 'import urllib.request,json; print(json.load(urllib.request.urlopen("http://127.0.0.1:8080/api/info",timeout=3)).get("version","unknown"))' 2>/dev/null || printf unknown
@@ -71,12 +75,12 @@ clean_code(){
 
 start_manager(){
   cd "$PROJECT"
-  docker compose build --pull rip-manager
+  compose build --pull rip-manager
   # The running Manager may have been created by a different Compose project
   # name. Remove it explicitly after the replacement image is built so Compose
   # can recreate the fixed container name without a name conflict.
   docker rm -f rip-manager >/dev/null 2>&1 || true
-  docker compose up -d --no-deps rip-manager
+  compose up -d --no-deps rip-manager
   for _ in $(seq 1 60); do
     if docker exec rip-manager python -c 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8080/health",timeout=2).read()' >/dev/null 2>&1; then
       return 0
